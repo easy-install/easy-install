@@ -1,0 +1,12 @@
+[package]
+name = "easy-install"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "easy-install"
+repository = "https://github.com/ahaoboy/easy-install"
+homepage = "https://github.com/ahaoboy/easy-install"
+authors = ["ahaoboy"]
+
+
+[dependencies]
