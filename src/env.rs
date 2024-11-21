@@ -1,8 +1,22 @@
 use std::path::PathBuf;
 
+pub const IS_WINDOWS: bool = cfg!(target_os = "windows");
+
+#[cfg(not(target_os = "windows"))]
+pub fn is_admin() -> bool {
+    use libc::{geteuid, getuid};
+    unsafe { getuid() == 0 || geteuid() == 0 }
+}
+
 #[cfg(not(target_os = "windows"))]
 pub fn get_install_dir() -> PathBuf {
-    dirs::executable_dir().unwrap()
+    use std::str::FromStr;
+    PathBuf::from_str(if is_admin() {
+        "/usr/bin"
+    } else {
+        "/usr/local/bin"
+    })
+    .unwrap()
 }
 
 #[cfg(target_os = "windows")]

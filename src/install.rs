@@ -116,7 +116,7 @@ async fn get_artifact_api(url: &str) -> Option<String> {
     None
 }
 
-async fn get_artifact_url(url: &str) -> Option<String> {
+pub async fn get_artifact_url(url: &str) -> Option<String> {
     trace!("get_artifact_url {}", url);
     let api = get_artifact_api(url).await.unwrap();
     trace!("get_artifact_url api {}", api);
@@ -145,7 +145,7 @@ async fn get_artifact_url(url: &str) -> Option<String> {
 }
 
 async fn install_from_github(url: &str) {
-    trace!("install_from_git{}", url);
+    trace!("install_from_git {}", url);
     let artifact_url = get_artifact_url(url).await.unwrap();
     install_from_url(&artifact_url).await;
 }
@@ -182,6 +182,7 @@ mod test {
 
     use crate::{
         download::download,
+        env::IS_WINDOWS,
         install::{is_file, is_github, is_url},
     };
 
@@ -230,7 +231,7 @@ mod test {
         let files = download(&url).await;
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new("ansi2")));
+        assert!(files.has_file(Path::new(if IS_WINDOWS { "ansi2.exe" } else { "ansi" })));
     }
 
     #[tokio::test]

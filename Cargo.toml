@@ -1,13 +1,12 @@
 [package]
 name = "easy-install"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 description = "easy-install"
 repository = "https://github.com/ahaoboy/easy-install"
 homepage = "https://github.com/ahaoboy/easy-install"
 authors = ["ahaoboy"]
-
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -34,6 +33,10 @@ zeroize = "1.8"
 compact_str = "0.8"
 detect-targets = "0.1"
 tracing-subscriber = "0.3"
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+libc = "0.2"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [[bin]]
 name = "ei"
