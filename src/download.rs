@@ -96,12 +96,8 @@ mod test {
         let fmt = PkgFmt::guess_pkg_format(url).unwrap();
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new(if IS_WINDOWS { "mujs.exe" } else { "mujs" })));
-        assert!(files.has_file(Path::new(if IS_WINDOWS {
-            "mujs-pp.exe"
-        } else {
-            "mujs-pp"
-        })));
+        assert!(files.has_file(Path::new("mujs")));
+        assert!(files.has_file(Path::new("mujs-pp")));
         assert!(files.has_file(Path::new("libmujs.a")));
     }
 }

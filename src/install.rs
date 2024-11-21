@@ -231,7 +231,7 @@ mod test {
         let files = download(&url).await;
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new(if IS_WINDOWS { "ansi2.exe" } else { "ansi" })));
+        assert!(files.has_file(Path::new(if IS_WINDOWS { "ansi2.exe" } else { "ansi2" })));
     }
 
     #[tokio::test]
