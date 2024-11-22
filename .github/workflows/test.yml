@@ -8,6 +8,10 @@ on: [push]
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -CeEuo pipefail {0}
+
 jobs:
   rust-test:
     strategy:
@@ -32,3 +36,11 @@ jobs:
           LOG_LEVEL: TRACE
         run: |
           cargo test
+
+      - name: test install
+        run: |
+          cr -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
+
+      - name: test which
+        run: |
+          which mujs

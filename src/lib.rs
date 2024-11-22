@@ -1,9 +1,7 @@
 pub mod artifact;
 pub mod download;
 pub mod env;
-pub mod git_credentials;
 pub mod install;
-pub mod gh_token;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
