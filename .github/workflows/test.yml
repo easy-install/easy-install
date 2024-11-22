@@ -39,7 +39,7 @@ jobs:
 
       - name: test install
         run: |
-          cr -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
+          cargo run -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
 
       - name: test which
         run: |
