@@ -31,17 +31,24 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: test
+      - name: cargo test
         env:
           LOG_LEVEL: TRACE
         run: |
           cargo test
 
-      - name: test install
+      - name: cargo run
         run: |
+          echo $PATH
           cargo run -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
+          echo $PATH
+
+      - name: add path
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+            echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
 
       - name: test which
-        if: matrix.os != windows-latest
         run: |
           which mujs
