@@ -38,17 +38,23 @@ jobs:
           cargo test
 
       - name: cargo run
+        env:
+          LOG_LEVEL: TRACE
         run: |
           echo $PATH
           cargo run -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
+          cargo run -- https://github.com/ahaoboy/neofetch/releases/tag/v0.1.4
+          cargo run -- https://github.com/axodotdev/cargo-dist
           echo $PATH
 
       - name: add path
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-            echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
+          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
 
       - name: test which
         run: |
           which mujs
+          which neofetch
+          which dist

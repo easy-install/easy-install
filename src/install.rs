@@ -1,30 +1,37 @@
+use crate::manfiest::{self, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
 use atomic_file_install::atomic_install;
 use binstalk_downloader::{
-    download::{Download, PkgFmt},
+    download::{Download, ExtractedFilesEntry, PkgFmt},
     remote::Client,
 };
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
 use regex::Regex;
 use semver::VersionReq;
-use std::{num::NonZeroU16, path::Path};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::{collections::VecDeque, fmt::Display, num::NonZeroU16, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
 
 pub async fn install(url: &str) {
     trace!("install {}", url);
-    if is_github(url) {
-        install_from_github(url).await
-    } else if is_url(url) && is_file(url) {
-        install_from_url(url).await;
-    } else {
-        install_from_crate(url).await;
+    if is_url(url) && is_file(url) {
+        install_from_artifact_url(url, None).await;
+        return;
     }
+
+    if let Ok(repo) = Repo::try_from(url) {
+        install_from_github(&repo).await;
+        return;
+    }
+
+    install_from_crate_name(url).await;
 }
 
-async fn install_from_crate(crate_name: &str) {
-    trace!("install_from_crate {}", crate_name);
+async fn install_from_crate_name(crate_name: &str) {
+    trace!("install_from_crate_name {}", crate_name);
     let client = Client::new(
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
         None,
@@ -40,122 +47,264 @@ async fn install_from_crate(crate_name: &str) {
         .await
         .unwrap();
     if let Some(pkg) = manifest_from_sparse.package {
-        if let Some(repo) = pkg.repository() {
-            if is_github(repo) {
-                install_from_github(repo).await;
+        if let Some(repository) = pkg.repository() {
+            if let Ok(repo) = Repo::try_from(repository) {
+                install_from_github(&repo).await;
             }
         }
     }
 }
 
-async fn install_from_url(url: &str) {
-    trace!("install_from_url {}", url);
+async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>) {
+    trace!("install_from_artifact_url {}", url);
     let fmt = PkgFmt::guess_pkg_format(url).unwrap();
+
+    println!("download {}", url);
     let files = download(url).await;
-    install_from_download_file(fmt, files).await;
+
+    install_from_download_file(fmt, files, manfiest).await;
 }
 
-async fn install_from_download_file(fmt: PkgFmt, download: Download<'static>) {
+async fn install_from_download_file(
+    fmt: PkgFmt,
+    download: Download<'static>,
+    manfiest: Option<DistManifest>,
+) {
     trace!("install_from_download_file");
     let out_dir = tempdir().unwrap();
     let files = download.and_extract(fmt, &out_dir).await.unwrap();
-    let dir = files.get_dir(Path::new(".")).unwrap();
     let install_dir = get_install_dir();
     let src_dir = out_dir.path().to_path_buf();
-
     let mut v = vec![];
-    for i in dir {
-        let mut dst = install_dir.clone();
-        let mut src = src_dir.clone();
-        let s = i.to_str().unwrap();
+    let mut q = VecDeque::new();
+    let targets = detect_targets().await;
 
-        src.push(s);
-        dst.push(s);
-        atomic_install(src.as_path(), dst.as_path()).unwrap();
+    let artifact = manfiest.and_then(move |man| {
+        for (name, art) in man.artifacts {
+            for i in &targets {
+                if art.target_triples.contains(i) && name.contains(i) && is_file(&name) {
+                    return Some(art);
+                }
+            }
+        }
+        None
+    });
 
-        v.push(format!("{} -> {}", s, dst.to_str().unwrap()));
+    let allow = |p: &str| match &artifact {
+        None => true,
+        Some(art) => {
+            let mut p = p.to_string();
+            // FIXME: The full path should be used
+            // but the cargo-dist path has a prefix
+            let prefix = art.name.clone().unwrap_or_default();
+            let prefix = prefix.split(".").next().unwrap_or_default();
+
+            if !prefix.is_empty() && p.starts_with(prefix) {
+                p = p[prefix.len()..].to_string();
+            }
+
+            for i in &art.assets {
+                let name = PathBuf::from_str(&p)
+                    .unwrap()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+
+                if Some(name.as_str()) == i.path.as_deref() {
+                    return match &i.kind {
+                        manfiest::AssetKind::Executable(_) => true,
+                        manfiest::AssetKind::CDynamicLibrary(_) => true,
+                        manfiest::AssetKind::CStaticLibrary(_) => true,
+                        manfiest::AssetKind::Readme => false,
+                        manfiest::AssetKind::License => false,
+                        manfiest::AssetKind::Changelog => false,
+                        manfiest::AssetKind::Unknown => false,
+                    };
+                }
+            }
+            false
+        }
+    };
+
+    q.push_back(".".to_string());
+    while let Some(top) = q.pop_front() {
+        let p = Path::new(&top);
+        let entry = files.get_entry(p);
+        match entry {
+            Some(ExtractedFilesEntry::Dir(dir)) => {
+                for i in dir.iter() {
+                    let p = p.join(i.to_str().unwrap());
+                    let next = path_clean::clean(p.to_str().unwrap())
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    q.push_back(next);
+                }
+            }
+            Some(ExtractedFilesEntry::File) => {
+                if !allow(&top) {
+                    continue;
+                }
+                let mut src = src_dir.clone();
+                let mut dst = install_dir.clone();
+                let name = p.file_name().unwrap().to_str().unwrap().to_string();
+                src.push(&top);
+                dst.push(&name);
+                atomic_install(&src, dst.as_path()).unwrap();
+                v.push(format!("{} -> {}", name, dst.to_str().unwrap()));
+            }
+            None => {}
+        }
     }
+
     println!("Installation Successful");
     println!("{}", v.join("\n"));
 }
 
-async fn get_artifact_api(url: &str) -> Option<String> {
-    trace!("get_artifact_api {}", url);
-    let re_gh_tag = Regex::new(
-        r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)",
-    )
-    .unwrap();
-
-    let re_gh_releases =
-        Regex::new(r"http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
-
-    if let Some(captures) = re_gh_tag.captures(url) {
-        if let (Some(owner), Some(repo), Some(tag)) = (
-            captures.name("owner"),
-            captures.name("repo"),
-            captures.name("tag"),
-        ) {
-            return Some(format!(
-                "https://api.github.com/repos/{}/{}/releases/tags/{}",
-                owner.as_str(),
-                repo.as_str(),
-                tag.as_str()
-            ));
-        }
-    }
-
-    if let Some(captures) = re_gh_releases.captures(url) {
-        if let (Some(owner), Some(repo)) = (captures.name("owner"), captures.name("repo")) {
-            return Some(format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                owner.as_str(),
-                repo.as_str(),
-            ));
-        }
-    }
-    None
+#[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+struct Repo {
+    pub owner: String,
+    pub name: String,
+    pub tag: Option<String>,
 }
 
-pub async fn get_artifact_url(url: &str) -> Option<String> {
-    trace!("get_artifact_url {}", url);
-    let api = get_artifact_api(url).await.unwrap();
-    trace!("get_artifact_url api {}", api);
+impl TryFrom<&str> for Repo {
+    type Error = ();
 
-    let client = reqwest::Client::new();
-    let response = client
-        .get(&api)
-        .header("User-Agent", "reqwest")
-        .send()
-        .await
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        trace!("get_artifact_api {}", value);
+        let re_gh_tag = Regex::new(
+            r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)",
+        )
         .unwrap();
 
-    let artifacts: Artifacts = response.json().await.unwrap();
+        let re_gh_releases =
+            Regex::new(r"http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
 
-    let targets = detect_targets().await;
-
-    for i in artifacts.assets {
-        for pat in &targets {
-            if i.name.contains(pat) {
-                return Some(i.browser_download_url);
+        if let Some(captures) = re_gh_tag.captures(value) {
+            if let (Some(owner), Some(name), Some(tag)) = (
+                captures.name("owner"),
+                captures.name("repo"),
+                captures.name("tag"),
+            ) {
+                return Ok(Repo {
+                    owner: owner.as_str().to_string(),
+                    name: name.as_str().to_string(),
+                    tag: Some(tag.as_str().to_string()),
+                });
             }
+        }
+
+        if let Some(captures) = re_gh_releases.captures(value) {
+            if let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo")) {
+                return Ok(Repo {
+                    owner: owner.as_str().to_string(),
+                    name: name.as_str().to_string(),
+                    tag: None,
+                });
+            }
+        }
+        Err(())
+    }
+}
+
+impl Repo {
+    fn get_artifact_api(&self) -> String {
+        trace!("get_artifact_api {}/{}", self.owner, self.name);
+        if let Some(tag) = &self.tag {
+            return format!(
+                "https://api.github.com/repos/{}/{}/releases/tags/{}",
+                self.owner, self.name, tag
+            );
+        }
+
+        format!(
+            "https://api.github.com/repos/{}/{}/releases/latest",
+            self.owner, self.name,
+        )
+    }
+
+    fn get_manfiest_url(&self) -> String {
+        match &self.tag {
+            Some(t) => format!(
+                "https://github.com/{}/{}/releases/download/{}/dist-manifest.json",
+                self.owner, self.name, t
+            ),
+            None => format!(
+                "https://github.com/{}/{}/releases/latest/download/dist-manifest.json",
+                self.owner, self.name
+            ),
+            // https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json
         }
     }
 
-    None
+    async fn get_manfiest(&self) -> Option<DistManifest> {
+        let client = reqwest::Client::new();
+        let url = self.get_manfiest_url();
+        let response = client
+            .get(&url)
+            .header("User-Agent", "reqwest")
+            .send()
+            .await
+            .ok()?;
+        response.json().await.ok()
+    }
+
+    async fn get_artifact_url(&self) -> Option<String> {
+        trace!("get_artifact_url {}/{}", self.owner, self.name);
+        let api = self.get_artifact_api();
+        trace!("get_artifact_url api {}", api);
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&api)
+            .header("User-Agent", "reqwest")
+            .send()
+            .await
+            .unwrap();
+
+        let artifacts: Artifacts = response.json().await.unwrap();
+
+        let targets = detect_targets().await;
+
+        for i in artifacts.assets {
+            for pat in &targets {
+                if i.name.contains(pat) && is_file(&i.name) {
+                    return Some(i.browser_download_url);
+                }
+            }
+        }
+
+        None
+    }
 }
 
-async fn install_from_github(url: &str) {
-    trace!("install_from_git {}", url);
-    let artifact_url = get_artifact_url(url).await.unwrap();
-    install_from_url(&artifact_url).await;
+impl Display for Repo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.tag {
+            Some(t) => f.write_str(&format!("{}/{}@{}", self.owner, self.name, t)),
+            None => f.write_str(&format!("{}/{}", self.owner, self.name)),
+        }
+    }
 }
+
+async fn install_from_github(repo: &Repo) {
+    trace!("install_from_git {}", repo);
+    let artifact_url = repo.get_artifact_url().await.unwrap();
+    trace!("install_from_git artifact_url {}", artifact_url);
+    let manfiest = repo.get_manfiest().await;
+    install_from_artifact_url(&artifact_url, manfiest).await;
+}
+
+const IS_WINDOWS: bool = cfg!(target_os = "windows");
 
 fn is_file(s: &str) -> bool {
     use PkgFmt::*;
-    let is_windows = cfg!(target_os = "windows");
 
     for i in [Tar, Tbz2, Tgz, Txz, Tzstd, Zip, Bin] {
-        for ext in i.extensions(is_windows) {
+        for ext in i.extensions(IS_WINDOWS) {
             if !ext.is_empty() && s.ends_with(ext) {
                 return true;
             }
@@ -169,10 +318,6 @@ fn is_url(s: &str) -> bool {
     s.starts_with("http://") || s.starts_with("https://")
 }
 
-fn is_github(s: &str) -> bool {
-    s.starts_with("http://github.com/") || s.starts_with("https://github.com/")
-}
-
 #[cfg(test)]
 mod test {
     use std::path::Path;
@@ -183,10 +328,8 @@ mod test {
     use crate::{
         download::download,
         env::IS_WINDOWS,
-        install::{is_file, is_github, is_url},
+        install::{is_file, is_url, Repo},
     };
-
-    use super::{get_artifact_api, get_artifact_url};
 
     #[test]
     fn test_is_file() {
@@ -204,16 +347,40 @@ mod test {
 
     #[test]
     fn test_is_github() {
-        assert!(is_github("https://github.com/ahaoboy/ansi2"));
+        let repo = Repo {
+            owner: "ahaoboy".to_string(),
+            name: "ansi2".to_string(),
+            tag: None,
+        };
+        assert_eq!(
+            Repo::try_from("https://github.com/ahaoboy/ansi2").unwrap(),
+            repo
+        );
 
-        assert!(!is_github(
-            "https://api.github.com/repos/ahaoboy/ansi2/releases/latest"
-        ));
-        assert!(is_github(
-            "https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11"
-        ));
-        assert!(is_github("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz"));
-        assert!(is_github("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip"));
+        assert!(
+            Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").is_err()
+        );
+
+        let repo = Repo {
+            owner: "ahaoboy".to_string(),
+            name: "ansi2".to_string(),
+            tag: Some("v0.2.11".to_string()),
+        };
+
+        assert_eq!(
+            Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap(),
+            repo
+        );
+
+        // assert_eq!(
+        //   Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz").unwrap(),
+        //   repo
+        // );
+
+        // assert_eq!(
+        //   Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip").unwrap(),
+        //   repo
+        // );
     }
 
     #[test]
@@ -224,9 +391,8 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_url() {
-        let url = get_artifact_url("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11")
-            .await
-            .unwrap();
+        let repo = Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap();
+        let url = repo.get_artifact_url().await.unwrap();
         let fmt = PkgFmt::guess_pkg_format(&url).unwrap();
         let files = download(&url).await;
         let out_dir = tempdir().unwrap();
@@ -236,12 +402,46 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_api() {
-        let url = get_artifact_api("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11")
-            .await
-            .unwrap();
+        let repo = Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap();
+        let url = repo.get_artifact_api();
         assert_eq!(
             url,
             "https://api.github.com/repos/ahaoboy/ansi2/releases/tags/v0.2.11"
         )
     }
+    #[tokio::test]
+    async fn test_get_manfiest() {
+        // let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist/releases").unwrap();
+        // let url = repo.get_manfiest_url();
+        // assert_eq!(
+        //     url,
+        //     "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
+        // );
+        // assert!(repo.get_manfiest().await.is_some());
+
+        // let repo =
+        //     Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
+        // let url = repo.get_manfiest_url();
+        // assert_eq!(
+        //     url,
+        //     "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
+        // );
+
+        // let manfiest = repo.get_manfiest().await.unwrap();
+        // assert_eq!(manfiest.announcement_tag, Some("v0.25.1".to_string()));
+
+        let repo =
+            Repo::try_from("https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.2").unwrap();
+        let url = repo.get_manfiest_url();
+        assert_eq!(
+            url,
+            "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.2/dist-manifest.json"
+        );
+
+        let manfiest = repo.get_manfiest().await.unwrap();
+
+        println!("{:?}", manfiest);
+    }
+
+    // https://github.com/ahaoboy/neofetch/releases/tag/v0.1.4
 }
