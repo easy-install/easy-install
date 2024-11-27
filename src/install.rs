@@ -1,4 +1,4 @@
-use crate::manfiest::{self, DistManifest};
+use crate::manfiest::{self, Artifact, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
 use atomic_file_install::atomic_install;
 use binstalk_downloader::{
@@ -65,6 +65,50 @@ async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>) {
     install_from_download_file(fmt, files, manfiest).await;
 }
 
+impl Artifact {
+    fn has_file(&self, p: &str) -> bool {
+        let mut p = p.to_string();
+        // FIXME: The full path should be used
+        // but the cargo-dist path has a prefix
+        if let Some(name) = &(self.name) {
+            let prefix = name.clone();
+            let prefix = prefix.split(".").next().unwrap_or_default();
+            if !prefix.is_empty() && p.starts_with(prefix) {
+                p = p[prefix.len()..].to_string();
+            }
+        }
+
+        for i in &self.assets {
+            let name = PathBuf::from_str(&p).unwrap().to_str().unwrap().to_string();
+            if Some(name.as_str()) == i.path.as_deref() {
+                return match &i.kind {
+                    manfiest::AssetKind::Executable(_) => true,
+                    manfiest::AssetKind::CDynamicLibrary(_) => true,
+                    manfiest::AssetKind::CStaticLibrary(_) => true,
+                    manfiest::AssetKind::Readme => false,
+                    manfiest::AssetKind::License => false,
+                    manfiest::AssetKind::Changelog => false,
+                    manfiest::AssetKind::Unknown => false,
+                };
+            }
+        }
+        false
+    }
+}
+
+impl DistManifest {
+    fn get_artifact(self, targets: &Vec<String>) -> Option<Artifact> {
+        self.artifacts.into_iter().find_map(|(name, art)| {
+            for i in targets {
+                if art.target_triples.contains(i) && name.contains(i) && is_file(&name) {
+                    return Some(art);
+                }
+            }
+            None
+        })
+    }
+}
+
 async fn install_from_download_file(
     fmt: PkgFmt,
     download: Download<'static>,
@@ -78,57 +122,16 @@ async fn install_from_download_file(
     let mut v = vec![];
     let mut q = VecDeque::new();
     let targets = detect_targets().await;
+    q.push_back(".".to_string());
+    let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
 
-    let artifact = manfiest.and_then(move |man| {
-        for (name, art) in man.artifacts {
-            for i in &targets {
-                if art.target_triples.contains(i) && name.contains(i) && is_file(&name) {
-                    return Some(art);
-                }
-            }
-        }
-        None
-    });
-
-    let allow = |p: &str| match &artifact {
-        None => true,
-        Some(art) => {
-            let mut p = p.to_string();
-            // FIXME: The full path should be used
-            // but the cargo-dist path has a prefix
-            let prefix = art.name.clone().unwrap_or_default();
-            let prefix = prefix.split(".").next().unwrap_or_default();
-
-            if !prefix.is_empty() && p.starts_with(prefix) {
-                p = p[prefix.len()..].to_string();
-            }
-
-            for i in &art.assets {
-                let name = PathBuf::from_str(&p)
-                    .unwrap()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-
-                if Some(name.as_str()) == i.path.as_deref() {
-                    return match &i.kind {
-                        manfiest::AssetKind::Executable(_) => true,
-                        manfiest::AssetKind::CDynamicLibrary(_) => true,
-                        manfiest::AssetKind::CStaticLibrary(_) => true,
-                        manfiest::AssetKind::Readme => false,
-                        manfiest::AssetKind::License => false,
-                        manfiest::AssetKind::Changelog => false,
-                        manfiest::AssetKind::Unknown => false,
-                    };
-                }
-            }
-            false
+    let allow = move |p: &str| -> bool {
+        match &artifact {
+            None => false,
+            Some(art) => art.has_file(p),
         }
     };
 
-    q.push_back(".".to_string());
     while let Some(top) = q.pop_front() {
         let p = Path::new(&top);
         let entry = files.get_entry(p);
@@ -211,6 +214,10 @@ impl TryFrom<&str> for Repo {
 }
 
 impl Repo {
+    fn get_gh_url(&self) -> String {
+        format!("https://github.com/{}/{}", self.owner, self.name)
+    }
+
     fn get_artifact_api(&self) -> String {
         trace!("get_artifact_api {}/{}", self.owner, self.name);
         if let Some(tag) = &self.tag {
@@ -236,7 +243,6 @@ impl Repo {
                 "https://github.com/{}/{}/releases/latest/download/dist-manifest.json",
                 self.owner, self.name
             ),
-            // https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json
         }
     }
 
@@ -292,10 +298,18 @@ impl Display for Repo {
 
 async fn install_from_github(repo: &Repo) {
     trace!("install_from_git {}", repo);
-    let artifact_url = repo.get_artifact_url().await.unwrap();
-    trace!("install_from_git artifact_url {}", artifact_url);
-    let manfiest = repo.get_manfiest().await;
-    install_from_artifact_url(&artifact_url, manfiest).await;
+
+    if let Some(artifact_url) = repo.get_artifact_url().await {
+        trace!("install_from_git artifact_url {}", artifact_url);
+        let manfiest = repo.get_manfiest().await;
+        install_from_artifact_url(&artifact_url, manfiest).await;
+    } else {
+        println!(
+            "not found asset for {} on {}",
+            detect_targets().await.join(","),
+            repo.get_gh_url()
+        );
+    }
 }
 
 const IS_WINDOWS: bool = cfg!(target_os = "windows");
@@ -411,24 +425,24 @@ mod test {
     }
     #[tokio::test]
     async fn test_get_manfiest() {
-        // let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist/releases").unwrap();
-        // let url = repo.get_manfiest_url();
-        // assert_eq!(
-        //     url,
-        //     "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
-        // );
-        // assert!(repo.get_manfiest().await.is_some());
+        let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist/releases").unwrap();
+        let url = repo.get_manfiest_url();
+        assert_eq!(
+            url,
+            "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
+        );
+        assert!(repo.get_manfiest().await.is_some());
 
-        // let repo =
-        //     Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
-        // let url = repo.get_manfiest_url();
-        // assert_eq!(
-        //     url,
-        //     "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
-        // );
+        let repo =
+            Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
+        let url = repo.get_manfiest_url();
+        assert_eq!(
+            url,
+            "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
+        );
 
-        // let manfiest = repo.get_manfiest().await.unwrap();
-        // assert_eq!(manfiest.announcement_tag, Some("v0.25.1".to_string()));
+        let manfiest = repo.get_manfiest().await.unwrap();
+        assert!(manfiest.artifacts.len() > 0);
 
         let repo =
             Repo::try_from("https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.2").unwrap();
@@ -439,9 +453,49 @@ mod test {
         );
 
         let manfiest = repo.get_manfiest().await.unwrap();
-
-        println!("{:?}", manfiest);
+        assert!(manfiest.artifacts.len() > 0)
     }
 
-    // https://github.com/ahaoboy/neofetch/releases/tag/v0.1.4
+    #[tokio::test]
+    async fn test_manifest_jsc() {
+        let repo = Repo {
+            owner: "ahaoboy".to_string(),
+            name: "jsc-build".to_string(),
+            tag: None,
+        };
+
+        let manifest = repo.get_manfiest().await.unwrap();
+        let art = manifest
+            .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
+            .unwrap();
+
+        assert!(art.has_file("bin/jsc"));
+        assert!(art.has_file("lib/libJavaScriptCore.a"));
+        assert!(!art.has_file("lib/jsc"));
+    }
+
+    #[tokio::test]
+    async fn test_manifest_mujs() {
+        let repo = Repo {
+            owner: "ahaoboy".to_string(),
+            name: "mujs-build".to_string(),
+            tag: None,
+        };
+
+        let manifest = repo.get_manfiest().await.unwrap();
+        let art = manifest
+            .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
+            .unwrap();
+
+        assert!(art.has_file("mujs"));
+        assert!(!art.has_file("mujs.exe"));
+
+        let manifest = repo.get_manfiest().await.unwrap();
+        let art = manifest
+            .get_artifact(&vec!["x86_64-pc-windows-gnu".to_string()])
+            .unwrap();
+
+        assert!(!art.has_file("mujs"));
+        assert!(art.has_file("mujs.exe"));
+    }
 }

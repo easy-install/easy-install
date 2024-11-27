@@ -47,6 +47,11 @@ jobs:
           cargo run -- https://github.com/axodotdev/cargo-dist
           echo $PATH
 
+      - name: install on ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo run -- https://github.com/ahaoboy/jsc-build
+
       - name: add path
         if: matrix.os == 'windows-latest'
         shell: powershell
@@ -58,3 +63,8 @@ jobs:
           which mujs
           which neofetch
           which dist
+
+      - name: test which on ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          which jsc
