@@ -32,14 +32,14 @@ jobs:
           toolchain: nightly
           override: true
       - name: cargo test
-        env:
-          LOG_LEVEL: TRACE
+        # env:
+        #   LOG_LEVEL: TRACE
         run: |
           cargo test
 
       - name: cargo run
-        env:
-          LOG_LEVEL: TRACE
+        # env:
+        #   LOG_LEVEL: TRACE
         run: |
           echo $PATH
           cargo run -- https://github.com/ahaoboy/mujs-build
