@@ -11,12 +11,17 @@ pub fn is_admin() -> bool {
 #[cfg(not(target_os = "windows"))]
 pub fn get_install_dir() -> PathBuf {
     use std::str::FromStr;
-    PathBuf::from_str(if is_admin() {
+    let home = PathBuf::from_str(if is_admin() {
         "/usr/bin"
     } else {
         "/usr/local/bin"
     })
-    .unwrap()
+    .unwrap();
+
+    if !home.exists() {
+        std::fs::create_dir(&home).expect("Failed to create_dir home_dir");
+    }
+    home
 }
 
 #[cfg(target_os = "windows")]

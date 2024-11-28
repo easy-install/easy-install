@@ -109,6 +109,22 @@ impl DistManifest {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = std::fs::metadata(file_path)?;
+
+    let mut permissions = metadata.permissions();
+    let current_mode = permissions.mode();
+
+    let new_mode = current_mode | 0o111;
+    permissions.set_mode(new_mode);
+
+    std::fs::set_permissions(file_path, permissions)?;
+
+    Ok(())
+}
+
 async fn install_from_download_file(
     fmt: PkgFmt,
     download: Download<'static>,
@@ -156,6 +172,11 @@ async fn install_from_download_file(
                 src.push(&top);
                 dst.push(&name);
                 atomic_install(&src, dst.as_path()).unwrap();
+
+                #[cfg(not(target_os = "windows"))]
+                add_execute_permission(dst.as_path().to_str().unwrap())
+                    .expect("Failed to add_execute_permission");
+
                 v.push(format!("{} -> {}", name, dst.to_str().unwrap()));
             }
             None => {}
@@ -448,7 +469,7 @@ mod test {
         );
 
         let manfiest = repo.get_manfiest().await.unwrap();
-        assert!(manfiest.artifacts.len() > 0);
+        assert!(!manfiest.artifacts.is_empty());
 
         let repo =
             Repo::try_from("https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.2").unwrap();
@@ -459,7 +480,7 @@ mod test {
         );
 
         let manfiest = repo.get_manfiest().await.unwrap();
-        assert!(manfiest.artifacts.len() > 0)
+        assert!(!manfiest.artifacts.is_empty())
     }
 
     #[tokio::test]
