@@ -79,7 +79,7 @@ jobs:
           which deno
           which denort
 
-          echo "typeof e>'u'&&(e=console.log);var e;e(2);" >> test.js
+          echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
