@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [
-            ubuntu-latest,
+            ubuntu-24.04,
             windows-latest,
             # macos-latest,
             # macos-13,
@@ -45,12 +45,15 @@ jobs:
           cargo run -- https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
           cargo run -- https://github.com/ahaoboy/neofetch/releases/tag/v0.1.4
           cargo run -- https://github.com/axodotdev/cargo-dist
+          cargo run -- https://github.com/denoland/deno
           echo $PATH
 
       - name: install on ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           cargo run -- https://github.com/ahaoboy/jsc-build
+          cargo run -- https://github.com/ahaoboy/spidermonkey-build
+          cargo run -- https://github.com/ahaoboy/v8-build
 
       - name: add path
         if: matrix.os == 'windows-latest'
@@ -59,12 +62,23 @@ jobs:
           echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
 
       - name: test which
+        if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
-          which mujs
-          which neofetch
-          which dist
+          get-command mujs
+          get-command neofetch
+          get-command dist
+          get-command deno
 
       - name: test which on ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           which jsc
+          which js
+          which d8
+          which deno
+
+          echo "typeof e>"u"&&(e=console.log);var e;e(2);" >> test.js
+          d8 ./test.js
+          js ./test.js
+          jsc ./test.js
