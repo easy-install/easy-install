@@ -127,7 +127,7 @@ async fn install_from_download_file(
 
     let allow = move |p: &str| -> bool {
         match &artifact {
-            None => false,
+            None => true,
             Some(art) => art.has_file(p),
         }
     };
@@ -161,9 +161,12 @@ async fn install_from_download_file(
             None => {}
         }
     }
-
-    println!("Installation Successful");
-    println!("{}", v.join("\n"));
+    if v.is_empty() {
+        println!("No files installed");
+    } else {
+        println!("Installation Successful");
+        println!("{}", v.join("\n"));
+    }
 }
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -258,7 +261,7 @@ impl Repo {
         response.json().await.ok()
     }
 
-    async fn get_artifact_url(&self) -> Option<String> {
+    async fn get_artifact_url(&self) -> Vec<String> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
@@ -275,15 +278,16 @@ impl Repo {
 
         let targets = detect_targets().await;
 
+        let mut v = vec![];
         for i in artifacts.assets {
             for pat in &targets {
                 if i.name.contains(pat) && is_file(&i.name) {
-                    return Some(i.browser_download_url);
+                    v.push(i.browser_download_url.clone());
                 }
             }
         }
 
-        None
+        v
     }
 }
 
@@ -298,11 +302,13 @@ impl Display for Repo {
 
 async fn install_from_github(repo: &Repo) {
     trace!("install_from_git {}", repo);
-
-    if let Some(artifact_url) = repo.get_artifact_url().await {
-        trace!("install_from_git artifact_url {}", artifact_url);
-        let manfiest = repo.get_manfiest().await;
-        install_from_artifact_url(&artifact_url, manfiest).await;
+    let artifact_url = repo.get_artifact_url().await;
+    if !artifact_url.is_empty() {
+        for i in artifact_url {
+            trace!("install_from_git artifact_url {}", i);
+            let manfiest = repo.get_manfiest().await;
+            install_from_artifact_url(&i, manfiest).await;
+        }
     } else {
         println!(
             "not found asset for {} on {}",
@@ -406,7 +412,7 @@ mod test {
     #[tokio::test]
     async fn test_get_artifact_url() {
         let repo = Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap();
-        let url = repo.get_artifact_url().await.unwrap();
+        let url = repo.get_artifact_url().await[0].clone();
         let fmt = PkgFmt::guess_pkg_format(&url).unwrap();
         let files = download(&url).await;
         let out_dir = tempdir().unwrap();

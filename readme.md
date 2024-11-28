@@ -18,6 +18,13 @@ ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
 # install crate
 ei ansi2
 
+
+# install deno and denort
+ei https://github.com/denoland/deno
+
+# install deno
+ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
+ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
 ```
 
 
