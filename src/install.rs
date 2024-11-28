@@ -432,13 +432,13 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_url() {
-        let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist").unwrap();
+        let repo = Repo::try_from("https://github.com/ahaoboy/mujs-build").unwrap();
         let url = repo.get_artifact_url().await[0].clone();
         let fmt = PkgFmt::guess_pkg_format(&url).unwrap();
         let files = download(&url).await;
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new(if IS_WINDOWS { "dist.exe" } else { "dist" })));
+        assert!(files.has_file(Path::new(if IS_WINDOWS { "mujs.exe" } else { "mujs" })));
     }
 
     #[tokio::test]
