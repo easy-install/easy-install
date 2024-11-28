@@ -443,11 +443,11 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_api() {
-        let repo = Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap();
+        let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist").unwrap();
         let url = repo.get_artifact_api();
         assert_eq!(
             url,
-            "https://api.github.com/repos/ahaoboy/ansi2/releases/tags/v0.2.11"
+            "https://api.github.com/repos/axodotdev/cargo-dist/releases/latest"
         )
     }
     #[tokio::test]
