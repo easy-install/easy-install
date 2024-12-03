@@ -82,3 +82,12 @@ Taking mujs as an example, it contains the following files
   ]
 },
 ```
+
+## zoo
+
+- https://github.com/ahaoboy/mujs-build
+- https://github.com/ahaoboy/quickjs-build
+- https://github.com/ahaoboy/quickjs-ng-build
+- https://github.com/ahaoboy/spidermonkey-build
+- https://github.com/ahaoboy/v8-build
+- https://github.com/ahaoboy/jsc-build
