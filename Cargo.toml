@@ -39,3 +39,7 @@ path-clean = "^1.0"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libc = "^0.2"
 openssl = { version = "^0.10", features = ["vendored"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
