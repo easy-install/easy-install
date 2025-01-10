@@ -71,7 +71,10 @@ fn replace_filename(base_url: &str, name: &str) -> String {
 async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Option<String> {
     let targets = detect_targets().await;
     for (name, art) in manfiest.artifacts.iter() {
-        if art.match_targets(&targets) && is_file(name) {
+        if art.match_targets(&targets)
+            && is_file(name)
+            && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
+        {
             if !is_url(name) {
                 return Some(replace_filename(url, name));
             }
@@ -579,6 +582,15 @@ mod test {
     async fn test_install_from_manfiest() {
         let url =
             "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
+        let manfiest = download_dist_manfiest(url).await.unwrap();
+        let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
+        assert!(art_url.is_some())
+    }
+
+    #[tokio::test]
+    async fn test_cargo_dist() {
+        let url =
+            "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
         assert!(art_url.is_some())
