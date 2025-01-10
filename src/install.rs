@@ -376,7 +376,6 @@ async fn install_from_github(repo: &Repo) {
             trace!("install_from_git artifact_url {}", i);
             let manfiest = repo.get_manfiest().await;
             install_from_artifact_url(&i, manfiest).await;
-            return;
         }
     } else {
         println!(
@@ -594,5 +593,13 @@ mod test {
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
         assert!(art_url.is_some())
+    }
+
+    #[tokio::test]
+    async fn test_deno() {
+        let url = "https://github.com/denoland/deno";
+        let repo = Repo::try_from(url).unwrap();
+        let artifact_url = repo.get_artifact_url().await;
+        assert_eq!(artifact_url.len(), 2);
     }
 }

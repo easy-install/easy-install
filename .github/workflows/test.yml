@@ -69,6 +69,7 @@ jobs:
           get-command mujs
           get-command neofetch
           get-command dist
+          get-command deno
           get-command ffmpeg
 
       - name: test which on ubuntu
@@ -77,6 +78,7 @@ jobs:
           which jsc
           which js
           which d8
+          which deno
           which ffmpeg
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
