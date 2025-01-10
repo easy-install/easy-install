@@ -1,6 +1,8 @@
 ## install
 
 ```bash
+curl -fsSL https://github.com/ahaoboy/easy-install/releases/latest/download/install.sh | bash
+
 cargo binstall easy-install
 
 cargo install easy-install

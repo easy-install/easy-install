@@ -18,7 +18,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "dist-manifest/*.json"
+          artifacts: "dist-manifest/*.json,install.sh"
 
   upload-assets:
     needs: create-release
