@@ -19,6 +19,10 @@ pub struct DistManifest {
 pub struct Artifact {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
+    pub kind: Option<ArtifactId>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub name: Option<ArtifactId>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
@@ -29,7 +33,7 @@ pub struct Artifact {
     pub assets: Vec<Asset>,
 }
 /// An asset contained in an artifact (executable, license, etc.)
-#[derive(Debug, Clone, Serialize, Deserialize,  )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asset {
     /// The high-level name of the asset
     #[serde(default)]
@@ -45,7 +49,7 @@ pub struct Asset {
 }
 
 /// An artifact included in a Distributable
-#[derive(Debug, Clone, Serialize, Deserialize,  )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 #[non_exhaustive]
 pub enum AssetKind {
@@ -76,7 +80,7 @@ pub enum AssetKind {
 }
 
 /// An executable artifact (exe/binary)
-#[derive(Debug, Clone, Serialize, Deserialize,  )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutableAsset {
     /// The name of the Artifact containing symbols for this executable
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -85,7 +89,7 @@ pub struct ExecutableAsset {
 }
 
 /// A C dynamic library artifact (so/dylib/dll)
-#[derive(Debug, Clone, Serialize, Deserialize,  )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DynamicLibraryAsset {
     /// The name of the Artifact containing symbols for this library
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -94,7 +98,7 @@ pub struct DynamicLibraryAsset {
 }
 
 /// A C static library artifact (a/lib)
-#[derive(Debug, Clone, Serialize, Deserialize,  )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StaticLibraryAsset {
     /// The name of the Artifact containing symbols for this library
     #[serde(skip_serializing_if = "Option::is_none")]
