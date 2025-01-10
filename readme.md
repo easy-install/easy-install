@@ -83,6 +83,12 @@ Taking mujs as an example, it contains the following files
 },
 ```
 
+
+
+```bash
+ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
+```
+
 ## zoo
 
 - https://github.com/ahaoboy/mujs-build
