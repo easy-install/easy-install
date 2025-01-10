@@ -80,7 +80,9 @@ jobs:
           which d8
           which deno
           which denort
-          which ffmpeg
+
+          ls -lh /usr/local/bin/ffmpeg
+          # which ffmpeg
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
