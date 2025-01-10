@@ -109,7 +109,7 @@ download() {
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei.exe"
     chmod u+x "$INSTALL_DIR/ei.exe"
   else
-    tar -xzvf --quiet "$DOWNLOAD_DIR/$FILENAME" -C "$DOWNLOAD_DIR"
+    tar -xzf "$DOWNLOAD_DIR/$FILENAME" -C "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei"
     chmod u+x "$INSTALL_DIR/ei"
   fi
