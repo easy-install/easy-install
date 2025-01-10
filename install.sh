@@ -82,7 +82,7 @@ ensure_containing_dir_exists() {
     fi
     has_path=$(powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode');[bool](\$currentPath -split ';' | Where-Object { \$_.ToLower() -eq '$INSTALL_DIR' })")
     if [ "$has_path" = "False" ]; then
-      powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode');\$newPath='\$currentPath;$INSTALL_DIR'; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')"
+      powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode');\$newPath=\"\$currentPath;$INSTALL_DIR\"; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')"
     fi
   else
     mkdir -p /usr/local/bin
