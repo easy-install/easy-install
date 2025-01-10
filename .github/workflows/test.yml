@@ -46,6 +46,7 @@ jobs:
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
           cargo run -- https://github.com/denoland/deno
+          cargo run -- https://github.com/ahaoboy/ffmpeg-build-test/releases/download/v0.0.3/dist-manifest.json
           echo $PATH
 
       - name: install on ubuntu
@@ -69,6 +70,7 @@ jobs:
           get-command neofetch
           get-command dist
           get-command deno
+          get-command ffmpeg
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -78,6 +80,7 @@ jobs:
           which d8
           which deno
           which denort
+          which ffmpeg
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js

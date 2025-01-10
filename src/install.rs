@@ -113,7 +113,9 @@ impl Artifact {
         // but the cargo-dist path has a prefix
         if let Some(name) = &(self.name) {
             let prefix = remove_postfix(name);
-            p = p[prefix.len()..].to_string();
+            if p.starts_with(&prefix) {
+                p = p[prefix.len()..].to_string();
+            }
         }
 
         if p.starts_with("/") || p.starts_with("\\") {
@@ -139,8 +141,7 @@ impl Artifact {
 
     fn match_targets(&self, targets: &Vec<String>) -> bool {
         for i in targets {
-            if self.target_triples.contains(i)
-            {
+            if self.target_triples.contains(i) {
                 return true;
             }
         }
@@ -404,7 +405,7 @@ fn is_url(s: &str) -> bool {
 }
 
 fn is_dist_manfiest(s: &str) -> bool {
-    s.ends_with("dist-manifest.json")
+    s.ends_with(".json")
 }
 
 #[cfg(test)]
