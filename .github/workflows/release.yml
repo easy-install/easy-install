@@ -14,10 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: taiki-e/create-gh-release-action@v1
+      - name: release-dist-manifest
         if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "dist-manifest/*.json"
 
   upload-assets:
     needs: create-release
@@ -120,8 +121,4 @@ jobs:
         with:
           name: ei-${{ steps.artifact-target.outputs.artifact-target }}
           path: ei-${{ steps.artifact-target.outputs.artifact-target }}.*
-      - name: release-dist-manifest
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "dist-manifest/*.json"
+
