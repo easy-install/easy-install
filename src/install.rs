@@ -155,7 +155,10 @@ impl Artifact {
 impl DistManifest {
     fn get_artifact(self, targets: &Vec<String>) -> Option<Artifact> {
         self.artifacts.into_iter().find_map(|(name, art)| {
-            if art.match_targets(targets) && is_file(&name) {
+            if art.match_targets(targets)
+                && is_file(&name)
+                && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
+            {
                 return Some(art);
             }
             None
@@ -592,7 +595,7 @@ mod test {
             "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
-        assert!(art_url.is_some())
+        assert!(art_url.is_some());
     }
 
     #[tokio::test]
