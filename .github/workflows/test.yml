@@ -46,7 +46,7 @@ jobs:
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
           cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/ahaoboy/ffmpeg-build-test/releases/download/v0.0.3/dist-manifest.json
+          cargo run -- https://github.com/ahaoboy/ffmpeg-build-test/releases/download/v0.0.4/dist-manifest.json
           echo $PATH
 
       - name: install on ubuntu
