@@ -120,3 +120,8 @@ jobs:
         with:
           name: ei-${{ steps.artifact-target.outputs.artifact-target }}
           path: ei-${{ steps.artifact-target.outputs.artifact-target }}.*
+      - name: release-dist-manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist-manifest/*.json"

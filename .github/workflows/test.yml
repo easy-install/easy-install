@@ -81,7 +81,8 @@ jobs:
           which deno
           which denort
 
-          ls -lh /usr/local/bin/ffmpeg
+          ls -lh  /usr/local/bin
+          # ls -lh /usr/local/bin/ffmpeg
           # which ffmpeg
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
