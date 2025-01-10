@@ -94,17 +94,30 @@ async fn install_from_manfiest(url: &str) {
     println!("install_from_manfiest {} failed", url);
 }
 
+fn remove_postfix(s: &str) -> String {
+    use PkgFmt::*;
+    for i in [Tar, Tbz2, Tgz, Txz, Tzstd, Zip, Bin] {
+        for ext in i.extensions(IS_WINDOWS) {
+            if !ext.is_empty() && s.ends_with(ext) {
+                return s[0..s.len() - ext.len()].to_string();
+            }
+        }
+    }
+    s.to_string()
+}
+
 impl Artifact {
     fn has_file(&self, p: &str) -> bool {
         let mut p = p.to_string();
         // FIXME: The full path should be used
         // but the cargo-dist path has a prefix
         if let Some(name) = &(self.name) {
-            let prefix = name.clone();
-            let prefix = prefix.split(".").next().unwrap_or_default();
-            if !prefix.is_empty() && p.starts_with(prefix) {
-                p = p[prefix.len()..].to_string();
-            }
+            let prefix = remove_postfix(name);
+            p = p[prefix.len()..].to_string();
+        }
+
+        if p.starts_with("/") || p.starts_with("\\") {
+            p = p[1..].to_string();
         }
 
         for i in &self.assets {
@@ -127,11 +140,6 @@ impl Artifact {
     fn match_targets(&self, targets: &Vec<String>) -> bool {
         for i in targets {
             if self.target_triples.contains(i)
-                && self
-                    .name
-                    .clone()
-                    .map(|name| name.contains(i))
-                    .unwrap_or(true)
             {
                 return true;
             }
@@ -200,7 +208,8 @@ async fn install_from_download_file(
                     let next = path_clean::clean(p.to_str().unwrap())
                         .to_str()
                         .unwrap()
-                        .to_string();
+                        .to_string()
+                        .replace("\\", "/");
                     q.push_back(next);
                 }
             }
