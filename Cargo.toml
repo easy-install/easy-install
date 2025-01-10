@@ -17,8 +17,8 @@ binstalk-downloader = "^0.13"
 semver = { version = "^1", features = ["serde"] }
 serde = { version = "^1", features = ["derive"] }
 serde_json = "^1"
-tempfile = "^3.5"
-tokio = { version = "^1.35", features = [
+tempfile = "^3.15"
+tokio = { version = "^1.43", features = [
   "rt",
   "sync",
 ], default-features = false }
@@ -33,7 +33,7 @@ zeroize = "^1.8"
 compact_str = "^0.8"
 detect-targets = "^0.1"
 tracing-subscriber = "^0.3"
-cargo-dist-schema = "^0.25"
+cargo-dist-schema = "^0.28"
 path-clean = "^1.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

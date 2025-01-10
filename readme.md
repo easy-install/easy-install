@@ -25,6 +25,10 @@ ei https://github.com/denoland/deno
 # install deno
 ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
 ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
+
+# install from json
+ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
+ei "https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json"
 ```
 
 
@@ -81,12 +85,6 @@ Taking mujs as an example, it contains the following files
     }
   ]
 },
-```
-
-
-
-```bash
-ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
 ```
 
 ## zoo
