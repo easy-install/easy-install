@@ -1,22 +1,24 @@
+use crate::download::{create_client, download_dist_manfiest};
 use crate::manfiest::{self, Artifact, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
 use atomic_file_install::atomic_install;
-use binstalk_downloader::{
-    download::{Download, ExtractedFilesEntry, PkgFmt},
-    remote::Client,
-};
+use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
 use regex::Regex;
 use semver::VersionReq;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{collections::VecDeque, fmt::Display, num::NonZeroU16, path::Path};
+use std::{collections::VecDeque, fmt::Display, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
 
 pub async fn install(url: &str) {
     trace!("install {}", url);
+    if is_dist_manfiest(url) {
+        install_from_manfiest(url).await;
+        return;
+    }
     if is_url(url) && is_file(url) {
         install_from_artifact_url(url, None).await;
         return;
@@ -32,14 +34,7 @@ pub async fn install(url: &str) {
 
 async fn install_from_crate_name(crate_name: &str) {
     trace!("install_from_crate_name {}", crate_name);
-    let client = Client::new(
-        concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-        None,
-        NonZeroU16::new(10).unwrap(),
-        1.try_into().unwrap(),
-        [],
-    )
-    .unwrap();
+    let client = create_client().await;
     let version_req = &VersionReq::STAR;
     let sparse_registry: Registry = Registry::crates_io_sparse_registry();
     let manifest_from_sparse = sparse_registry
@@ -63,6 +58,42 @@ async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>) {
     let files = download(url).await;
 
     install_from_download_file(fmt, files, manfiest).await;
+}
+
+fn replace_filename(base_url: &str, name: &str) -> String {
+    if let Some(pos) = base_url.rfind('/') {
+        format!("{}{}", &base_url[..pos + 1], name)
+    } else {
+        name.to_string()
+    }
+}
+
+async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Option<String> {
+    let targets = detect_targets().await;
+    for (name, art) in manfiest.artifacts.iter() {
+        for i in &targets {
+            if art.target_triples.contains(i) && name.contains(i) && is_file(name) {
+                if !is_url(name) {
+                    return Some(replace_filename(url, name));
+                }
+                return Some(name.clone());
+            }
+        }
+    }
+    None
+}
+
+async fn install_from_manfiest(url: &str) {
+    trace!("install_from_manfiest {}", url);
+    let manfiest = download_dist_manfiest(url).await;
+    if let Some(manfiest) = manfiest {
+        if let Some(art_url) = get_artifact_url_from_manfiest(url, &manfiest).await {
+            trace!("install_from_manfiest art_url {}", art_url);
+            install_from_artifact_url(&art_url, Some(manfiest)).await;
+            return;
+        }
+    }
+    println!("install_from_manfiest {} failed", url);
 }
 
 impl Artifact {
@@ -271,15 +302,7 @@ impl Repo {
     }
 
     async fn get_manfiest(&self) -> Option<DistManifest> {
-        let client = reqwest::Client::new();
-        let url = self.get_manfiest_url();
-        let response = client
-            .get(&url)
-            .header("User-Agent", "reqwest")
-            .send()
-            .await
-            .ok()?;
-        response.json().await.ok()
+        download_dist_manfiest(&self.get_manfiest_url()).await
     }
 
     async fn get_artifact_url(&self) -> Vec<String> {
@@ -329,6 +352,7 @@ async fn install_from_github(repo: &Repo) {
             trace!("install_from_git artifact_url {}", i);
             let manfiest = repo.get_manfiest().await;
             install_from_artifact_url(&i, manfiest).await;
+            return;
         }
     } else {
         println!(
@@ -359,6 +383,10 @@ fn is_url(s: &str) -> bool {
     s.starts_with("http://") || s.starts_with("https://")
 }
 
+fn is_dist_manfiest(s: &str) -> bool {
+    s.ends_with("dist-manifest.json")
+}
+
 #[cfg(test)]
 mod test {
     use std::path::Path;
@@ -367,9 +395,9 @@ mod test {
     use tempfile::tempdir;
 
     use crate::{
-        download::download,
+        download::{download, download_dist_manfiest},
         env::IS_WINDOWS,
-        install::{is_file, is_url, Repo},
+        install::{get_artifact_url_from_manfiest, is_file, is_url, Repo},
     };
 
     #[test]
@@ -524,5 +552,16 @@ mod test {
 
         assert!(!art.has_file("mujs"));
         assert!(art.has_file("mujs.exe"));
+    }
+
+    #[tokio::test]
+    async fn test_install_from_manfiest() {
+        let url =
+            "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
+        let manfiest = download_dist_manfiest(url).await.unwrap();
+        let art_url = get_artifact_url_from_manfiest(url, &manfiest)
+            .await
+            .unwrap();
+        assert_eq!(art_url, "https://github.com/ahaoboy/mujs-build/releases/latest/download/mujs-x86_64-pc-windows-gnu.zip");
     }
 }

@@ -3,6 +3,8 @@ use std::num::NonZeroU16;
 use tracing::trace;
 use url::Url;
 
+use crate::manfiest::DistManifest;
+
 pub async fn create_client() -> Client {
     trace!("create_client");
     Client::new(
@@ -17,17 +19,21 @@ pub async fn create_client() -> Client {
 
 pub async fn download(url: &str) -> Download<'static> {
     trace!("download {}", url);
-    let client = Client::new(
-        concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-        None,
-        NonZeroU16::new(10).unwrap(),
-        1.try_into().unwrap(),
-        [],
-    )
-    .unwrap();
+    let client = create_client().await;
     Download::new(client, Url::parse(url).unwrap())
 }
 
+pub async fn download_dist_manfiest(url: &str) -> Option<DistManifest> {
+    trace!("download_dist_manfiest {}", url);
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .header("User-Agent", "reqwest")
+        .send()
+        .await
+        .ok()?;
+    response.json().await.ok()
+}
 #[cfg(test)]
 mod test {
     use crate::download::download;
