@@ -72,15 +72,15 @@ check_dependencies() {
 
 ensure_containing_dir_exists() {
   if [ "$OS" = "Windows" ]; then
-    powershell -c "New-Item -Path "~/easy-intall" -ItemType Directory -Force"
-    INSTALL_DIR=$(powershell -c "Resolve-Path ~/easy-install")
+    powershell -c "New-Item -Path "~/easy-install" -ItemType Directory -Force"
+    INSTALL_DIR=$(powershell -c "[string](Resolve-Path ~/easy-install)")
     is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')")
     if [ "$is_admin" = "True" ]; then
       mode="Machine"
     else
       mode="User"
     fi
-    powershell -c "$currentPath=[Environment]::GetEnvironmentVariable('Path', $mode);$newPath='$currentPath;$INSTALL_DIR'; [Environment]::SetEnvironmentVariable('Path', $newPath, '$mode')"
+    powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode');\$newPath='$currentPath;$INSTALL_DIR'; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')"
   else
     mkdir -p /usr/local/bin
     INSTALL_DIR="/usr/local/bin"
@@ -106,13 +106,15 @@ download() {
 
   if [ "$OS" = "Windows" ]; then
     unzip -q "$DOWNLOAD_DIR/$FILENAME" -d "$DOWNLOAD_DIR"
-    mv ./ei.exe "$INSTALL_DIR/ei.exe"
+    mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei.exe"
     chmod u+x "$INSTALL_DIR/ei.exe"
   else
     tar -xzvf --quiet "$DOWNLOAD_DIR/$FILENAME" -C "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei"
     chmod u+x "$INSTALL_DIR/ei"
   fi
+
+  echo "successfully installed to $INSTALL_DIR"
 }
 
 set_filename
