@@ -31,6 +31,10 @@ ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-wind
 # install from json
 ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
 ei "https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json"
+
+# install from local json file
+ei "./dist-manifest/screentogif.json"
+
 ```
 
 

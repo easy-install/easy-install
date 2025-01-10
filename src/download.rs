@@ -34,6 +34,13 @@ pub async fn download_dist_manfiest(url: &str) -> Option<DistManifest> {
         .ok()?;
     response.json().await.ok()
 }
+
+pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {
+    trace!("read_dist_manfiest {}", url);
+    let s = std::fs::read_to_string(url).ok()?;
+    serde_json::from_str(&s).ok()
+}
+
 #[cfg(test)]
 mod test {
     use crate::download::download;

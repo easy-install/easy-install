@@ -1,4 +1,4 @@
-use crate::download::{create_client, download_dist_manfiest};
+use crate::download::{create_client, download_dist_manfiest, read_dist_manfiest};
 use crate::manfiest::{self, Artifact, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
 use atomic_file_install::atomic_install;
@@ -86,7 +86,11 @@ async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> O
 
 async fn install_from_manfiest(url: &str) {
     trace!("install_from_manfiest {}", url);
-    let manfiest = download_dist_manfiest(url).await;
+    let manfiest = if is_url(url) {
+        download_dist_manfiest(url).await
+    } else {
+        read_dist_manfiest(url)
+    };
     if let Some(manfiest) = manfiest {
         if let Some(art_url) = get_artifact_url_from_manfiest(url, &manfiest).await {
             trace!("install_from_manfiest art_url {}", art_url);
