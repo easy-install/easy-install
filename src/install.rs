@@ -562,6 +562,6 @@ mod test {
         let art_url = get_artifact_url_from_manfiest(url, &manfiest)
             .await
             .unwrap();
-        assert_eq!(art_url, "https://github.com/ahaoboy/mujs-build/releases/latest/download/mujs-x86_64-pc-windows-gnu.zip");
+        assert_eq!(art_url, "https://github.com/ahaoboy/mujs-build/releases/latest/download/mujs-x86_64-pc-windows-gnu.tar.xz");
     }
 }
