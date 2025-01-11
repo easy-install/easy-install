@@ -53,6 +53,7 @@ jobs:
           cargo run -- ./dist-manifest/llrt.json
           cargo run -- ./dist-manifest/alist.json
           cargo run -- ./dist-manifest/bun.json
+          cargo run -- ./dist-manifest/fnm.json
           echo $PATH
 
       - name: install on ubuntu
@@ -91,6 +92,7 @@ jobs:
           get-command llrt
           get-command alist
           get-command bun
+          get-command fnm
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -104,6 +106,7 @@ jobs:
           which llrt
           which alist
           which bun
+          which fnm
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
