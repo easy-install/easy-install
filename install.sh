@@ -9,8 +9,6 @@ case "${OS}" in
    MINGW* | Win*) OS="Windows" ;;
 esac
 
-
-
 set_filename() {
   if [ "$OS" = "Linux" ]; then
     # Based on https://stackoverflow.com/a/45125525
