@@ -54,6 +54,8 @@ jobs:
           cargo run -- ./dist-manifest/alist.json
           cargo run -- ./dist-manifest/bun.json
           cargo run -- ./dist-manifest/fnm.json
+          cargo run -- ./dist-manifest/ryubing.json
+
           echo $PATH
 
       - name: install on ubuntu
