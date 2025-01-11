@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "https://github.com/awslabs/llrt/releases/latest/download/llrt-linux-x64-full-sdk.zip": {
+      "target_triples": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "assets": [
+        {
+          "name": "llrt",
+          "path": "llrt",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/awslabs/llrt/releases/latest/download/llrt-windows-x64-full-sdk.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
+      "assets": [
+        {
+          "name": "llrt",
+          "path": "llrt.exe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
+}
