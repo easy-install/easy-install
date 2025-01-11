@@ -7,7 +7,7 @@
       "assets": [
         {
           "name": "bun",
-          "path": "bun",
+          "path": "bun-linux-x64/bun",
           "kind": "executable"
         }
       ]
@@ -19,7 +19,7 @@
       "assets": [
         {
           "name": "bun",
-          "path": "bun.exe",
+          "path": "bun-windows-x64/bun.exe",
           "kind": "executable"
         }
       ]
