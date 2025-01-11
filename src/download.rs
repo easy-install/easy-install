@@ -1,4 +1,4 @@
-use binstalk_downloader::{download::Download, remote::Client};
+use binstalk_downloader::{bytes::Bytes, download::Download, remote::Client};
 use std::num::NonZeroU16;
 use tracing::trace;
 use url::Url;
@@ -33,6 +33,18 @@ pub async fn download_dist_manfiest(url: &str) -> Option<DistManifest> {
         .await
         .ok()?;
     response.json().await.ok()
+}
+
+pub async fn download_binary(url: &str) -> Option<Bytes> {
+    trace!("download_dist_manfiest {}", url);
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .header("User-Agent", "reqwest")
+        .send()
+        .await
+        .ok()?;
+    response.bytes().await.ok()
 }
 
 pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {

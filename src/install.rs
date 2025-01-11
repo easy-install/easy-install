@@ -1,4 +1,4 @@
-use crate::download::{create_client, download_dist_manfiest, read_dist_manfiest};
+use crate::download::{create_client, download_binary, download_dist_manfiest, read_dist_manfiest};
 use crate::env::add_to_path;
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
@@ -20,7 +20,7 @@ pub async fn install(url: &str, dir: Option<String>) {
         install_from_manfiest(url, dir).await;
         return;
     }
-    if is_url(url) && is_file(url) {
+    if is_url(url) && is_archive_file(url) {
         install_from_artifact_url(url, None, dir).await;
         return;
     }
@@ -55,10 +55,51 @@ async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
         return vec![art_url.to_string()];
     }
 
-    if let Some(repo) = Repo::try_from(art_url).ok() {
+    if let Ok(repo) = Repo::try_from(art_url) {
         return repo.match_artifact_url(art_url).await;
     }
     vec![]
+}
+async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir: Option<String>) {
+    let targets = detect_targets().await;
+    let mut install_dir = get_install_dir();
+
+    if let Some(target_dir) = dir {
+        if target_dir.contains("/") || target_dir.contains("\\") {
+            install_dir = target_dir.into();
+        } else {
+            install_dir.push(target_dir);
+        }
+    }
+
+    if let (Some(artifact), Some(bin)) = (
+        manfiest.and_then(|i| i.get_artifact(&targets)),
+        download_binary(url).await,
+    ) {
+        let art_name = url
+            .split("/")
+            .last()
+            .map(|i| i.to_string())
+            .expect("can't get artifact name");
+        let name = artifact.name.unwrap_or(art_name);
+        install_dir.push(&name);
+
+        if let Some(dir) = install_dir.parent() {
+            std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
+        }
+        std::fs::write(&install_dir, &bin).expect("write file failed");
+        println!("Installation Successful");
+        println!(
+            "{}",
+            format!(
+                "{} -> {}",
+                url,
+                install_dir.to_str().unwrap().replace("\\", "/")
+            )
+        )
+    } else {
+        println!("not found/download artifact for {url}")
+    }
 }
 
 async fn install_from_artifact_url(
@@ -72,6 +113,11 @@ async fn install_from_artifact_url(
     let urls = get_artifact_download_url(art_url).await;
     if urls.is_empty() {
         println!("not found download_url for {art_url}");
+        return;
+    }
+    if urls.len() == 1 && !is_archive_file(&urls[0]) {
+        println!("download {}", urls[0]);
+        install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
         return;
     }
     for url in urls {
@@ -93,7 +139,7 @@ async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> O
     let targets = detect_targets().await;
     for (name, art) in manfiest.artifacts.iter() {
         if art.match_targets(&targets)
-            && is_file(name)
+            // && is_archive_file(name)
             && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
         {
             if !is_url(name) {
@@ -194,7 +240,7 @@ impl DistManifest {
     fn get_artifact(self, targets: &Vec<String>) -> Option<Artifact> {
         self.artifacts.into_iter().find_map(|(name, art)| {
             if art.match_targets(targets)
-                && is_file(&name)
+                // && is_archive_file(&name)
                 && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
             {
                 return Some(art);
@@ -298,6 +344,14 @@ async fn install_from_download_file(
             println!("Maybe you should use -d to set the folder");
         }
     } else {
+        if let Some(target_dir) = dir {
+            if target_dir.contains("/") || target_dir.contains("\\") {
+                install_dir = target_dir.into();
+            } else {
+                install_dir.push(target_dir);
+            }
+        }
+
         q.push_back(".".to_string());
         let allow = move |p: &str| -> bool {
             match &artifact {
@@ -458,7 +512,7 @@ impl Repo {
         let mut v = vec![];
         for i in artifacts.assets {
             for pat in &targets {
-                if i.name.contains(pat) && is_file(&i.name) {
+                if i.name.contains(pat) && is_archive_file(&i.name) {
                     v.push(i.browser_download_url.clone());
                 }
             }
@@ -527,10 +581,13 @@ async fn install_from_github(repo: &Repo, dir: Option<String>) {
 
 const IS_WINDOWS: bool = cfg!(target_os = "windows");
 
-fn is_file(s: &str) -> bool {
+fn is_archive_file(s: &str) -> bool {
     use PkgFmt::*;
 
-    for i in [Tar, Tbz2, Tgz, Txz, Tzstd, Zip, Bin] {
+    for i in [
+        Tar, Tbz2, Tgz, Txz, Tzstd, Zip,
+        // Bin
+    ] {
         for ext in i.extensions(IS_WINDOWS) {
             if !ext.is_empty() && s.ends_with(ext) {
                 return true;
@@ -560,22 +617,23 @@ mod test {
         download::{download, download_dist_manfiest},
         env::IS_WINDOWS,
         install::{
-            get_artifact_download_url, get_artifact_url_from_manfiest, is_file, is_url, Repo,
+            get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file, is_url,
+            Repo,
         },
     };
 
     #[test]
     fn test_is_file() {
-        assert!(!is_file("https://github.com/ahaoboy/ansi2"));
+        assert!(!is_archive_file("https://github.com/ahaoboy/ansi2"));
 
-        assert!(!is_file(
+        assert!(!is_archive_file(
             "https://api.github.com/repos/ahaoboy/ansi2/releases/latest"
         ));
-        assert!(!is_file(
+        assert!(!is_archive_file(
             "https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11"
         ));
-        assert!(is_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz"));
-        assert!(is_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip"));
+        assert!(is_archive_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz"));
+        assert!(is_archive_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip"));
     }
 
     #[test]
@@ -764,6 +822,10 @@ mod test {
 
         let url =
         "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 1);
+
+        let url = "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 1);
     }
