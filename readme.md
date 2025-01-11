@@ -3,6 +3,8 @@
 ```bash
 curl -fsSL https://github.com/ahaoboy/easy-install/releases/latest/download/install.sh | bash
 
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/ahaoboy/easy-install/releases/latest/download/install.ps1 | iex"
+
 cargo binstall easy-install
 
 cargo install easy-install

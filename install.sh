@@ -48,20 +48,22 @@ check_dependencies() {
     SHOULD_EXIT="true"
   fi
 
-  echo -n "Checking availability of tar... "
-  if hash tar 2>/dev/null; then
-    echo "OK!"
+  if [ "$OS" = "Windows" ]; then
+    echo -n "Checking availability of unzip... "
+    if hash unzip 2>/dev/null; then
+      echo "OK!"
+    else
+      echo "Missing!"
+      SHOULD_EXIT="true"
+    fi
   else
-    echo "Missing!"
-    SHOULD_EXIT="true"
-  fi
-
-  echo -n "Checking availability of unzip... "
-  if hash unzip 2>/dev/null; then
-    echo "OK!"
-  else
-    echo "Missing!"
-    SHOULD_EXIT="true"
+    echo -n "Checking availability of tar... "
+    if hash tar 2>/dev/null; then
+      echo "OK!"
+    else
+      echo "Missing!"
+      SHOULD_EXIT="true"
+    fi
   fi
 
   if [ "$SHOULD_EXIT" = "true" ]; then
@@ -111,13 +113,13 @@ download() {
     unzip -q "$DOWNLOAD_DIR/$FILENAME" -d "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei.exe"
     chmod u+x "$INSTALL_DIR/ei.exe"
+    echo "successfully installed to $INSTALL_DIR/ei.exe"
   else
     tar -xzf "$DOWNLOAD_DIR/$FILENAME" -C "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei"
     chmod u+x "$INSTALL_DIR/ei"
+    echo "successfully installed to $INSTALL_DIR/ei"
   fi
-
-  echo "successfully installed to $INSTALL_DIR"
 }
 
 set_filename
