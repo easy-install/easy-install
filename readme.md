@@ -1,7 +1,7 @@
 ## install
 
 ### windows
-```powershell
+```bash
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/ahaoboy/easy-install/releases/latest/download/install.ps1 | iex"
 ```
 

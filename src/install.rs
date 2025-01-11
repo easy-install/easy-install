@@ -488,7 +488,9 @@ impl Repo {
         let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
 
         for art in artifacts.assets {
-            if re.is_match(&art.browser_download_url) || name_re.clone().map(|r| r.is_match(&art.name)) ==Some(true){
+            if re.is_match(&art.browser_download_url)
+                || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true)
+            {
                 v.push(art.browser_download_url);
             }
         }
@@ -757,6 +759,11 @@ mod test {
 
         let url =
             "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 1);
+
+        let url =
+        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 1);
     }
