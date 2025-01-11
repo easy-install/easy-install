@@ -208,7 +208,6 @@ async fn install_from_download_file(
 ) {
     trace!("install_from_download_file");
     let out_dir = tempdir().unwrap();
-    let files = download.and_extract(fmt, &out_dir).await.unwrap();
     let mut install_dir = get_install_dir();
     let src_dir = out_dir.path().to_path_buf();
     let mut v = vec![];
@@ -216,11 +215,8 @@ async fn install_from_download_file(
     let targets = detect_targets().await;
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
 
-    match (
-        dir,
-        artifact.clone().and_then(|a| a.get_assets_executable_dir()),
-    ) {
-        (Some(target_dir), Some(asset)) => {
+    if let Some(asset) = artifact.clone().and_then(|a| a.get_assets_executable_dir()) {
+        if let Some(target_dir) = dir.or(asset.name) {
             if target_dir.contains("/") || target_dir.contains("\\") {
                 install_dir = target_dir.into();
             } else {
@@ -228,6 +224,7 @@ async fn install_from_download_file(
             }
 
             q.push_back(asset.path.unwrap_or(".".to_string()));
+            let files = download.and_extract(fmt, &out_dir).await.unwrap();
             while let Some(top) = q.pop_front() {
                 let p = Path::new(&top);
                 let entry = files.get_entry(p);
@@ -277,66 +274,63 @@ async fn install_from_download_file(
                 println!("{}", v.join("\n"));
                 add_to_path(install_dir.to_str().unwrap());
             }
+        } else {
+            println!("Maybe you should use -d to set the folder");
         }
-        (None, None) => {
-            q.push_back(".".to_string());
-            let allow = move |p: &str| -> bool {
-                match &artifact {
-                    None => true,
-                    Some(art) => art.has_file(p),
-                }
-            };
-
-            while let Some(top) = q.pop_front() {
-                let p = Path::new(&top);
-                let entry = files.get_entry(p);
-                match entry {
-                    Some(ExtractedFilesEntry::Dir(dir)) => {
-                        for i in dir.iter() {
-                            let p = p.join(i.to_str().unwrap());
-                            let next = path_clean::clean(p.to_str().unwrap())
-                                .to_str()
-                                .unwrap()
-                                .to_string()
-                                .replace("\\", "/");
-                            q.push_back(next);
-                        }
-                    }
-                    Some(ExtractedFilesEntry::File) => {
-                        if !allow(&top) {
-                            continue;
-                        }
-                        let mut src = src_dir.clone();
-                        let mut dst = install_dir.clone();
-                        let name = p.file_name().unwrap().to_str().unwrap().to_string();
-                        src.push(&top);
-                        dst.push(&name);
-                        atomic_install(&src, dst.as_path()).unwrap();
-
-                        #[cfg(not(target_os = "windows"))]
-                        add_execute_permission(dst.as_path().to_str().unwrap())
-                            .expect("Failed to add_execute_permission");
-
-                        v.push(format!(
-                            "{} -> {}",
-                            name,
-                            dst.to_str().unwrap().replace("\\", "/")
-                        ));
-                    }
-                    None => {}
-                }
+    } else {
+        q.push_back(".".to_string());
+        let allow = move |p: &str| -> bool {
+            match &artifact {
+                None => true,
+                Some(art) => art.has_file(p),
             }
-            if v.is_empty() {
-                println!("No files installed");
-            } else {
-                println!("Installation Successful");
-                println!("{}", v.join("\n"));
+        };
+        let files = download.and_extract(fmt, &out_dir).await.unwrap();
+        while let Some(top) = q.pop_front() {
+            let p = Path::new(&top);
+            let entry = files.get_entry(p);
+            match entry {
+                Some(ExtractedFilesEntry::Dir(dir)) => {
+                    for i in dir.iter() {
+                        let p = p.join(i.to_str().unwrap());
+                        let next = path_clean::clean(p.to_str().unwrap())
+                            .to_str()
+                            .unwrap()
+                            .to_string()
+                            .replace("\\", "/");
+                        q.push_back(next);
+                    }
+                }
+                Some(ExtractedFilesEntry::File) => {
+                    if !allow(&top) {
+                        continue;
+                    }
+                    let mut src = src_dir.clone();
+                    let mut dst = install_dir.clone();
+                    let name = p.file_name().unwrap().to_str().unwrap().to_string();
+                    src.push(&top);
+                    dst.push(&name);
+                    atomic_install(&src, dst.as_path()).unwrap();
+
+                    #[cfg(not(target_os = "windows"))]
+                    add_execute_permission(dst.as_path().to_str().unwrap())
+                        .expect("Failed to add_execute_permission");
+
+                    v.push(format!(
+                        "{} -> {}",
+                        name,
+                        dst.to_str().unwrap().replace("\\", "/")
+                    ));
+                }
+                None => {}
             }
         }
-        (None, Some(_)) => {
-            println!("Maybe you should use -d to set the folder")
+        if v.is_empty() {
+            println!("No files installed");
+        } else {
+            println!("Installation Successful");
+            println!("{}", v.join("\n"));
         }
-        (Some(_), None) => println!("No asset found for ExecutableDir"),
     }
 }
 

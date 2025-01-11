@@ -6,7 +6,7 @@
       ],
       "assets": [
         {
-          "name": ".",
+          "name": "mpv-easy",
           "path": ".",
           "kind": "executable-dir"
         }
