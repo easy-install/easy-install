@@ -182,18 +182,14 @@ fn remove_postfix(s: &str) -> String {
 
 impl Artifact {
     fn has_file(&self, p: &str) -> bool {
-        let mut p = p.to_string();
+        let mut p = p.to_string().replace("\\", "/");
         // FIXME: The full path should be used
         // but the cargo-dist path has a prefix
         if let Some(name) = &(self.name) {
-            let prefix = remove_postfix(name);
+            let prefix = remove_postfix(name) + "/";
             if p.starts_with(&prefix) {
                 p = p[prefix.len()..].to_string();
             }
-        }
-
-        if p.starts_with("/") || p.starts_with("\\") {
-            p = p[1..].to_string();
         }
 
         for i in &self.assets {
