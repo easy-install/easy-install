@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "https://github.com/AlistGo/alist/releases/download/v3.41.0/alist-linux-musl-amd64.tar.gz": {
+      "target_triples": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "assets": [
+        {
+          "name": "alist",
+          "path": "alist",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/AlistGo/alist/releases/download/v3.41.0/alist-windows-amd64.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
+      "assets": [
+        {
+          "name": "alist",
+          "path": "alist.exe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
+}
