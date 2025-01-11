@@ -35,6 +35,11 @@ ei "https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json
 # install from local json file
 ei "./dist-manifest/screentogif.json"
 
+# install to custom directory
+cargo run -- ./dist-manifest/mpv-easy.json -d c:/mpv-easy
+
+# install to custom directory name (~/easy-install/custom-name)
+cargo run -- ./dist-manifest/mpv-easy.json -d custom-name
 ```
 
 
