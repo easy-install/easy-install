@@ -55,6 +55,16 @@ jobs:
           cargo run -- https://github.com/ahaoboy/jsc-build
           cargo run -- https://github.com/ahaoboy/spidermonkey-build
           cargo run -- https://github.com/ahaoboy/v8-build
+          cargo run -- ./dist-manifest/ffmpeg.json
+
+
+      - name: install on windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          cargo run -- ./dist-manifest/ffmpeg.json
+          cargo run -- ./dist-manifest/screentogif.json
+          cargo run -- ./dist-manifest/wiztree.json -d wiztree
+          cargo run -- ./dist-manifest/mpv-easy.json -d mpv-easy
 
       - name: add path
         if: matrix.os == 'windows-latest'
