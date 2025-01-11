@@ -48,6 +48,8 @@ jobs:
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json
           cargo run -- ./dist-manifest/zig.json
+          cargo run -- ./dist-manifest/FiraCode.json
+          cargo run -- ./dist-manifest/JetBrainsMono.json
           echo $PATH
 
       - name: install on ubuntu
