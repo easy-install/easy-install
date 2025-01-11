@@ -50,15 +50,35 @@ async fn install_from_crate_name(crate_name: &str, dir: Option<String>) {
         }
     }
 }
+async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
+    if !art_url.contains("*") {
+        return vec![art_url.to_string()];
+    }
 
-async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>, dir: Option<String>) {
-    trace!("install_from_artifact_url {}", url);
-    let fmt = PkgFmt::guess_pkg_format(url).unwrap();
+    if let Some(repo) = Repo::try_from(art_url).ok() {
+        return repo.match_artifact_url(art_url).await;
+    }
+    vec![]
+}
 
-    println!("download {}", url);
-    let files = download(url).await;
+async fn install_from_artifact_url(
+    art_url: &str,
+    manfiest: Option<DistManifest>,
+    dir: Option<String>,
+) {
+    trace!("install_from_artifact_url {}", art_url);
+    let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
 
-    install_from_download_file(fmt, files, manfiest, dir).await;
+    let urls = get_artifact_download_url(art_url).await;
+    if urls.is_empty() {
+        println!("not found download_url for {art_url}");
+        return;
+    }
+    for url in urls {
+        println!("download {}", url);
+        let files = download(&url).await;
+        install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await;
+    }
 }
 
 fn replace_filename(base_url: &str, name: &str) -> String {
@@ -446,6 +466,34 @@ impl Repo {
 
         v
     }
+
+    async fn match_artifact_url(&self, pattern: &str) -> Vec<String> {
+        trace!("get_artifact_url {}/{}", self.owner, self.name);
+        let api = self.get_artifact_api();
+        trace!("get_artifact_url api {}", api);
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&api)
+            .header("User-Agent", "reqwest")
+            .send()
+            .await
+            .unwrap();
+
+        let artifacts: Artifacts = response.json().await.unwrap();
+
+        let mut v = vec![];
+        let re = Regex::new(pattern).unwrap();
+        let pattern_name = pattern.split("/").last();
+        let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
+
+        for art in artifacts.assets {
+            if re.is_match(&art.browser_download_url) || name_re.clone().map(|r| r.is_match(&art.name)) ==Some(true){
+                v.push(art.browser_download_url);
+            }
+        }
+        v
+    }
 }
 
 impl Display for Repo {
@@ -509,7 +557,9 @@ mod test {
     use crate::{
         download::{download, download_dist_manfiest},
         env::IS_WINDOWS,
-        install::{get_artifact_url_from_manfiest, is_file, is_url, Repo},
+        install::{
+            get_artifact_download_url, get_artifact_url_from_manfiest, is_file, is_url, Repo,
+        },
     };
 
     #[test]
@@ -690,5 +740,19 @@ mod test {
         let repo = Repo::try_from(url).unwrap();
         let artifact_url = repo.get_artifact_url().await;
         assert_eq!(artifact_url.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_get_artifact_download_url() {
+        let url =
+            "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip";
+        let art_url = get_artifact_download_url(url).await;
+
+        assert_eq!(art_url.len(), 1);
+
+        let url =
+            "https://github.com/Ryubing/Ryujinx/releases/latest/download/ryujinx-*.*.*-win_x64.zip";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 2);
     }
 }
