@@ -1,3 +1,5 @@
+// https://github.com/axodotdev/cargo-dist/blob/main/cargo-dist-schema/src/lib.rs
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 pub type LocalPath = String;
@@ -53,6 +55,9 @@ pub struct Asset {
 #[serde(tag = "kind")]
 #[non_exhaustive]
 pub enum AssetKind {
+    /// An executable artifact
+    #[serde(rename = "executable-dir")]
+    ExecutableDir(ExecutableAsset),
     /// An executable artifact
     #[serde(rename = "executable")]
     Executable(ExecutableAsset),

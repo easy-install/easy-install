@@ -1,5 +1,6 @@
 use crate::download::{create_client, download_dist_manfiest, read_dist_manfiest};
-use crate::manfiest::{self, Artifact, DistManifest};
+use crate::env::add_to_path;
+use crate::manfiest::{self, Artifact, Asset, DistManifest};
 use crate::{artifact::Artifacts, download::download, env::get_install_dir};
 use atomic_file_install::atomic_install;
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
@@ -13,26 +14,26 @@ use std::{collections::VecDeque, fmt::Display, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
 
-pub async fn install(url: &str) {
+pub async fn install(url: &str, dir: Option<String>) {
     trace!("install {}", url);
     if is_dist_manfiest(url) {
-        install_from_manfiest(url).await;
+        install_from_manfiest(url, dir).await;
         return;
     }
     if is_url(url) && is_file(url) {
-        install_from_artifact_url(url, None).await;
+        install_from_artifact_url(url, None, dir).await;
         return;
     }
 
     if let Ok(repo) = Repo::try_from(url) {
-        install_from_github(&repo).await;
+        install_from_github(&repo, dir).await;
         return;
     }
 
-    install_from_crate_name(url).await;
+    install_from_crate_name(url, dir).await;
 }
 
-async fn install_from_crate_name(crate_name: &str) {
+async fn install_from_crate_name(crate_name: &str, dir: Option<String>) {
     trace!("install_from_crate_name {}", crate_name);
     let client = create_client().await;
     let version_req = &VersionReq::STAR;
@@ -44,20 +45,20 @@ async fn install_from_crate_name(crate_name: &str) {
     if let Some(pkg) = manifest_from_sparse.package {
         if let Some(repository) = pkg.repository() {
             if let Ok(repo) = Repo::try_from(repository) {
-                install_from_github(&repo).await;
+                install_from_github(&repo, dir).await;
             }
         }
     }
 }
 
-async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>) {
+async fn install_from_artifact_url(url: &str, manfiest: Option<DistManifest>, dir: Option<String>) {
     trace!("install_from_artifact_url {}", url);
     let fmt = PkgFmt::guess_pkg_format(url).unwrap();
 
     println!("download {}", url);
     let files = download(url).await;
 
-    install_from_download_file(fmt, files, manfiest).await;
+    install_from_download_file(fmt, files, manfiest, dir).await;
 }
 
 fn replace_filename(base_url: &str, name: &str) -> String {
@@ -84,7 +85,7 @@ async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> O
     None
 }
 
-async fn install_from_manfiest(url: &str) {
+async fn install_from_manfiest(url: &str, dir: Option<String>) {
     trace!("install_from_manfiest {}", url);
     let manfiest = if is_url(url) {
         download_dist_manfiest(url).await
@@ -94,7 +95,7 @@ async fn install_from_manfiest(url: &str) {
     if let Some(manfiest) = manfiest {
         if let Some(art_url) = get_artifact_url_from_manfiest(url, &manfiest).await {
             trace!("install_from_manfiest art_url {}", art_url);
-            install_from_artifact_url(&art_url, Some(manfiest)).await;
+            install_from_artifact_url(&art_url, Some(manfiest), dir).await;
             return;
         }
     }
@@ -131,9 +132,13 @@ impl Artifact {
 
         for i in &self.assets {
             let name = PathBuf::from_str(&p).unwrap().to_str().unwrap().to_string();
+            if i.path.clone().unwrap_or_default() == "*" {
+                return true;
+            }
             if Some(name.as_str()) == i.path.as_deref() {
                 return match &i.kind {
                     manfiest::AssetKind::Executable(_) => true,
+                    manfiest::AssetKind::ExecutableDir(_) => false,
                     manfiest::AssetKind::CDynamicLibrary(_) => true,
                     manfiest::AssetKind::CStaticLibrary(_) => true,
                     manfiest::AssetKind::Readme => false,
@@ -153,6 +158,15 @@ impl Artifact {
             }
         }
         false
+    }
+
+    fn get_assets_executable_dir(&self) -> Option<Asset> {
+        for i in self.assets.clone() {
+            if let manfiest::AssetKind::ExecutableDir(_) = i.kind {
+                return Some(i);
+            }
+        }
+        None
     }
 }
 
@@ -190,65 +204,139 @@ async fn install_from_download_file(
     fmt: PkgFmt,
     download: Download<'static>,
     manfiest: Option<DistManifest>,
+    dir: Option<String>,
 ) {
     trace!("install_from_download_file");
     let out_dir = tempdir().unwrap();
     let files = download.and_extract(fmt, &out_dir).await.unwrap();
-    let install_dir = get_install_dir();
+    let mut install_dir = get_install_dir();
     let src_dir = out_dir.path().to_path_buf();
     let mut v = vec![];
     let mut q = VecDeque::new();
     let targets = detect_targets().await;
-    q.push_back(".".to_string());
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
 
-    let allow = move |p: &str| -> bool {
-        match &artifact {
-            None => true,
-            Some(art) => art.has_file(p),
-        }
-    };
+    match (
+        dir,
+        artifact.clone().and_then(|a| a.get_assets_executable_dir()),
+    ) {
+        (Some(target_dir), Some(asset)) => {
+            if target_dir.contains("/") || target_dir.contains("\\") {
+                install_dir = target_dir.into();
+            } else {
+                install_dir.push(target_dir);
+            }
 
-    while let Some(top) = q.pop_front() {
-        let p = Path::new(&top);
-        let entry = files.get_entry(p);
-        match entry {
-            Some(ExtractedFilesEntry::Dir(dir)) => {
-                for i in dir.iter() {
-                    let p = p.join(i.to_str().unwrap());
-                    let next = path_clean::clean(p.to_str().unwrap())
-                        .to_str()
-                        .unwrap()
-                        .to_string()
-                        .replace("\\", "/");
-                    q.push_back(next);
+            q.push_back(asset.path.unwrap_or(".".to_string()));
+            while let Some(top) = q.pop_front() {
+                let p = Path::new(&top);
+                let entry = files.get_entry(p);
+                match entry {
+                    Some(ExtractedFilesEntry::Dir(dir)) => {
+                        for i in dir.iter() {
+                            let p = p.join(i.to_str().unwrap());
+                            let next = path_clean::clean(p.to_str().unwrap())
+                                .to_str()
+                                .unwrap()
+                                .to_string()
+                                .replace("\\", "/");
+                            q.push_back(next);
+                        }
+                    }
+                    Some(ExtractedFilesEntry::File) => {
+                        let mut src = src_dir.clone();
+                        let mut dst = install_dir.clone();
+                        src.push(&top);
+                        dst.push(&top);
+
+                        if let Some(dst_dir) = dst.parent() {
+                            if !dst_dir.exists() {
+                                std::fs::create_dir_all(dst_dir)
+                                    .expect("Failed to create_dir install_dir");
+                            }
+                        }
+
+                        atomic_install(&src, dst.as_path()).unwrap();
+                        #[cfg(not(target_os = "windows"))]
+                        add_execute_permission(dst.as_path().to_str().unwrap())
+                            .expect("Failed to add_execute_permission");
+
+                        v.push(format!(
+                            "{} -> {}",
+                            top,
+                            dst.to_str().unwrap().replace("\\", "/")
+                        ));
+                    }
+                    None => {}
                 }
             }
-            Some(ExtractedFilesEntry::File) => {
-                if !allow(&top) {
-                    continue;
-                }
-                let mut src = src_dir.clone();
-                let mut dst = install_dir.clone();
-                let name = p.file_name().unwrap().to_str().unwrap().to_string();
-                src.push(&top);
-                dst.push(&name);
-                atomic_install(&src, dst.as_path()).unwrap();
-
-                #[cfg(not(target_os = "windows"))]
-                add_execute_permission(dst.as_path().to_str().unwrap())
-                    .expect("Failed to add_execute_permission");
-
-                v.push(format!("{} -> {}", name, dst.to_str().unwrap()));
+            if v.is_empty() {
+                println!("No files installed");
+            } else {
+                println!("Installation Successful");
+                println!("{}", v.join("\n"));
+                add_to_path(install_dir.to_str().unwrap());
             }
-            None => {}
         }
-    }
-    if v.is_empty() {
-        println!("No files installed");
-    } else {
-        println!("Installation Successful");
-        println!("{}", v.join("\n"));
+        (None, None) => {
+            q.push_back(".".to_string());
+            let allow = move |p: &str| -> bool {
+                match &artifact {
+                    None => true,
+                    Some(art) => art.has_file(p),
+                }
+            };
+
+            while let Some(top) = q.pop_front() {
+                let p = Path::new(&top);
+                let entry = files.get_entry(p);
+                match entry {
+                    Some(ExtractedFilesEntry::Dir(dir)) => {
+                        for i in dir.iter() {
+                            let p = p.join(i.to_str().unwrap());
+                            let next = path_clean::clean(p.to_str().unwrap())
+                                .to_str()
+                                .unwrap()
+                                .to_string()
+                                .replace("\\", "/");
+                            q.push_back(next);
+                        }
+                    }
+                    Some(ExtractedFilesEntry::File) => {
+                        if !allow(&top) {
+                            continue;
+                        }
+                        let mut src = src_dir.clone();
+                        let mut dst = install_dir.clone();
+                        let name = p.file_name().unwrap().to_str().unwrap().to_string();
+                        src.push(&top);
+                        dst.push(&name);
+                        atomic_install(&src, dst.as_path()).unwrap();
+
+                        #[cfg(not(target_os = "windows"))]
+                        add_execute_permission(dst.as_path().to_str().unwrap())
+                            .expect("Failed to add_execute_permission");
+
+                        v.push(format!(
+                            "{} -> {}",
+                            name,
+                            dst.to_str().unwrap().replace("\\", "/")
+                        ));
+                    }
+                    None => {}
+                }
+            }
+            if v.is_empty() {
+                println!("No files installed");
+            } else {
+                println!("Installation Successful");
+                println!("{}", v.join("\n"));
+            }
+        }
+        (None, Some(_)) => {
+            println!("Maybe you should use -d to set the folder")
+        }
+        (Some(_), None) => println!("No asset found for ExecutableDir"),
     }
 }
 
@@ -375,14 +463,14 @@ impl Display for Repo {
     }
 }
 
-async fn install_from_github(repo: &Repo) {
+async fn install_from_github(repo: &Repo, dir: Option<String>) {
     trace!("install_from_git {}", repo);
     let artifact_url = repo.get_artifact_url().await;
     if !artifact_url.is_empty() {
         for i in artifact_url {
             trace!("install_from_git artifact_url {}", i);
             let manfiest = repo.get_manfiest().await;
-            install_from_artifact_url(&i, manfiest).await;
+            install_from_artifact_url(&i, manfiest, dir.clone()).await;
         }
     } else {
         println!(
