@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "https://github.com/Ryubing/Ryujinx/releases/latest/download/ryujinx-*.*.*-linux_x64.tar.gz": {
+    "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-linux_x64.tar.gz": {
       "target_triples": [
         "x86_64-unknown-linux-gnu"
       ],
@@ -12,7 +12,7 @@
         }
       ]
     },
-    "https://github.com/Ryubing/Ryujinx/releases/latest/download/ryujinx-*.*.*-win_x64.zip": {
+    "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip": {
       "target_triples": [
         "x86_64-pc-windows-gnu"
       ],
