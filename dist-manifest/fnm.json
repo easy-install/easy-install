@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "https://github.com/Schniz/fnm/releases/download/v1.38.1/fnm-linux.zip": {
+      "target_triples": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "assets": [
+        {
+          "name": "fnm",
+          "path": "fnm",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/Schniz/fnm/releases/latest/download/fnm-windows.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
+      "assets": [
+        {
+          "name": "fnm",
+          "path": "fnm.exe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
+}
