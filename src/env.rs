@@ -3,6 +3,47 @@ use std::path::PathBuf;
 pub const IS_WINDOWS: bool = cfg!(target_os = "windows");
 
 #[cfg(not(target_os = "windows"))]
+pub fn add_to_path(dir: &str) {
+    let bash = format!(r#"echo 'export PATH="$PATH:{dir}"' >> ~/.bashrc"#);
+    let zsh = format!(r#"echo 'export PATH="$PATH:{dir}"' >> ~/.zshrc"#);
+    let fish = format!(r#"set -U fish_user_paths {dir} $fish_user_paths"#);
+    println!("run cmd to add {dir} to your $PATH:");
+    if let Some(which_shell::ShellVersion { shell, version: _ }) = which_shell::which_shell() {
+        match shell {
+            which_shell::Shell::Bash => println!("{}", bash),
+            which_shell::Shell::Zsh => println!("{}", zsh),
+            which_shell::Shell::Fish => println!("{}", fish),
+            sh => {
+                println!("not support shell: {}", sh)
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn add_to_path(dir: &str) {
+    let path = std::env::var_os("PATH")
+        .expect("Failed to get PATH")
+        .to_string_lossy()
+        .to_string();
+    let paths: Vec<&str> = path.split(';').collect();
+
+    if paths.contains(&dir) {
+        return;
+    }
+
+    let mode = if is_admin() { "Machine" } else { "User" };
+    let shell = format!(
+        r#"$currentPath = [Environment]::GetEnvironmentVariable("Path", "{mode}");$newPath = "$currentPath;{dir}"; [Environment]::SetEnvironmentVariable("Path", $newPath, "{mode}")"#,
+    );
+    std::process::Command::new("powershell")
+        .args(["-c", &shell])
+        .output()
+        .expect("Failed to execute powershell command");
+    println!("Successfully added {dir} to $PATH");
+}
+
+#[cfg(not(target_os = "windows"))]
 pub fn is_admin() -> bool {
     use libc::{geteuid, getuid};
     unsafe { getuid() == 0 || geteuid() == 0 }
@@ -26,7 +67,7 @@ pub fn get_install_dir() -> PathBuf {
 
 #[cfg(target_os = "windows")]
 pub fn is_admin() -> bool {
-    let shell = "([System.Security.Principal.WindowsPrincipal][System.Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)";
+    let shell = "[bool]([System.Security.Principal.WindowsPrincipal][System.Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)";
     let output = std::process::Command::new("powershell")
         .args(["-c", shell])
         .output()
@@ -44,24 +85,7 @@ pub fn get_install_dir() -> PathBuf {
     if !home.exists() {
         std::fs::create_dir(&home).expect("Failed to create_dir home_dir");
     }
-    let path = std::env::var_os("PATH")
-        .expect("Failed to get PATH")
-        .to_string_lossy()
-        .to_string();
-    let paths: Vec<&str> = path.split(';').collect();
-
     let home_str = home.to_str().expect("Failed to get home_dir string");
-    if !paths.contains(&home_str) {
-        let mode = if is_admin() { "Machine" } else { "User" };
-        let shell = format!(
-            r#"$currentPath = [Environment]::GetEnvironmentVariable("Path", "{mode}");$newPath = "$currentPath;{}"; [Environment]::SetEnvironmentVariable("Path", $newPath, "{mode}")"#,
-            home_str
-        );
-        std::process::Command::new("powershell")
-            .args(["-c", &shell])
-            .output()
-            .expect("Failed to execute powershell command");
-    }
-
+    add_to_path(home_str);
     home
 }

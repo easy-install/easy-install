@@ -1,0 +1,16 @@
+{
+  "artifacts": {
+    "https://diskanalyzer.com/files/wiztree_4_23_portable.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
+      "assets": [
+        {
+          "name": ".",
+          "path": ".",
+          "kind": "executable-dir"
+        }
+      ]
+    }
+  }
+}
