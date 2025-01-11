@@ -754,5 +754,10 @@ mod test {
             "https://github.com/Ryubing/Ryujinx/releases/latest/download/ryujinx-*.*.*-win_x64.zip";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 2);
+
+        let url =
+            "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 1);
     }
 }
