@@ -55,6 +55,7 @@ jobs:
           cargo run -- ./dist-manifest/bun.json
           cargo run -- ./dist-manifest/fnm.json
           cargo run -- ./dist-manifest/ryubing.json
+          cargo run -- ./dist-manifest/7z.json
 
           echo $PATH
 
@@ -74,6 +75,7 @@ jobs:
           cargo run -- ./dist-manifest/screentogif.json
           cargo run -- ./dist-manifest/wiztree.json
           cargo run -- ./dist-manifest/mpv-easy.json
+          cargo run -- ./dist-manifest/mpv.json
 
       - name: add path
         if: matrix.os == 'windows-latest'
