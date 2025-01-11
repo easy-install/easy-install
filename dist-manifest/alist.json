@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "https://github.com/AlistGo/alist/releases/download/v3.41.0/alist-linux-musl-amd64.tar.gz": {
+    "https://github.com/AlistGo/alist/releases/latest/download/alist-linux-amd64.tar.gz": {
       "target_triples": [
         "x86_64-unknown-linux-gnu"
       ],
@@ -12,7 +12,7 @@
         }
       ]
     },
-    "https://github.com/AlistGo/alist/releases/download/v3.41.0/alist-windows-amd64.zip": {
+    "https://github.com/AlistGo/alist/releases/latest/download/alist-windows-amd64.zip": {
       "target_triples": [
         "x86_64-pc-windows-gnu"
       ],

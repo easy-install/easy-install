@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip": {
+      "target_triples": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "assets": [
+        {
+          "name": "bun",
+          "path": "bun",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/oven-sh/bun/releases/download/bun-v1.1.43/bun-windows-x64.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
+      "assets": [
+        {
+          "name": "bun",
+          "path": "bun.exe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
+}
