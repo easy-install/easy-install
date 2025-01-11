@@ -47,6 +47,7 @@ jobs:
           cargo run -- https://github.com/axodotdev/cargo-dist
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json
+          cargo run -- ./dist-manifest/zig.json
           echo $PATH
 
       - name: install on ubuntu
@@ -81,6 +82,7 @@ jobs:
           get-command dist
           get-command deno
           get-command ffmpeg
+          get-command zig
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -90,6 +92,7 @@ jobs:
           which d8
           which deno
           which ffmpeg
+          which zig
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
