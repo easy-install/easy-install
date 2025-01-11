@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "https://github.com/Schniz/fnm/releases/download/v1.38.1/fnm-linux.zip": {
+    "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip": {
       "target_triples": [
         "x86_64-unknown-linux-gnu"
       ],
