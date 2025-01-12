@@ -99,6 +99,7 @@ jobs:
           get-command fnm
           get-command 7z
           get-command starship
+          get-command ScreenToGif
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
