@@ -849,6 +849,10 @@ mod test {
         let url = "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 1);
+
+        let url = "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 1);
     }
 
     #[tokio::test]
