@@ -19,8 +19,8 @@ jobs:
         os: [
             ubuntu-24.04,
             windows-latest,
-            # macos-latest,
-            # macos-13,
+            macos-latest,
+            # macos-13
           ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -42,6 +42,17 @@ jobs:
         #   LOG_LEVEL: TRACE
         run: |
           echo $PATH
+          cargo run -- starship
+
+          echo $PATH
+
+      - name: install on ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          cargo run -- https://github.com/ahaoboy/jsc-build
+          cargo run -- https://github.com/ahaoboy/spidermonkey-build
+          cargo run -- https://github.com/ahaoboy/v8-build
+          cargo run -- ./dist-manifest/ffmpeg.json
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
@@ -56,18 +67,11 @@ jobs:
           cargo run -- ./dist-manifest/fnm.json
           cargo run -- ./dist-manifest/ryubing.json
           cargo run -- ./dist-manifest/7z.json
-          cargo run -- starship
 
-          echo $PATH
-
-      - name: install on ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+      - name: install on macos-latest
+        if: matrix.os == 'macos-latest'
         run: |
-          cargo run -- https://github.com/ahaoboy/jsc-build
-          cargo run -- https://github.com/ahaoboy/spidermonkey-build
-          cargo run -- https://github.com/ahaoboy/v8-build
-          cargo run -- ./dist-manifest/ffmpeg.json
-
+          which starship
 
       - name: install on windows
         if: matrix.os == 'windows-latest'
@@ -76,6 +80,20 @@ jobs:
           cargo run -- ./dist-manifest/screentogif.json
           cargo run -- ./dist-manifest/wiztree.json
           cargo run -- ./dist-manifest/mpv-easy.json
+          cargo run -- https://github.com/ahaoboy/mujs-build
+          cargo run -- https://github.com/ahaoboy/neofetch
+          cargo run -- https://github.com/axodotdev/cargo-dist
+          cargo run -- https://github.com/denoland/deno
+          cargo run -- https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json
+          cargo run -- ./dist-manifest/zig.json
+          cargo run -- ./dist-manifest/FiraCode.json
+          cargo run -- ./dist-manifest/JetBrainsMono.json
+          cargo run -- ./dist-manifest/llrt.json
+          cargo run -- ./dist-manifest/alist.json
+          cargo run -- ./dist-manifest/bun.json
+          cargo run -- ./dist-manifest/fnm.json
+          cargo run -- ./dist-manifest/ryubing.json
+          cargo run -- ./dist-manifest/7z.json
 
       - name: add path
         if: matrix.os == 'windows-latest'
