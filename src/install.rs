@@ -524,10 +524,17 @@ impl Repo {
         let targets = detect_targets().await;
 
         let mut v = vec![];
+
+        let mut filter = vec![];
         for i in artifacts.assets {
             for pat in &targets {
-                if i.name.contains(pat) && is_archive_file(&i.name) {
+                let remove_target = i.name.replace(pat, "");
+                if i.name.contains(pat)
+                    && is_archive_file(&i.name)
+                    && !filter.contains(&remove_target)
+                {
                     v.push(i.browser_download_url.clone());
+                    filter.push(remove_target)
                 }
             }
         }
@@ -842,5 +849,12 @@ mod test {
         let url = "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_starship() {
+        let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
+        let artifact_url = repo.get_artifact_url().await;
+        assert_eq!(artifact_url.len(), 1);
     }
 }
