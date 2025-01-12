@@ -37,6 +37,11 @@ pub struct Artifact {
 /// An asset contained in an artifact (executable, license, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asset {
+    /// The executable_name name of the asset
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executable_name: Option<String>,
+
     /// The high-level name of the asset
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]

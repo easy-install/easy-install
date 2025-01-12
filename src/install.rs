@@ -230,11 +230,20 @@ impl Artifact {
         }
         None
     }
+
+    fn get_asset(&self, path: &str) -> Option<Asset> {
+        self.assets.clone().into_iter().find_map(|i| {
+            if i.path == Some(path.to_owned()) {
+                return Some(i);
+            }
+            None
+        })
+    }
 }
 
 impl DistManifest {
     fn get_artifact(self, targets: &Vec<String>) -> Option<Artifact> {
-        self.artifacts.into_iter().find_map(|(name, art)| {
+        self.artifacts.into_iter().find_map(|(_, art)| {
             if art.match_targets(targets)
                 // && is_archive_file(&name)
                 && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
@@ -349,8 +358,8 @@ async fn install_from_download_file(
         }
 
         q.push_back(".".to_string());
-        let allow = move |p: &str| -> bool {
-            match &artifact {
+        let allow = |p: &str| -> bool {
+            match artifact.clone() {
                 None => true,
                 Some(art) => art.has_file(p),
             }
@@ -377,7 +386,16 @@ async fn install_from_download_file(
                     }
                     let mut src = src_dir.clone();
                     let mut dst = install_dir.clone();
-                    let name = p.file_name().unwrap().to_str().unwrap().to_string();
+
+                    let file_name = p.file_name().unwrap().to_str().unwrap().to_string();
+                    let name = artifact
+                        .clone()
+                        .and_then(|a| {
+                            a.get_asset(p.to_str().unwrap())
+                                .and_then(|i| i.executable_name)
+                        })
+                        .unwrap_or(file_name.clone());
+
                     src.push(&top);
                     dst.push(&name);
                     atomic_install(&src, dst.as_path()).unwrap();
@@ -388,7 +406,7 @@ async fn install_from_download_file(
 
                     v.push(format!(
                         "{} -> {}",
-                        name,
+                        p.to_str().unwrap(),
                         dst.to_str().unwrap().replace("\\", "/")
                     ));
                 }
