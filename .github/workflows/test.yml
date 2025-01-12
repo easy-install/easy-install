@@ -56,6 +56,7 @@ jobs:
           cargo run -- ./dist-manifest/fnm.json
           cargo run -- ./dist-manifest/ryubing.json
           cargo run -- ./dist-manifest/7z.json
+          cargo run -- ./dist-manifest/yt-dlp.json
           cargo run -- starship
 
           echo $PATH
