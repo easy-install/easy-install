@@ -88,14 +88,15 @@ async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir
             std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
         }
         std::fs::write(&install_dir, &bin).expect("write file failed");
+        #[cfg(not(target_os = "windows"))]
+        add_execute_permission(install_dir.as_path().to_str().unwrap())
+            .expect("Failed to add_execute_permission");
+
         println!("Installation Successful");
         println!(
-            "{}",
-            format!(
-                "{} -> {}",
-                url,
-                install_dir.to_str().unwrap().replace("\\", "/")
-            )
+            "{} -> {}",
+            url,
+            install_dir.to_str().unwrap().replace("\\", "/")
         )
     } else {
         println!("not found/download artifact for {url}")
@@ -108,8 +109,6 @@ async fn install_from_artifact_url(
     dir: Option<String>,
 ) {
     trace!("install_from_artifact_url {}", art_url);
-    let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
-
     let urls = get_artifact_download_url(art_url).await;
     if urls.is_empty() {
         println!("not found download_url for {art_url}");
@@ -123,6 +122,7 @@ async fn install_from_artifact_url(
     for url in urls {
         println!("download {}", url);
         let files = download(&url).await;
+        let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
         install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await;
     }
 }
