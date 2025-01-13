@@ -78,6 +78,7 @@ jobs:
           cargo run -- ./dist-manifest/wiztree.json
           cargo run -- ./dist-manifest/mpv-easy.json
           cargo run -- ./dist-manifest/mpv.json
+          cargo run -- ./dist-manifest/uevr.json
 
       - name: add path
         if: matrix.os == 'windows-latest'
