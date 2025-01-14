@@ -37,7 +37,7 @@ cargo-dist-schema = "^0.28"
 path-clean = "^1.0"
 which-shell = "^0.1"
 crud-path = "^0.1"
-
+is-admin = "^0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libc = "^0.2"
 openssl = { version = "^0.10", features = ["vendored"] }

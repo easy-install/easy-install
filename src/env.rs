@@ -16,7 +16,7 @@ pub fn add_to_path(dir: &str) {
 #[cfg(not(target_os = "windows"))]
 pub fn get_install_dir() -> PathBuf {
     use std::str::FromStr;
-    let home = PathBuf::from_str(if is_admin() {
+    let home = PathBuf::from_str(if is_admin::is_admin() {
         "/usr/bin"
     } else {
         "/usr/local/bin"
