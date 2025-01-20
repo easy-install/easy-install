@@ -23,8 +23,18 @@ set_filename() {
         FILENAME="ei-x86_64-unknown-linux-musl.tar.gz"
     esac
   elif [ "$OS" = "Darwin" ] ; then
-    FILENAME="ei-aarch64-apple-darwin.tar.gz"
-    echo "Downloading the latest binary from GitHub..."
+    case "$(uname -m)" in
+      arm64)
+        FILENAME="ei-aarch64-apple-darwin.tar.gz"
+        ;;
+      x86_64)
+        FILENAME="ei-x86_64-apple-darwin.tar.gz"
+        ;;
+      *)
+        echo "Unsupported architecture on macOS: $(uname -m)"
+        exit 1
+    esac
+    echo "Downloading the latest binary for macOS ($FILENAME) from GitHub..."
   elif [ "$OS" = "Windows" ] ; then
     FILENAME="ei-x86_64-pc-windows-gnu.zip"
     echo "Downloading the latest binary from GitHub..."
@@ -72,7 +82,7 @@ check_dependencies() {
 
 ensure_containing_dir_exists() {
   if [ "$OS" = "Windows" ]; then
-    powershell -c "New-Item -Path "~/easy-install" -ItemType Directory -Force"
+    powershell -c "New-Item -Path "~/easy-install" -ItemType Directory -Force | Out-Null"
     INSTALL_DIR=$(powershell -c "[string](Resolve-Path ~/easy-install)")
     is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')")
     if [ "$is_admin" = "True" ]; then
@@ -100,7 +110,7 @@ download() {
 
   DOWNLOAD_DIR=$(mktemp -d)
 
-  echo "Downloading $URL..."
+  echo "Downloading $URL"
 
   if ! curl --progress-bar --fail -L "$URL" -o "$DOWNLOAD_DIR/$FILENAME"; then
     echo "Download failed.  Check that the release/filename are correct."
