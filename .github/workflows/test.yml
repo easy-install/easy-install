@@ -84,7 +84,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
+          # echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
+          powershell ./install.ps1
 
       - name: test which on windows
         if: matrix.os == 'windows-latest'

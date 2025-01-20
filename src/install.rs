@@ -439,10 +439,26 @@ impl TryFrom<&str> for Repo {
         )
         .unwrap();
 
+        let re_gh_download_tag = Regex::new(r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)").unwrap();
+
         let re_gh_releases =
             Regex::new(r"http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
 
         if let Some(captures) = re_gh_tag.captures(value) {
+            if let (Some(owner), Some(name), Some(tag)) = (
+                captures.name("owner"),
+                captures.name("repo"),
+                captures.name("tag"),
+            ) {
+                return Ok(Repo {
+                    owner: owner.as_str().to_string(),
+                    name: name.as_str().to_string(),
+                    tag: Some(tag.as_str().to_string()),
+                });
+            }
+        }
+
+        if let Some(captures) = re_gh_download_tag.captures(value) {
             if let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
@@ -684,15 +700,25 @@ mod test {
             repo
         );
 
-        // assert_eq!(
-        //   Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz").unwrap(),
-        //   repo
-        // );
+        assert_eq!(
+          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz").unwrap(),
+          repo
+        );
 
-        // assert_eq!(
-        //   Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip").unwrap(),
-        //   repo
-        // );
+        assert_eq!(
+          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip").unwrap(),
+          repo
+        );
+
+        let repo = Repo {
+            owner: "Ryubing".to_string(),
+            name: "Ryujinx".to_string(),
+            tag: Some("1.2.78".to_string()),
+        };
+        assert_eq!(
+          Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").unwrap(),
+          repo
+        );
     }
 
     #[test]
@@ -832,7 +858,12 @@ mod test {
         assert_eq!(art_url.len(), 1);
 
         let url =
-            "https://github.com/Ryubing/Ryujinx/releases/latest/download/ryujinx-*.*.*-win_x64.zip";
+            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip";
+        let art_url = get_artifact_download_url(url).await;
+        assert_eq!(art_url.len(), 1);
+
+        let url =
+            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip";
         let art_url = get_artifact_download_url(url).await;
         assert_eq!(art_url.len(), 2);
 
