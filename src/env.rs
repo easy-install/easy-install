@@ -3,10 +3,10 @@ use std::path::PathBuf;
 pub const IS_WINDOWS: bool = cfg!(target_os = "windows");
 
 pub fn add_to_path(dir: &str) {
-    if crud_path::has_path(&dir) {
+    if crud_path::has_path(dir) {
         return;
     }
-    if crud_path::add_path(&dir) {
+    if crud_path::add_path(dir) {
         println!("Successfully added {dir} to $PATH");
     } else {
         println!("You need to add {dir} to your PATH");

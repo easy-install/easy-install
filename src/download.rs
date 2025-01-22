@@ -1,4 +1,5 @@
 use binstalk_downloader::{bytes::Bytes, download::Download, remote::Client};
+use reqwest::header::{HeaderMap, HeaderValue};
 use std::num::NonZeroU16;
 use tracing::trace;
 use url::Url;
@@ -17,33 +18,35 @@ pub async fn create_client() -> Client {
     .unwrap()
 }
 
-pub async fn download(url: &str) -> Download<'static> {
+pub async fn download_files(url: &str) -> Download<'static> {
     trace!("download {}", url);
     let client = create_client().await;
     Download::new(client, Url::parse(url).unwrap())
 }
 
+pub async fn download(url: &str) -> Option<reqwest::Response> {
+    trace!("download {}", url);
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.append("User-Agent", HeaderValue::from_static("reqwest"));
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        headers.append(
+            "Authorization",
+            HeaderValue::from_str(&format!("token {token}")).expect("Authorization token error"),
+        );
+    };
+    client.get(url).headers(headers).send().await.ok()
+}
+
 pub async fn download_dist_manfiest(url: &str) -> Option<DistManifest> {
     trace!("download_dist_manfiest {}", url);
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header("User-Agent", "reqwest")
-        .send()
-        .await
-        .ok()?;
+    let response = download(url).await?;
     response.json().await.ok()
 }
 
 pub async fn download_binary(url: &str) -> Option<Bytes> {
     trace!("download_dist_manfiest {}", url);
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header("User-Agent", "reqwest")
-        .send()
-        .await
-        .ok()?;
+    let response = download(url).await?;
     response.bytes().await.ok()
 }
 
@@ -55,14 +58,14 @@ pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {
 
 #[cfg(test)]
 mod test {
-    use crate::download::download;
+    use crate::download::download_files;
     use binstalk_downloader::download::PkgFmt;
     use std::path::Path;
     use tempfile::tempdir;
     #[tokio::test]
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
-        let files = download(url).await;
+        let files = download_files(url).await;
         let fmt = PkgFmt::guess_pkg_format(url).unwrap();
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();

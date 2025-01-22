@@ -1,7 +1,7 @@
 use crate::download::{create_client, download_binary, download_dist_manfiest, read_dist_manfiest};
 use crate::env::add_to_path;
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
-use crate::{artifact::Artifacts, download::download, env::get_install_dir};
+use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
 use atomic_file_install::atomic_install;
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
@@ -121,7 +121,7 @@ async fn install_from_artifact_url(
     }
     for url in urls {
         println!("download {}", url);
-        let files = download(&url).await;
+        let files = download_files(&url).await;
         let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
         install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await;
     }
@@ -651,7 +651,7 @@ mod test {
     use tempfile::tempdir;
 
     use crate::{
-        download::{download, download_dist_manfiest},
+        download::{download_files, download_dist_manfiest},
         env::IS_WINDOWS,
         install::{
             get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file, is_url,
@@ -732,7 +732,7 @@ mod test {
         let repo = Repo::try_from("https://github.com/ahaoboy/mujs-build").unwrap();
         let url = repo.get_artifact_url().await[0].clone();
         let fmt = PkgFmt::guess_pkg_format(&url).unwrap();
-        let files = download(&url).await;
+        let files = download_files(&url).await;
         let out_dir = tempdir().unwrap();
         let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
         assert!(files.has_file(Path::new(if IS_WINDOWS { "mujs.exe" } else { "mujs" })));
