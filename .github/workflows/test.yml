@@ -57,6 +57,7 @@ jobs:
           cargo run -- ./dist-manifest/ryubing.json
           cargo run -- ./dist-manifest/7z.json
           cargo run -- ./dist-manifest/yt-dlp.json
+          cargo run -- ./dist-manifest/pnpm.json
           cargo run -- starship
 
           echo $PATH
@@ -106,6 +107,7 @@ jobs:
           get-command starship
           get-command ScreenToGif
           get-command yt-dlp
+          get-command pnpm
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -123,6 +125,7 @@ jobs:
           which 7z
           which starship
           which yt-dlp
+          which pnpm
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
