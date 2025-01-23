@@ -1,28 +1,24 @@
 {
-  "artifacts": {
-    "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip": {
-      "target_triples": [
-        "x86_64-unknown-linux-gnu"
-      ],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-linux-x64/bun",
-          "kind": "executable"
-        }
-      ]
-    },
-    "https://github.com/oven-sh/bun/releases/latest/download/bun-windows-x64.zip": {
-      "target_triples": [
-        "x86_64-pc-windows-gnu"
-      ],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-windows-x64/bun.exe",
-          "kind": "executable"
-        }
-      ]
-    }
-  }
+	"artifacts": {
+		"https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip": {
+			"target_triples": ["x86_64-unknown-linux-gnu"],
+			"assets": [
+				{
+					"name": "bun",
+					"path": "bun-linux-x64/bun",
+					"kind": "executable"
+				}
+			]
+		},
+		"https://github.com/oven-sh/bun/releases/latest/download/bun-windows-x64.zip": {
+			"target_triples": ["x86_64-pc-windows-gnu"],
+			"assets": [
+				{
+					"name": "bun",
+					"path": "bun-windows-x64/bun.exe",
+					"kind": "executable"
+				}
+			]
+		}
+	}
 }

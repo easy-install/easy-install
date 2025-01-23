@@ -1,16 +1,14 @@
 {
-  "artifacts": {
-    "https://github.com/mpv-easy/mpv-easy/releases/latest/download/mpy-easy-windows-full.zip": {
-      "target_triples": [
-        "x86_64-pc-windows-gnu"
-      ],
-      "assets": [
-        {
-          "name": "mpv-easy",
-          "path": ".",
-          "kind": "executable-dir"
-        }
-      ]
-    }
-  }
+	"artifacts": {
+		"https://github.com/mpv-easy/mpv-easy/releases/latest/download/mpy-easy-windows-full.zip": {
+			"target_triples": ["x86_64-pc-windows-gnu"],
+			"assets": [
+				{
+					"name": "mpv-easy",
+					"path": ".",
+					"kind": "executable-dir"
+				}
+			]
+		}
+	}
 }

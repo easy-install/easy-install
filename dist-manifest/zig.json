@@ -1,28 +1,24 @@
 {
-  "artifacts": {
-    "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz": {
-      "target_triples": [
-        "x86_64-unknown-linux-gnu"
-      ],
-      "assets": [
-        {
-          "name": "zig",
-          "path": "zig-linux-x86_64-0.13.0/zig",
-          "kind": "executable"
-        }
-      ]
-    },
-    "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip": {
-      "target_triples": [
-        "x86_64-pc-windows-gnu"
-      ],
-      "assets": [
-        {
-          "name": "zig",
-          "path": "zig-windows-x86_64-0.13.0/zig.exe",
-          "kind": "executable"
-        }
-      ]
-    }
-  }
+	"artifacts": {
+		"https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz": {
+			"target_triples": ["x86_64-unknown-linux-gnu"],
+			"assets": [
+				{
+					"name": "zig",
+					"path": "zig-linux-x86_64-0.13.0/zig",
+					"kind": "executable"
+				}
+			]
+		},
+		"https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip": {
+			"target_triples": ["x86_64-pc-windows-gnu"],
+			"assets": [
+				{
+					"name": "zig",
+					"path": "zig-windows-x86_64-0.13.0/zig.exe",
+					"kind": "executable"
+				}
+			]
+		}
+	}
 }

@@ -1,25 +1,21 @@
 {
-  "artifacts": {
-    "https://github.com/ip7z/7zip/releases/download/24.09/7z.*?-linux-x64.tar.xz": {
-      "name": "7z",
-      "target_triples": [
-        "x86_64-unknown-linux-gnu"
-      ],
-      "assets": [
-        {
-          "name": "7zz",
-          "executable_name": "7z",
-          "path": "7zz",
-          "kind": "executable"
-        }
-      ]
-    },
-    "https://github.com/ip7z/7zip/releases/download/24.09/7z.*?-x64.exe": {
-      "name": "7z.exe",
-      "target_triples": [
-        "x86_64-pc-windows-gnu"
-      ],
-      "assets": []
-    }
-  }
+	"artifacts": {
+		"https://github.com/ip7z/7zip/releases/download/24.09/7z.*?-linux-x64.tar.xz": {
+			"name": "7z",
+			"target_triples": ["x86_64-unknown-linux-gnu"],
+			"assets": [
+				{
+					"name": "7zz",
+					"executable_name": "7z",
+					"path": "7zz",
+					"kind": "executable"
+				}
+			]
+		},
+		"https://github.com/ip7z/7zip/releases/download/24.09/7z.*?-x64.exe": {
+			"name": "7z.exe",
+			"target_triples": ["x86_64-pc-windows-gnu"],
+			"assets": []
+		}
+	}
 }
