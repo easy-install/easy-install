@@ -61,7 +61,7 @@ async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     vec![]
 }
 async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir: Option<String>) {
-    let targets = detect_targets().await;
+    // let targets = detect_targets().await;
     let mut install_dir = get_install_dir();
 
     if let Some(target_dir) = dir {
@@ -73,7 +73,7 @@ async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir
     }
 
     if let (Some(artifact), Some(bin)) = (
-        manfiest.and_then(|i| i.get_artifact(&targets)),
+        manfiest.and_then(|i| i.get_artifact_by_key(url)),
         download_binary(url).await,
     ) {
         let art_name = url
@@ -135,20 +135,22 @@ fn replace_filename(base_url: &str, name: &str) -> String {
     }
 }
 
-async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Option<String> {
+async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
     let targets = detect_targets().await;
+    let mut v = vec![];
     for (name, art) in manfiest.artifacts.iter() {
         if art.match_targets(&targets)
             // && is_archive_file(name)
             && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
         {
             if !is_url(name) {
-                return Some(replace_filename(url, name));
+                v.push(replace_filename(url, name));
+            } else {
+                v.push(name.clone());
             }
-            return Some(name.clone());
         }
     }
-    None
+    v
 }
 
 async fn install_from_manfiest(url: &str, dir: Option<String>) {
@@ -159,13 +161,16 @@ async fn install_from_manfiest(url: &str, dir: Option<String>) {
         read_dist_manfiest(url)
     };
     if let Some(manfiest) = manfiest {
-        if let Some(art_url) = get_artifact_url_from_manfiest(url, &manfiest).await {
-            trace!("install_from_manfiest art_url {}", art_url);
-            install_from_artifact_url(&art_url, Some(manfiest), dir).await;
+        let art_url_list = get_artifact_url_from_manfiest(url, &manfiest).await;
+        if art_url_list.is_empty() {
+            println!("install_from_manfiest {} failed", url);
             return;
         }
+        for art_url in art_url_list {
+            trace!("install_from_manfiest art_url {}", art_url);
+            install_from_artifact_url(&art_url, Some(manfiest.clone()), dir.clone()).await;
+        }
     }
-    println!("install_from_manfiest {} failed", url);
 }
 
 fn remove_postfix(s: &str) -> String {
@@ -242,8 +247,8 @@ impl Artifact {
 }
 
 impl DistManifest {
-    fn get_artifact(self, targets: &Vec<String>) -> Option<Artifact> {
-        self.artifacts.into_iter().find_map(|(_, art)| {
+    fn get_artifact(&self, targets: &Vec<String>) -> Option<Artifact> {
+        self.artifacts.clone().into_iter().find_map(|(_, art)| {
             if art.match_targets(targets)
                 // && is_archive_file(&name)
                 && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
@@ -252,6 +257,10 @@ impl DistManifest {
             }
             None
         })
+    }
+
+    fn get_artifact_by_key(&self, key: &str) -> Option<Artifact> {
+        self.artifacts.get(key).cloned()
     }
 }
 
@@ -651,7 +660,7 @@ mod test {
     use tempfile::tempdir;
 
     use crate::{
-        download::{download_files, download_dist_manfiest},
+        download::{download_dist_manfiest, download_files, read_dist_manfiest},
         env::IS_WINDOWS,
         install::{
             get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file, is_url,
@@ -829,7 +838,7 @@ mod test {
             "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
-        assert!(art_url.is_some())
+        assert!(!art_url.is_empty())
     }
 
     #[tokio::test]
@@ -838,7 +847,7 @@ mod test {
             "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
-        assert!(art_url.is_some());
+        assert!(!art_url.is_empty())
     }
 
     #[tokio::test]
@@ -891,5 +900,19 @@ mod test {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
         let artifact_url = repo.get_artifact_url().await;
         assert_eq!(artifact_url.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_quickjs_ng() {
+        let manifest = read_dist_manfiest("./dist-manifest/quickjs-ng.json").unwrap();
+        let urls =
+            get_artifact_url_from_manfiest("./dist-manifest/quickjs-ng.json", &manifest).await;
+        assert_eq!(urls.len(), 2);
+
+        for i in urls {
+            let download_urls = get_artifact_download_url(&i).await;
+            println!("{} {:?}", i, download_urls,);
+            assert_eq!(download_urls.len(), 1);
+        }
     }
 }

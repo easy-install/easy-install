@@ -59,6 +59,7 @@ jobs:
           cargo run -- ./dist-manifest/yt-dlp.json
           cargo run -- ./dist-manifest/pnpm.json
           cargo run -- ./dist-manifest/biome.json
+          cargo run -- ./dist-manifest/quickjs-ng.json
           cargo run -- starship
 
           echo $PATH
@@ -110,6 +111,8 @@ jobs:
           get-command yt-dlp
           get-command pnpm
           get-command biome
+          get-command qjs
+          get-command qjsc
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -129,6 +132,8 @@ jobs:
           which yt-dlp
           which pnpm
           which biome
+          which qjs
+          which qjsc
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js

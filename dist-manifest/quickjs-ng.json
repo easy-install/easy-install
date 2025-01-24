@@ -1,0 +1,24 @@
+{
+  "artifacts": {
+    "https://github.com/quickjs-ng/quickjs/releases/latest/download/qjs-linux-x86": {
+      "name": "qjs",
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": []
+    },
+    "https://github.com/quickjs-ng/quickjs/releases/latest/download/qjsc-linux-x86": {
+      "name": "qjsc",
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": []
+    },
+    "https://github.com/quickjs-ng/quickjs/releases/download/v0.8.0/qjs-windows-x86_64.exe": {
+      "name": "qjs.exe",
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": []
+    },
+    "https://github.com/quickjs-ng/quickjs/releases/download/v0.8.0/qjsc-windows-x86_64.exe": {
+      "name": "qjsc.exe",
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": []
+    }
+  }
+}
