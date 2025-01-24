@@ -1,46 +1,46 @@
 {
-	"artifacts": {
-		"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip": {
-			"name": "ffmpeg-n7.1-latest-win64-gpl-7.1.zip",
-			"target_triples": ["x86_64-pc-windows-gnu"],
-			"assets": [
-				{
-					"name": "bin/ffmpeg.exe",
-					"path": "bin/ffmpeg.exe",
-					"kind": "executable"
-				},
-				{
-					"name": "bin/ffplay.exe",
-					"path": "bin/ffplay.exe",
-					"kind": "executable"
-				},
-				{
-					"name": "bin/ffprobe.exe",
-					"path": "bin/ffprobe.exe",
-					"kind": "executable"
-				}
-			]
-		},
-		"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz": {
-			"name": "ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz",
-			"target_triples": ["x86_64-unknown-linux-gnu"],
-			"assets": [
-				{
-					"name": "bin/ffmpeg",
-					"path": "bin/ffmpeg",
-					"kind": "executable"
-				},
-				{
-					"name": "bin/ffplay",
-					"path": "bin/ffplay",
-					"kind": "executable"
-				},
-				{
-					"name": "bin/ffprobe",
-					"path": "bin/ffprobe",
-					"kind": "executable"
-				}
-			]
-		}
-	}
+  "artifacts": {
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip": {
+      "name": "ffmpeg-n7.1-latest-win64-gpl-7.1.zip",
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": [
+        {
+          "name": "bin/ffmpeg.exe",
+          "path": "bin/ffmpeg.exe",
+          "kind": "executable"
+        },
+        {
+          "name": "bin/ffplay.exe",
+          "path": "bin/ffplay.exe",
+          "kind": "executable"
+        },
+        {
+          "name": "bin/ffprobe.exe",
+          "path": "bin/ffprobe.exe",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz": {
+      "name": "ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz",
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": [
+        {
+          "name": "bin/ffmpeg",
+          "path": "bin/ffmpeg",
+          "kind": "executable"
+        },
+        {
+          "name": "bin/ffplay",
+          "path": "bin/ffplay",
+          "kind": "executable"
+        },
+        {
+          "name": "bin/ffprobe",
+          "path": "bin/ffprobe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
 }

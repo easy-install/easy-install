@@ -17,6 +17,11 @@ cargo binstall easy-install
 cargo install easy-install
 ```
 
+### npm
+
+```bash
+npm i @easy-install/easy-install -g
+```
 ## usage
 
 ```bash

@@ -1,0 +1,37 @@
+{
+  "name": "@easy-install/easy-install",
+  "version": "1.2.1",
+  "description": "easy-install",
+  "types": "dist/index.d.ts",
+  "main": "dist/index.js",
+  "bin": {
+    "easy-install": "bundle/cli.js"
+  },
+  "files": ["dist", "bundle", "readme.md"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahaoboy/easy-install.git"
+  },
+  "homepage": "https://github.com/ahaoboy/easy-install#readme",
+  "keywords": ["easy-install"],
+  "author": "ahaoboy",
+  "license": "ISC",
+  "scripts": {
+    "format": "biome format --write  ./",
+    "lint:fix": "biome lint ./ --write --unsafe",
+    "test": "vitest",
+    "test:run": "vitest --run",
+    "build": "tsc -p tsconfig.build.json",
+    "bundle": "esbuild --outdir=bundle --bundle --minify --platform=node --format=cjs ts/cli.ts",
+    "start": "npm run build && node dist/index.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "steal-cli": "^0.1.0",
+    "@biomejs/biome": "1.9.4",
+    "@types/node": "^22.10.7",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.2"
+  }
+}

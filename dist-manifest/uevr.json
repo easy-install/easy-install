@@ -1,14 +1,14 @@
 {
-	"artifacts": {
-		"https://github.com/praydog/UEVR/releases/latest/download/UEVR.zip": {
-			"target_triples": ["x86_64-pc-windows-gnu"],
-			"assets": [
-				{
-					"name": "UEVR",
-					"path": ".",
-					"kind": "executable-dir"
-				}
-			]
-		}
-	}
+  "artifacts": {
+    "https://github.com/praydog/UEVR/releases/latest/download/UEVR.zip": {
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": [
+        {
+          "name": "UEVR",
+          "path": ".",
+          "kind": "executable-dir"
+        }
+      ]
+    }
+  }
 }

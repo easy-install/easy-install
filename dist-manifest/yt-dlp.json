@@ -1,14 +1,14 @@
 {
-	"artifacts": {
-		"https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux": {
-			"name": "yt-dlp",
-			"target_triples": ["x86_64-unknown-linux-gnu"],
-			"assets": []
-		},
-		"https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe": {
-			"name": "yt-dlp.exe",
-			"target_triples": ["x86_64-pc-windows-gnu"],
-			"assets": []
-		}
-	}
+  "artifacts": {
+    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux": {
+      "name": "yt-dlp",
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": []
+    },
+    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe": {
+      "name": "yt-dlp.exe",
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": []
+    }
+  }
 }
