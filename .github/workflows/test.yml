@@ -55,7 +55,7 @@ jobs:
           cargo run -- ./dist-manifest/bun.json
           cargo run -- ./dist-manifest/fnm.json
           cargo run -- ./dist-manifest/ryubing.json
-          cargo run -- ./dist-manifest/7z.json
+          cargo run -- ./dist-manifest/7zip.json
           cargo run -- ./dist-manifest/yt-dlp.json
           cargo run -- ./dist-manifest/pnpm.json
           cargo run -- ./dist-manifest/biome.json
