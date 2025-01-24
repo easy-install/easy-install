@@ -17,6 +17,8 @@
   "author": "ahaoboy",
   "license": "ISC",
   "scripts": {
+    "pre-check": "npm run clippy && npm run format && npm run lint:fix",
+    "clippy": "cargo clippy --fix --allow-dirty --allow-staged",
     "format": "biome format --write  ./",
     "lint:fix": "biome lint ./ --write --unsafe",
     "test": "vitest",

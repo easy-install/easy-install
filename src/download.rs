@@ -52,7 +52,7 @@ pub async fn download_binary(url: &str) -> Option<Bytes> {
 
 pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {
     trace!("read_dist_manfiest {}", url);
-    let s = std::fs::read_to_string(url).ok()?;
+    let s = std::fs::read_to_string(url).unwrap_or_else(|_| panic!("read file error: {url}"));
     serde_json::from_str(&s).ok()
 }
 
