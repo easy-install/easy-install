@@ -303,7 +303,8 @@ async fn install_from_download_file(
                 install_dir.push(target_dir);
             }
 
-            q.push_back(asset.path.unwrap_or(".".to_string()));
+            let prefix = asset.path.unwrap_or(".".to_string());
+            q.push_back(prefix.clone());
             let files = download.and_extract(fmt, &out_dir).await.unwrap();
             while let Some(top) = q.pop_front() {
                 let p = Path::new(&top);
@@ -324,7 +325,7 @@ async fn install_from_download_file(
                         let mut src = src_dir.clone();
                         let mut dst = install_dir.clone();
                         src.push(&top);
-                        dst.push(&top);
+                        dst.push(&top.replace(&(prefix.clone() + "/"), ""));
 
                         if let Some(dst_dir) = dst.parent() {
                             if !dst_dir.exists() {

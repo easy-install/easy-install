@@ -68,8 +68,6 @@ jobs:
           cargo run -- ./dist-manifest/hermes.json
           cargo run -- ./dist-manifest/xst.json
 
-          source ~/.bashrc
-
           echo $PATH
 
       - name: install on ubuntu
@@ -124,7 +122,8 @@ jobs:
           get-command qjs
           get-command qjsc
           get-command boa
-          get-command graaljs
+          # graaljs
+          get-command js
           get-command hermes
           get-command xst
 
@@ -149,7 +148,8 @@ jobs:
           which qjs
           which qjsc
           which boa
-          which graaljs
+          # graaljs
+          which js
           which hermes
           which xst
 
