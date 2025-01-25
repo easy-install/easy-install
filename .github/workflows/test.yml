@@ -23,6 +23,8 @@ jobs:
             # macos-13,
           ]
     runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v4
@@ -96,6 +98,8 @@ jobs:
           powershell ./install.ps1
           # FIXME: we do't need this
           echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
+          # FIXME: add-to-path
+          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install\graaljs" >> $env:GITHUB_ENV
 
       - name: test which on windows
         if: matrix.os == 'windows-latest'
@@ -120,8 +124,7 @@ jobs:
           get-command qjs
           get-command qjsc
           get-command boa
-          # FIXME: add-to-path
-          # get-command graaljs
+          get-command graaljs
           get-command hermes
           get-command xst
 
