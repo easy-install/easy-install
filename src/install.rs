@@ -588,8 +588,9 @@ impl Repo {
         let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
 
         for art in artifacts.assets {
-            if re.is_match(&art.browser_download_url)
-                || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true)
+            if !is_hash_file(&art.browser_download_url)
+                && (re.is_match(&art.browser_download_url)
+                    || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true))
             {
                 v.push(art.browser_download_url);
             }
@@ -650,6 +651,10 @@ fn is_url(s: &str) -> bool {
 
 fn is_dist_manfiest(s: &str) -> bool {
     s.ends_with(".json")
+}
+
+fn is_hash_file(s: &str) -> bool {
+    s.ends_with(".sha256")
 }
 
 #[cfg(test)]
@@ -904,14 +909,26 @@ mod test {
 
     #[tokio::test]
     async fn test_quickjs_ng() {
-        let manifest = read_dist_manfiest("./dist-manifest/quickjs-ng.json").unwrap();
-        let urls =
-            get_artifact_url_from_manfiest("./dist-manifest/quickjs-ng.json", &manifest).await;
+        let json = "./dist-manifest/quickjs-ng.json";
+        let manifest = read_dist_manfiest(json).unwrap();
+        let urls = get_artifact_url_from_manfiest(json, &manifest).await;
         assert_eq!(urls.len(), 2);
 
         for i in urls {
             let download_urls = get_artifact_download_url(&i).await;
-            println!("{} {:?}", i, download_urls,);
+            assert_eq!(download_urls.len(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_graaljs() {
+        let json = "./dist-manifest/graaljs.json";
+        let manifest = read_dist_manfiest(json).unwrap();
+        let urls = get_artifact_url_from_manfiest(json, &manifest).await;
+        assert_eq!(urls.len(), 1);
+
+        for i in urls {
+            let download_urls = get_artifact_download_url(&i).await;
             assert_eq!(download_urls.len(), 1);
         }
     }

@@ -1,0 +1,24 @@
+{
+  "artifacts": {
+    "https://github.com/facebook/hermes/releases/latest/download/hermes-cli-windows.tar.gz": {
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": [
+        {
+          "name": "hermes",
+          "path": ".",
+          "kind": "executable-dir"
+        }
+      ]
+    },
+    "https://github.com/facebook/hermes/releases/latest/download/hermes-cli-linux.tar.gz": {
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": [
+        {
+          "name": "hermes",
+          "path": ".",
+          "kind": "executable-dir"
+        }
+      ]
+    }
+  }
+}

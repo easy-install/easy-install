@@ -1,0 +1,24 @@
+{
+  "artifacts": {
+    "https://github.com/Moddable-OpenSource/moddable/releases/latest/download/xst-lin64.zip": {
+      "target_triples": ["x86_64-unknown-linux-gnu"],
+      "assets": [
+        {
+          "name": "xst",
+          "path": "xst",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/Moddable-OpenSource/moddable/releases/latest/download/xst-win64.zip": {
+      "target_triples": ["x86_64-pc-windows-gnu"],
+      "assets": [
+        {
+          "name": "xst",
+          "path": "xst.exe",
+          "kind": "executable"
+        }
+      ]
+    }
+  }
+}

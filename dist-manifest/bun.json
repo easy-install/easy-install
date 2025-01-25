@@ -1,11 +1,11 @@
 {
   "artifacts": {
-    "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip": {
+    "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip": {
       "target_triples": ["x86_64-unknown-linux-gnu"],
       "assets": [
         {
           "name": "bun",
-          "path": "bun-linux-x64/bun",
+          "path": "bun-linux-x64-baseline/bun",
           "kind": "executable"
         }
       ]

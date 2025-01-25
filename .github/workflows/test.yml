@@ -42,6 +42,7 @@ jobs:
         #   LOG_LEVEL: TRACE
         run: |
           echo $PATH
+          cargo run -- starship
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
@@ -60,7 +61,10 @@ jobs:
           cargo run -- ./dist-manifest/pnpm.json
           cargo run -- ./dist-manifest/biome.json
           cargo run -- ./dist-manifest/quickjs-ng.json
-          cargo run -- starship
+          cargo run -- ./dist-manifest/boa.json
+          cargo run -- ./dist-manifest/graaljs.json
+          cargo run -- ./dist-manifest/hermes.json
+          cargo run -- ./dist-manifest/xst.json
 
           echo $PATH
 
@@ -113,6 +117,10 @@ jobs:
           get-command biome
           get-command qjs
           get-command qjsc
+          get-command boa
+          get-command graaljs
+          get-command hermes
+          get-command xst
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -134,6 +142,10 @@ jobs:
           which biome
           which qjs
           which qjsc
+          which boa
+          which graaljs
+          which hermes
+          which xst
 
           echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
           d8 ./test.js
