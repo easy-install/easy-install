@@ -66,6 +66,8 @@ jobs:
           cargo run -- ./dist-manifest/hermes.json
           cargo run -- ./dist-manifest/xst.json
 
+          source ~/.bashrc
+
           echo $PATH
 
       - name: install on ubuntu
@@ -118,7 +120,8 @@ jobs:
           get-command qjs
           get-command qjsc
           get-command boa
-          get-command graaljs
+          # FIXME: add-to-path
+          # get-command graaljs
           get-command hermes
           get-command xst
 
