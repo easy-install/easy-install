@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "https://www.unpkg.com/@esbuild/linux-x64@latest/esbuild.exe": {
+    "https://www.unpkg.com/@esbuild/linux-x64@latest/esbuild": {
       "name": "esbuild",
       "target_triples": ["x86_64-unknown-linux-gnu"],
       "assets": []
