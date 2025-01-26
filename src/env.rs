@@ -2,7 +2,35 @@ use std::path::PathBuf;
 
 pub const IS_WINDOWS: bool = cfg!(target_os = "windows");
 
+fn is_github_action() -> bool {
+    std::env::var("GITHUB_ACTIONS") == Ok("true".to_string())
+}
+#[cfg(not(target_os = "windows"))]
+fn add_github_path(path: &str) {
+    std::process::Command::new("bash")
+        .args(["-c", &format!(r#"echo "PATH=$PATH:{path}" >> $GITHUB_ENV"#)])
+        .output()
+        .expect("add_github_path error");
+}
+
+#[cfg(target_os = "windows")]
+fn add_github_path(path: &str) {
+    std::process::Command::new("powershell")
+        .args([
+            "-c",
+            &format!(
+                r#"echo "{path}" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8"#
+            ),
+        ])
+        .output()
+        .expect("add_github_path error");
+}
+
 pub fn add_to_path(dir: &str) {
+    if is_github_action() {
+        add_github_path(dir);
+    }
+
     if crud_path::has_path(dir) {
         return;
     }

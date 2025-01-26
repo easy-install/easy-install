@@ -88,23 +88,12 @@ jobs:
           cargo run -- ./dist-manifest/mpv-easy.json
           cargo run -- ./dist-manifest/mpv.json
           cargo run -- ./dist-manifest/uevr.json
-
-      - name: add path
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          powershell ./install.ps1
-          # FIXME: we do't need this
-          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install" >> $env:GITHUB_ENV
-          # FIXME: add-to-path
-          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install\graaljs" >> $env:GITHUB_ENV
-          # FIXME: add-to-path
-          echo "PATH=$env:PATH;C:\Users\runneradmin\easy-install\hermes" >> $env:GITHUB_ENV
-
       - name: test which on windows
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
+          Copy-Item -Path "C:\Users\runneradmin\easy-install\graaljs\bin\js.exe" -Destination "C:\Users\runneradmin\easy-install\graaljs\bin\graaljs.exe"
+
           get-command mujs
           get-command neofetch
           get-command dist
@@ -124,15 +113,20 @@ jobs:
           get-command qjs
           get-command qjsc
           get-command boa
-          # graaljs
-          get-command js
+          get-command graaljs
           get-command hermes
           get-command xst
+          get-command mpv
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
         run: |
+          echo $PATH
+          cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
+          cat ~/.bashrc
           source ~/.bashrc
+          echo $PATH
+
           which jsc
           which js
           which d8
@@ -151,8 +145,7 @@ jobs:
           which qjs
           which qjsc
           which boa
-          # graaljs
-          which js
+          which graaljs
           which hermes
           which xst
 

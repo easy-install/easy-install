@@ -325,7 +325,7 @@ async fn install_from_download_file(
                         let mut src = src_dir.clone();
                         let mut dst = install_dir.clone();
                         src.push(&top);
-                        dst.push(&top.replace(&(prefix.clone() + "/"), ""));
+                        dst.push(top.replace(&(prefix.clone() + "/"), ""));
 
                         if let Some(dst_dir) = dst.parent() {
                             if !dst_dir.exists() {
@@ -353,6 +353,9 @@ async fn install_from_download_file(
             } else {
                 println!("Installation Successful");
                 println!("{}", v.join("\n"));
+                if let Some(d) = asset.executable_dir {
+                    install_dir.push(d);
+                }
                 add_to_path(install_dir.to_str().unwrap());
             }
         } else {

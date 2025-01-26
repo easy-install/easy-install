@@ -42,6 +42,10 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executable_name: Option<String>,
 
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executable_dir: Option<String>,
+
     /// The high-level name of the asset
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
