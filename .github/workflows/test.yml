@@ -125,9 +125,9 @@ jobs:
         run: |
           echo $PATH
           cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
-          cat ~/.bashrc
-          source ~/.bashrc
-          echo $PATH
+          # cat ~/.bashrc
+          # source ~/.bashrc
+          # echo $PATH
 
           which jsc
           which js
