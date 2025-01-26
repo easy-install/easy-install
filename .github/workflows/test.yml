@@ -92,6 +92,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
+          $env:PATH -split \';\' | Write-Host
+
           Copy-Item -Path "C:\Users\runneradmin\easy-install\graaljs\bin\js.exe" -Destination "C:\Users\runneradmin\easy-install\graaljs\bin\graaljs.exe"
 
           get-command mujs
