@@ -19,8 +19,7 @@
   "scripts": {
     "pre-check": "npm run clippy && npm run format && npm run lint:fix",
     "clippy": "cargo clippy --fix --allow-dirty --allow-staged",
-    "format": "biome format --write  ./",
-    "lint:fix": "biome lint ./ --write --unsafe",
+    "format": "deno fmt ts dist-manifest",
     "test": "vitest",
     "test:run": "vitest --run",
     "build": "tsc -p tsconfig.build.json",

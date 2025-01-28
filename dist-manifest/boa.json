@@ -2,13 +2,11 @@
   "artifacts": {
     "https://github.com/boa-dev/boa/releases/latest/download/boa-linux-amd64": {
       "name": "boa",
-      "target_triples": ["x86_64-unknown-linux-gnu"],
-      "assets": []
+      "target_triples": ["x86_64-unknown-linux-gnu"]
     },
     "https://github.com/boa-dev/boa/releases/latest/download/boa-windows-amd64.exe": {
       "name": "boa.exe",
-      "target_triples": ["x86_64-pc-windows-gnu"],
-      "assets": []
+      "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }
 }

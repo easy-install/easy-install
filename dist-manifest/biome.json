@@ -2,13 +2,11 @@
   "artifacts": {
     "https://github.com/biomejs/biome/releases/latest/download/biome-linux-x64": {
       "name": "biome",
-      "target_triples": ["x86_64-unknown-linux-gnu"],
-      "assets": []
+      "target_triples": ["x86_64-unknown-linux-gnu"]
     },
     "https://github.com/biomejs/biome/releases/latest/download/biome-win32-x64.exe": {
       "name": "biome.exe",
-      "target_triples": ["x86_64-pc-windows-gnu"],
-      "assets": []
+      "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }
 }
