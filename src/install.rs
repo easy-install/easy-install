@@ -883,7 +883,7 @@ mod test {
         let url =
             "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip";
         let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 2);
+        assert_eq!(art_url.len(), 1);
 
         let url =
             "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?";
