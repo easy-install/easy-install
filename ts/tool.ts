@@ -80,7 +80,8 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
   const rules = [
     {
       ext: [".zip"],
-      cmd: process.platform !== 'win32' ? `unzip -o "${compressedFilePath}" -d "${outputDir}"` : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
+      // cmd: process.platform !== 'win32' ? `unzip -o "${compressedFilePath}" -d "${outputDir}"` : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
+      cmd: `unzip -o "${compressedFilePath}" -d "${outputDir}"`,
     },
     { ext: [".tar"], cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"` },
     {
