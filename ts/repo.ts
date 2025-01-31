@@ -1,5 +1,5 @@
 import { downloadJson } from "./download"
-import { detectTargets, getAssetNames, getFetchOption, isArchiveFile } from "./tool"
+import { detectTargets, getAssetNames, getFetchOption, isArchiveFile, isHashFile } from "./tool"
 import { Artifacts, } from "./type"
 import { DistManifest, } from "./type"
 
@@ -83,6 +83,27 @@ export class Repo {
           v.push(i.browser_download_url)
           filter.push(remove_target)
         }
+      }
+    }
+    return v
+  }
+
+  async matchArtifactUrl(pattern: string): Promise<string[]> {
+    const v: string[] = []
+    const api = this.getArtifactApi()
+    const art: Artifacts = await downloadJson(api)
+    const re = new RegExp(pattern)
+    const patternName = pattern.split("/").at(-1)
+    const nameRe = patternName && new RegExp(patternName)
+    for (const asset of art.assets || []) {
+      if (!isHashFile(asset.browser_download_url)
+        && (re.test(asset.browser_download_url)
+          ||
+          (nameRe && nameRe.test(asset.name))
+        )
+
+      ) {
+        v.push(asset.browser_download_url)
       }
     }
     return v

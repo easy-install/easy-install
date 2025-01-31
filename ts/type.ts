@@ -30,7 +30,7 @@ export type GhAsset = {
 export type Artifact = {
   kind: string,
   name: string,
-  target_triples: string[],
+  target_triples?: string[],
   assets?: GhAsset[]
 }
 

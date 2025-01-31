@@ -869,39 +869,18 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_download_url() {
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url = "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url = "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
+        for url in [
+        "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
+        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
+        "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
+        "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
+      ]{
+          let art_url = get_artifact_download_url(url).await;
+          assert_eq!(art_url.len(), 1);
+      }
     }
 
     #[tokio::test]

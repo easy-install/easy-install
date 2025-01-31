@@ -1,10 +1,12 @@
-import { matchTargets, removePostfix } from "./tool";
+import { existsSync, readFileSync } from "fs";
+import { Repo } from "./repo";
+import { detectTargets, isUrl, matchTargets, removePostfix, replaceFilename } from "./tool";
 import { Artifact, DistManifest } from "./type";
 
 export function getArtifact(dist: DistManifest, targets: string[]): Artifact | undefined {
   for (const art of Object.values(dist.artifacts)) {
     if (
-      matchTargets(art.target_triples, targets)
+      matchTargets(art.target_triples ?? [], targets)
       && (art.kind || "executable-zip") === "executable-zip"
     ) {
       return art
@@ -12,6 +14,26 @@ export function getArtifact(dist: DistManifest, targets: string[]): Artifact | u
   }
 }
 
+export function getArtifactUrlFromManfiest(url: string, dist: DistManifest): string[] {
+  const targets = detectTargets()
+  const v: string[] = []
+
+  for (const name in dist.artifacts) {
+    const art = dist.artifacts[name]
+    if (matchTargets(art.target_triples ?? [], targets)
+      && ((art.kind ?? "executable-zip") === "executable-zip")
+
+    ) {
+      if (!isUrl(name)) {
+        v.push(replaceFilename(url, name))
+      } else {
+        v.push(name)
+      }
+    }
+  }
+
+  return v
+}
 
 export function hasFile(art: Artifact, path: string) {
   path = path.replaceAll('\\', '/')
@@ -47,4 +69,31 @@ export function hasFile(art: Artifact, path: string) {
   }
 
   return false
+}
+
+export function isRegex(s: string): boolean {
+  return s.includes('*')
+}
+
+export async function getArtifactDownloadUrl(artUrl: string): Promise<string[]> {
+  const v: string[] = []
+  if (!isRegex(artUrl)) {
+    return [artUrl]
+  }
+  const repo = Repo.fromUrl(artUrl)
+  if (repo) {
+    return await repo.matchArtifactUrl(artUrl)
+  }
+  return v
+}
+
+export function readDistManfiest(path: string): DistManifest | undefined {
+  if (!existsSync(path)) {
+    return
+  }
+  const s = readFileSync(path, 'utf-8')
+  try {
+    return JSON.parse(s)
+  } finally {
+  }
 }

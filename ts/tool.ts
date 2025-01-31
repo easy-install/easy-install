@@ -254,3 +254,12 @@ export function matchTargets(targets: string[], platformTargets: string[]) {
   }
   return undefined
 }
+
+export function replaceFilename(baseUrl: string, name: string): string {
+  const i = baseUrl.lastIndexOf('/')
+  return i !== -1 ? baseUrl.slice(0, i + 1) + name : name
+}
+
+export function isHashFile(s: string): boolean {
+  return s.endsWith('.sha256')
+}

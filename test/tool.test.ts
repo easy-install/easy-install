@@ -3,10 +3,10 @@ import { download, extractTo, getAssetNames, isArchiveFile } from "../ts/tool"
 import * as path from "path"
 import * as fs from "fs"
 import { homedir, tmpdir } from "os"
-import { downloadToFile } from "../ts/download"
+import { downloadDistManfiest, downloadToFile } from "../ts/download"
 import { join } from "path"
 import { Repo } from "../ts"
-import { getArtifact, hasFile } from "../ts/dist-manifest"
+import { getArtifact, getArtifactDownloadUrl, getArtifactUrlFromManfiest, hasFile, readDistManfiest } from "../ts/dist-manifest"
 import { assert } from "console"
 
 test("getAssetNames", () => {
@@ -110,5 +110,54 @@ test("manifest_mujs", async () => {
     ['mujs.exe', true],
   ] as const) {
     expect(hasFile(artWin, k)).toEqual(v)
+  }
+})
+
+
+test("install_from_manfiest", async () => {
+  const url = "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json"
+  const dist = await downloadDistManfiest(url)
+  const v = getArtifactUrlFromManfiest(url, dist)
+  expect(v.length > 0).toEqual(true)
+})
+
+test("cargo_dist", async () => {
+  const url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json"
+  const dist = await downloadDistManfiest(url)
+  const v = getArtifactUrlFromManfiest(url, dist)
+  expect(v.length > 0).toEqual(true)
+})
+
+test("deno", async () => {
+  const repo = Repo.fromUrl('https://github.com/denoland/deno')!
+  const v = await repo.getArtifactUrls()
+  expect(v.length > 0).toEqual(true)
+})
+
+test('get_artifact_download_url', async () => {
+  for (const url of [
+    "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
+    "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
+    "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
+    "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
+    "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
+    "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
+    "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
+    "https://github.com/starship/starship",
+  ]) {
+    const v = await getArtifactDownloadUrl(url)
+    console.log(v)
+    expect(v.length).toEqual(1)
+  }
+})
+
+test('graaljs', async () => {
+  const path = "./dist-manifest/graaljs.json"
+  const dist = readDistManfiest(path)!
+  const v = getArtifactUrlFromManfiest(path, dist)
+  expect(v.length).toEqual(1)
+  for (const i of v) {
+    const url = await getArtifactDownloadUrl(i)
+    expect(url.length).toEqual(1)
   }
 })
