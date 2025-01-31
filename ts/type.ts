@@ -21,14 +21,14 @@ export type Artifacts = {
 }
 
 export type GhAsset = {
-  executable_name: string
-  executable_dir: string
+  executable_name?: string
+  executable_dir?: string
   name: string
   path: string
-  kind: string
+  kind?: string
 }
 export type Artifact = {
-  kind: string
+  kind?: string
   name: string
   target_triples?: string[]
   assets?: GhAsset[]

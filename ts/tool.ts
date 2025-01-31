@@ -182,7 +182,7 @@ export function getAssetNames(
 }
 
 export function getBinName(bin: string) {
-  return process.platform === 'win32' ? `${bin}.exe` : bin
+  return process.platform === 'win32' && !bin.endsWith('.exe') ? `${bin}.exe` : bin
 }
 
 export function parseDownloadUrl(url: string) {

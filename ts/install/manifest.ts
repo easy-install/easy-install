@@ -4,7 +4,7 @@ import { artifactInstall } from './artifact'
 
 export async function manifestInstall(dist: DistManifest, dir?: string) {
   const v = await getArtifactUrlFromManfiest(dist)
-  if (v.length) {
+  if (!v.length) {
     console.log('manifestInstall failed')
     return undefined
   }
