@@ -161,7 +161,6 @@ test('graaljs', async () => {
 })
 
 test('toMsysPath', () => {
-  console.log(isMsys())
   for (const [a, b] of [
     ["c:\\a\\b", "/c/a/b"],
     ["c:/a/b", "/c/a/b"],

@@ -70,6 +70,7 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
       fs.mkdirSync(outputDir, { recursive: true })
     }
   }
+  const oriDir = outputDir
   if (isMsys() && !compressedFilePath.endsWith('.zip')) {
     compressedFilePath = toMsysPath(compressedFilePath)
     outputDir = toMsysPath(outputDir)
@@ -103,7 +104,7 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
       }
     }
   }
-  return outputDir
+  return oriDir
 }
 
 export function getPlatforms(os = process.platform) {
