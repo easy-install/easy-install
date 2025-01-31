@@ -1,5 +1,6 @@
 import { readDistManfiest } from '../dist-manifest'
 import { downloadJson } from '../download'
+import { getInstallDir } from '../env'
 import { Repo } from '../repo'
 import {
   download,
@@ -14,7 +15,7 @@ import { manifestInstall } from './manifest'
 
 export async function install(
   input: Input,
-  installDir: string,
+  installDir: string = getInstallDir(),
 ): Promise<Output | undefined> {
   const { url, version = 'latest', name: bin } = input
   if (isDistManfiest(url)) {

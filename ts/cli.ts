@@ -1,8 +1,8 @@
-import { run } from './run'
+import { install } from './install'
 
 const [url, name, version] = process.argv.slice(2)
 
-run({
+install({
   url,
   version,
   name,
