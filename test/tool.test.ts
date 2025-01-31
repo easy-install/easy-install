@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { download, extractTo, getAssetNames, isArchiveFile } from "../ts/tool"
+import { download, extractTo, getAssetNames, isArchiveFile, isMsys, toMsysPath } from "../ts/tool"
 import * as path from "path"
 import * as fs from "fs"
 import { homedir, tmpdir } from "os"
@@ -158,4 +158,14 @@ test('graaljs', async () => {
     const url = await getArtifactDownloadUrl(i)
     expect(url.length).toEqual(1)
   }
+})
+
+test('toMsysPath', () => {
+  console.log(isMsys())
+  for (const [a, b] of [
+    ["c:\\a\\b", "/c/a/b"],
+    ["c:/a/b", "/c/a/b"],
+    ["C:/a/b", "/c/a/b"],
+  ])
+    expect(toMsysPath(a)).toEqual(b)
 })

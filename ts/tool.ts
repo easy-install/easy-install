@@ -280,5 +280,5 @@ export function isHashFile(s: string): boolean {
 }
 
 export function isMsys() {
-  return process.platform === 'win32' && (process.env['SHELL'] === "bash" || !!process.env['MSYSTEM'])
+  return !!process.env['MSYSTEM']
 }
