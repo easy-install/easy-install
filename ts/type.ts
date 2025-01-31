@@ -1,7 +1,7 @@
 export type Input = {
   url: string
   version?: string
-  bin: string
+  name: string
 }
 
 export type Output = {

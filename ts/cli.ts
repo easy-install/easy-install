@@ -1,7 +1,9 @@
 import { run } from './run'
 
+const [url, name, version] = process.argv.slice(2)
+
 run({
-  url: 'https://github.com/ahaoboy/easy-install',
-  version: 'latest',
-  bin: 'ei',
+  url,
+  version,
+  name,
 })

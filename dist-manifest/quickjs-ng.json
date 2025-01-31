@@ -15,6 +15,14 @@
     "https://github.com/quickjs-ng/quickjs/releases/download/v0.8.0/qjsc-windows-x86_64.exe": {
       "name": "qjsc.exe",
       "target_triples": ["x86_64-pc-windows-gnu"]
+    },
+    "https://github.com/quickjs-ng/quickjs/releases/download/v0.8.0/qjs-darwin": {
+      "name": "qjs",
+      "target_triples": ["x86_64-apple-darwin", "aarch64-apple-darwin"]
+    },
+    "https://github.com/quickjs-ng/quickjs/releases/download/v0.8.0/qjsc-darwin": {
+      "name": "qjsc",
+      "target_triples": ["x86_64-apple-darwin", "aarch64-apple-darwin"]
     }
   }
 }

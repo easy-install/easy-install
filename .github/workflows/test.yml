@@ -179,9 +179,19 @@ jobs:
           pnpm install
           pnpm run build
           pnpm run test:run
-      - name: test ei
+      - name: test
         run: |
-          node ./bundle/cli.js https://github.com/ahaoboy/easy-install --version
-      - name: test deno
+          ./cli/cli.js https://github.com/ahaoboy/easy-install
+          ./cli/cli.js https://github.com/denoland/deno
+
+      - name: test windows
         run: |
-          node ./bundle/cli.js https://github.com/denoland/deno --version
+          ./cli/cli.js ./dist-manifest/7zip.json
+
+      - name: test ubuntu
+        run: |
+          ./cli/cli.js ./dist-manifest/boa.json
+
+      - name: test macos
+        run: |
+          ./cli/cli.js ./dist-manifest/quickjs-ng.json
