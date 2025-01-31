@@ -97,7 +97,6 @@ test("manifest_mujs", async () => {
   const repo = new Repo('ahaoboy', 'mujs-build')
   const dist = await repo.getManfiest()
   const art = getArtifact(dist, ["x86_64-unknown-linux-gnu"])!
-  console.log(art)
   for (const [k, v] of [
     ['mujs', true],
     ['mujs.exe', false],
@@ -146,7 +145,6 @@ test('get_artifact_download_url', async () => {
     "https://github.com/starship/starship",
   ]) {
     const v = await getArtifactDownloadUrl(url)
-    console.log(v)
     expect(v.length).toEqual(1)
   }
 })

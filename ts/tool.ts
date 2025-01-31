@@ -70,7 +70,7 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
       fs.mkdirSync(outputDir, { recursive: true })
     }
   }
-  if (isMsys()) {
+  if (isMsys() && !compressedFilePath.endsWith('.zip')) {
     compressedFilePath = toMsysPath(compressedFilePath)
     outputDir = toMsysPath(outputDir)
   }
@@ -80,13 +80,12 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
   const rules = [
     {
       ext: [".zip"],
-      // cmd: process.platform !== 'win32' ? `unzip -o "${compressedFilePath}" -d "${outputDir}"` : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
-      cmd: `unzip -o "${compressedFilePath}" -d "${outputDir}"`,
+      cmd: process.platform !== 'win32' ? `unzip -o "${compressedFilePath}" -d "${outputDir}"` : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
     },
     { ext: [".tar"], cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"` },
     {
       ext: [".tar.gz", ".tgz"],
-      cmd: `tar -xzf "${compressedFilePath}" -C "${outputDir}"`,
+      cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,
     },
     {
       ext: [".tar.bz2"],
