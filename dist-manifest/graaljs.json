@@ -21,6 +21,28 @@
           "executable_dir": "bin"
         }
       ]
+    },
+    "https://github.com/oracle/graaljs/releases/download/graal-24.1.2/graaljs-24.1.2-macos-amd64.tar.gz": {
+      "target_triples": ["x86_64-apple-darwin"],
+      "assets": [
+        {
+          "name": "graaljs",
+          "path": "graaljs-24.1.2-linux-amd64",
+          "kind": "executable-dir",
+          "executable_dir": "bin"
+        }
+      ]
+    },
+    "https://github.com/oracle/graaljs/releases/download/graal-24.1.2/graaljs-24.1.2-macos-aarch64.tar.gz": {
+      "target_triples": ["aarch64-apple-darwin"],
+      "assets": [
+        {
+          "name": "graaljs",
+          "path": "graaljs-24.1.2-linux-amd64",
+          "kind": "executable-dir",
+          "executable_dir": "bin"
+        }
+      ]
     }
   }
 }

@@ -54,11 +54,26 @@ export async function download(url: string, outputPath?: string) {
   return outputPath
 }
 
+export function toMsysPath(s: string): string {
+  s = s.replaceAll("\\", '/')
+  s = s.replace(/^([A-Za-z]):\//, (_, drive) => `/${drive.toLowerCase()}/`)
+  return s
+}
+
+export function randomId() {
+  return Math.random().toString(36).slice(2)
+}
 export function extractTo(compressedFilePath: string, outputDir?: string) {
   if (!outputDir) {
-    outputDir = path.join(tmpdir(), Math.random().toString(36).slice(2))
+    outputDir = path.join(tmpdir(), randomId())
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
   }
-
+  if (isMsys()) {
+    compressedFilePath = toMsysPath(compressedFilePath)
+    outputDir = toMsysPath(outputDir)
+  }
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true })
   }
@@ -262,4 +277,8 @@ export function replaceFilename(baseUrl: string, name: string): string {
 
 export function isHashFile(s: string): boolean {
   return s.endsWith('.sha256')
+}
+
+export function isMsys() {
+  return process.platform === 'win32' && (process.env['SHELL'] === "bash" || !!process.env['MSYSTEM'])
 }

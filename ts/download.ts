@@ -2,14 +2,14 @@ import { tmpdir } from "os"
 import path from "path"
 import fs from "fs"
 import { DistManifest } from "./type"
-import { getFetchOption } from "./tool"
+import { getFetchOption, randomId } from "./tool"
 
 export async function downloadJson<T>(url: string): Promise<T> {
   const response = await fetch(url, getFetchOption())
   return await response.json()
 }
 
-export async function downloadText(url: string){
+export async function downloadText(url: string) {
   const response = await fetch(url, getFetchOption())
   return await response.text()
 }
@@ -22,7 +22,11 @@ export async function downloadBinary(url: string) {
 export async function downloadToFile(url: string, outputPath?: string) {
   if (!outputPath) {
     const name = url.split("/").at(-1)!
-    outputPath = path.join(tmpdir(), name)
+    const dir = path.join(tmpdir(), randomId())
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    outputPath = path.join(dir, name)
   }
   const response = await fetch(url, getFetchOption())
   const buf = await response.arrayBuffer()
