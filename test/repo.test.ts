@@ -64,10 +64,10 @@ test("getArtifactApi", async () => {
   expect(repo.getArtifactApi()).toEqual("https://api.github.com/repos/axodotdev/cargo-dist/releases/latest")
 })
 
-test("getArtifactApi", async () => {
+test("getManfiestUrl", async () => {
   const url = "https://github.com/axodotdev/cargo-dist"
   const repo = Repo.fromUrl(url)!
-  expect(repo.getManfiestUrl()).toEqual("https://api.github.com/repos/axodotdev/cargo-dist/releases/latest")
+  expect(repo.getManfiestUrl()).toEqual("https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json")
 })
 
 test("getManfiestUrl", async () => {
