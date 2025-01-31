@@ -163,7 +163,7 @@ async fn install_from_manfiest(url: &str, dir: Option<String>) {
     if let Some(manfiest) = manfiest {
         let art_url_list = get_artifact_url_from_manfiest(url, &manfiest).await;
         if art_url_list.is_empty() {
-            println!("install_from_manfiest {} failed", url);
+            println!();
             return;
         }
         for art_url in art_url_list {

@@ -17,11 +17,11 @@ jobs:
     strategy:
       matrix:
         os: [
-            ubuntu-24.04,
-            windows-latest,
-            # macos-latest,
-            # macos-13,
-          ]
+          ubuntu-24.04,
+          windows-latest,
+          # macos-latest,
+          # macos-13,
+        ]
     runs-on: ${{ matrix.os }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,7 +78,6 @@ jobs:
           cargo run -- https://github.com/ahaoboy/spidermonkey-build
           cargo run -- https://github.com/ahaoboy/v8-build
           cargo run -- ./dist-manifest/ffmpeg.json
-
 
       - name: install on windows
         if: matrix.os == 'windows-latest'
@@ -162,7 +161,6 @@ jobs:
           js ./test.js
           jsc ./test.js
 
-
   js-test:
     strategy:
       matrix:
@@ -183,7 +181,7 @@ jobs:
           pnpm run test:run
       - name: test ei
         run: |
-           node ./bundle/cli.js https://github.com/ahaoboy/easy-install --version
+          node ./bundle/cli.js https://github.com/ahaoboy/easy-install --version
       - name: test deno
         run: |
-           node ./bundle/cli.js https://github.com/denoland/deno --version
+          node ./bundle/cli.js https://github.com/denoland/deno --version

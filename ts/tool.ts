@@ -1,24 +1,24 @@
-import * as fs from "fs"
-import { execSync } from "child_process"
-import { tmpdir } from "os"
-import * as path from "path"
-import { readFileSync } from "fs"
+import * as fs from 'fs'
+import { execSync } from 'child_process'
+import { tmpdir } from 'os'
+import * as path from 'path'
+import { readFileSync } from 'fs'
 
 export function isUrl(s: string): boolean {
-  return ['https://', 'http://'].some(i => s.startsWith(i))
+  return ['https://', 'http://'].some((i) => s.startsWith(i))
 }
 export const ArchiveFmtList = [
-  ".tar",
-  ".tbz2",
-  ".tar.bz2",
-  ".tgz",
-  ".tar.gz",
-  ".txz",
-  ".tar.xz",
-  ".tzstd",
-  ".tzst",
-  ".tar.zst",
-  ".zip",
+  '.tar',
+  '.tbz2',
+  '.tar.bz2',
+  '.tgz',
+  '.tar.gz',
+  '.txz',
+  '.tar.xz',
+  '.tzstd',
+  '.tzst',
+  '.tar.zst',
+  '.zip',
 ]
 export function isArchiveFile(s: string): boolean {
   for (
@@ -33,7 +33,7 @@ export function isArchiveFile(s: string): boolean {
 
 export function getFetchOption() {
   const headers: HeadersInit = {
-    "User-Agent": "GitHub Actions",
+    'User-Agent': 'GitHub Actions',
   }
   if (process.env.GITHUB_TOKEN) {
     headers.Authorization = `token ${process.env.GITHUB_TOKEN}`
@@ -45,7 +45,7 @@ export function getFetchOption() {
 
 export async function download(url: string, outputPath?: string) {
   if (!outputPath) {
-    const name = url.split("/").at(-1)!
+    const name = url.split('/').at(-1)!
     outputPath = path.join(tmpdir(), name)
   }
   const response = await fetch(url, getFetchOption())
@@ -55,7 +55,7 @@ export async function download(url: string, outputPath?: string) {
 }
 
 export function toMsysPath(s: string): string {
-  s = s.replaceAll("\\", '/')
+  s = s.replaceAll('\\', '/')
   s = s.replace(/^([A-Za-z]):\//, (_, drive) => `/${drive.toLowerCase()}/`)
   return s
 }
@@ -80,21 +80,23 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
   }
   const rules = [
     {
-      ext: [".zip"],
-      cmd: process.platform !== 'win32' ? `unzip -o "${compressedFilePath}" -d "${outputDir}"` : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
+      ext: ['.zip'],
+      cmd: process.platform !== 'win32'
+        ? `unzip -o "${compressedFilePath}" -d "${outputDir}"`
+        : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
     },
-    { ext: [".tar"], cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"` },
+    { ext: ['.tar'], cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"` },
     {
-      ext: [".tar.gz", ".tgz"],
+      ext: ['.tar.gz', '.tgz'],
       cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,
     },
     {
-      ext: [".tar.bz2"],
+      ext: ['.tar.bz2'],
       cmd: `tar -xjf "${compressedFilePath}" -C "${outputDir}"`,
     },
-    { ext: [".7z"], cmd: `7z x "${compressedFilePath}" -o"${outputDir}"` },
-    { ext: [".rar"], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
-    { ext: [".rar"], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
+    { ext: ['.7z'], cmd: `7z x "${compressedFilePath}" -o"${outputDir}"` },
+    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
+    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
   ] as const
 
   for (const { ext, cmd } of rules) {
@@ -110,14 +112,14 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
 export function getPlatforms(os = process.platform) {
   let platforms: string[]
   switch (os) {
-    case "linux":
-      platforms = ["unknown-linux-gnu"]
+    case 'linux':
+      platforms = ['unknown-linux-gnu']
       break
-    case "darwin":
-      platforms = ["apple-darwin"]
+    case 'darwin':
+      platforms = ['apple-darwin']
       break
-    case "win32":
-      platforms = ["pc-windows-msvc", "pc-windows-gnu"]
+    case 'win32':
+      platforms = ['pc-windows-msvc', 'pc-windows-gnu']
       break
     default:
       throw new Error(`Unsupported platform ${os}.`)
@@ -131,37 +133,37 @@ export function detectTargets(
   musl = isMusl(),
 ): string[] {
   switch (platform) {
-    case "darwin": {
+    case 'darwin': {
       switch (arch) {
-        case "arm64": {
-          return ["aarch64-apple-darwin"]
+        case 'arm64': {
+          return ['aarch64-apple-darwin']
         }
-        case "x64": {
-          return ["x86_64-apple-darwin"]
+        case 'x64': {
+          return ['x86_64-apple-darwin']
         }
       }
     }
-    case "linux": {
+    case 'linux': {
       switch (arch) {
-        case "arm64": {
+        case 'arm64': {
           if (musl) {
-            return ["aarch64-unknown-linux-musl", "aarch64-unknown-linux-gnu"]
+            return ['aarch64-unknown-linux-musl', 'aarch64-unknown-linux-gnu']
           }
-          return ["aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl"]
+          return ['aarch64-unknown-linux-gnu', 'aarch64-unknown-linux-musl']
         }
-        case "x64": {
+        case 'x64': {
           if (musl) {
-            return ["x86_64-unknown-linux-musl", "x86_64-unknown-linux-gnu"]
+            return ['x86_64-unknown-linux-musl', 'x86_64-unknown-linux-gnu']
           }
-          return ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"]
+          return ['x86_64-unknown-linux-gnu', 'x86_64-unknown-linux-musl']
         }
       }
     }
 
-    case "win32": {
+    case 'win32': {
       switch (arch) {
-        case "x64": {
-          return ["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"]
+        case 'x64': {
+          return ['x86_64-pc-windows-msvc', 'x86_64-pc-windows-gnu']
         }
       }
     }
@@ -180,7 +182,7 @@ export function getAssetNames(
 }
 
 export function getBinName(bin: string) {
-  return process.platform === "win32" ? `${bin}.exe` : bin
+  return process.platform === 'win32' ? `${bin}.exe` : bin
 }
 
 export function parseDownloadUrl(url: string) {
@@ -201,7 +203,7 @@ export function parseDownloadUrl(url: string) {
 
 export function isMusl() {
   let musl = false
-  if (process.platform === "linux") {
+  if (process.platform === 'linux') {
     musl = isMuslFromFilesystem()
     if (musl === null) {
       musl = isMuslFromReport()
@@ -214,18 +216,18 @@ export function isMusl() {
 }
 
 const isFileMusl = (f: string) =>
-  f.includes("libc.musl-") || f.includes("ld-musl-")
+  f.includes('libc.musl-') || f.includes('ld-musl-')
 
 const isMuslFromFilesystem = () => {
   try {
-    return readFileSync("/usr/bin/ldd", "utf-8").includes("musl")
+    return readFileSync('/usr/bin/ldd', 'utf-8').includes('musl')
   } catch {
     return false
   }
 }
 
 const isMuslFromReport = () => {
-  const report: any = typeof process.report.getReport === "function"
+  const report: any = typeof process.report.getReport === 'function'
     ? process.report.getReport()
     : null
   if (!report) {
@@ -244,9 +246,9 @@ const isMuslFromReport = () => {
 
 const isMuslFromChildProcess = () => {
   try {
-    return require("child_process")
-      .execSync("ldd --version", { encoding: "utf8" })
-      .includes("musl")
+    return require('child_process')
+      .execSync('ldd --version', { encoding: 'utf8' })
+      .includes('musl')
   } catch (e) {
     // If we reach this case, we don't know if the system is musl or not, so is better to just fallback to false
     return false
@@ -282,4 +284,16 @@ export function isHashFile(s: string): boolean {
 
 export function isMsys() {
   return !!process.env['MSYSTEM']
+}
+
+export function addExecutePermission(filePath: string) {
+  try {
+    fs.chmodSync(filePath, 0o755)
+  } catch (error) {
+    console.error('Failed to add execute permission', error)
+  }
+}
+
+export function atomiInstall(src: string, dst: string) {
+  fs.copyFileSync(src, dst)
 }

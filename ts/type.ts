@@ -5,8 +5,8 @@ export type Input = {
 }
 
 export type Output = {
-  version: string
-  installDir: string
+  installDir?: string
+  installPath?: string
   downloadUrl: string
 }
 
@@ -21,16 +21,16 @@ export type Artifacts = {
 }
 
 export type GhAsset = {
-  executable_name: string,
-  executable_dir: string,
-  name: string,
-  path: string,
+  executable_name: string
+  executable_dir: string
+  name: string
+  path: string
   kind: string
 }
 export type Artifact = {
-  kind: string,
-  name: string,
-  target_triples?: string[],
+  kind: string
+  name: string
+  target_triples?: string[]
   assets?: GhAsset[]
 }
 

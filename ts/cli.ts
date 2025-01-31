@@ -1,7 +1,7 @@
-import { run } from "./setup";
+import { run } from './setup'
 
 run({
-  url: "https://github.com/ahaoboy/easy-install",
-  version: "latest",
-  bin: "ei",
+  url: 'https://github.com/ahaoboy/easy-install',
+  version: 'latest',
+  bin: 'ei',
 })
