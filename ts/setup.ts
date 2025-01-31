@@ -7,7 +7,7 @@ import { install } from './install'
 
 const STEAL_CLI_DIR = path.join(__dirname, 'steal-cli')
 
-export async function setup(input: Input): Promise<Output> {
+export async function setup(input: Input): Promise<Output | undefined> {
   return install(input, STEAL_CLI_DIR)
 }
 

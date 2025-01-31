@@ -9,6 +9,6 @@ export async function manifestInstall(dist: DistManifest, dir?: string) {
     return undefined
   }
   for (const url of v) {
-    artifactInstall(url, dist, dir)
+    await artifactInstall(url, dist, dir)
   }
 }

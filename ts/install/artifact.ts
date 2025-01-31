@@ -14,7 +14,7 @@ import {
   extractTo,
   isArchiveFile,
 } from '../tool'
-import { DistManifest } from '../type'
+import { DistManifest, Output } from '../type'
 import { fileInstall } from './file'
 import { readdirSync, statSync } from 'fs'
 
@@ -22,9 +22,10 @@ async function downloadAndInstall(
   url: string,
   dist?: DistManifest,
   dir?: string,
-) {
+): Promise<undefined | Output> {
   const tmpPath = await downloadToFile(url)
   const tmpDir = await extractTo(tmpPath)
+  console.log(tmpDir, tmpPath)
 
   const getEntry = (p: string) => {
     return join(tmpDir, p)
@@ -66,17 +67,21 @@ async function downloadAndInstall(
         addExecutePermission(dst)
         v.push([top, dst].join(' -> ').replaceAll('\\', '/'))
       } else if (info.isDirectory()) {
-        for (const i of readdirSync(top)) {
+        const curDir = join(tmpDir, top)
+        for (const i of readdirSync(curDir)) {
           const next = join(top, i).replaceAll('\\', '/')
           q.push(next)
         }
       }
-
-      if (v.length) {
-        console.log('No files installed')
-      } else {
-        console.log('Installation Successful')
-        console.log(v.join('\n'))
+    }
+    if (!v.length) {
+      console.log('No files installed')
+    } else {
+      console.log('Installation Successful')
+      console.log(v.join('\n'))
+      return {
+        downloadUrl: url,
+        installDir
       }
     }
   }
@@ -85,7 +90,7 @@ export async function artifactInstall(
   artUrl: string,
   dist?: DistManifest,
   dir?: string,
-) {
+): Promise<undefined | Output> {
   const v = await getArtifactDownloadUrl(artUrl)
   if (v.length === 0) {
     console.log(`not found download_url for ${artUrl}`)
@@ -97,6 +102,6 @@ export async function artifactInstall(
   }
   for (const url of v) {
     console.log(`download ${url}`)
-    await downloadAndInstall(url, dist, dir)
+    return await downloadAndInstall(url, dist, dir)
   }
 }

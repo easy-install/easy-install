@@ -297,3 +297,7 @@ export function addExecutePermission(filePath: string) {
 export function atomiInstall(src: string, dst: string) {
   fs.copyFileSync(src, dst)
 }
+
+export function isDistManfiest(s: string) {
+  return s.endsWith('.json')
+}
