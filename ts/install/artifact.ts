@@ -10,13 +10,14 @@ import { getInstallDir } from '../env'
 import {
   addExecutePermission,
   atomiInstall,
+  cleanPath,
   detectTargets,
   extractTo,
   isArchiveFile,
 } from '../tool'
 import { DistManifest, Output } from '../type'
 import { fileInstall } from './file'
-import { readdirSync, statSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 
 async function downloadAndInstall(
   url: string,
@@ -25,7 +26,6 @@ async function downloadAndInstall(
 ): Promise<undefined | Output> {
   const tmpPath = await downloadToFile(url)
   const tmpDir = await extractTo(tmpPath)
-  console.log(tmpDir, tmpPath)
 
   const getEntry = (p: string) => {
     return join(tmpDir, p)
@@ -33,9 +33,57 @@ async function downloadAndInstall(
 
   const targets = detectTargets()
   const art = dist ? getArtifact(dist, targets) : undefined
-  const exeDir = art ? getAssetsExecutableDir(art) : undefined
+  const asset = art ? getAssetsExecutableDir(art) : undefined
 
-  if (exeDir && art) {
+  if (asset && art) {
+    let installDir = getInstallDir()
+    const targetDir = dir ?? asset.name
+    if (targetDir.includes('/') || targetDir.includes('\\')) {
+      installDir = targetDir
+    } else {
+      installDir = join(installDir, targetDir)
+    }
+
+    const prefix = asset.path ?? '.'
+    const q = [prefix]
+    const v: string[] = []
+    while (q.length) {
+      const top = q.shift()!
+      const entry = getEntry(top)
+      const info = statSync(entry)
+      if (info.isFile()) {
+        const src = join(tmpDir, top)
+        const dst = join(installDir, top.replace(prefix + '/', ''))
+        const dstDir = dst.split('/').slice(0, -1).join('/')
+        if (!existsSync(dstDir)) {
+          mkdirSync(dstDir, { recursive: true })
+        }
+
+        atomiInstall(src, dst)
+        addExecutePermission(dst)
+        v.push([top, dst].join(' -> '))
+      } else if (info.isDirectory()) {
+        const curDir = join(tmpDir, top)
+        for (const i of readdirSync(curDir)) {
+          const next = cleanPath(join(top, i).replaceAll('\\', '/'))
+          q.push(next)
+        }
+      }
+    }
+
+    if (!v.length) {
+      console.log('No files installed')
+    } else {
+      console.log('Installation Successful')
+      console.log(v.join('\n'))
+      if (asset.executable_dir) {
+        installDir = join(installDir, asset.executable_dir)
+      }
+      return {
+        downloadUrl: url,
+        installDir,
+      }
+    }
   } else {
     let installDir = getInstallDir()
     if (dir) {
@@ -69,7 +117,7 @@ async function downloadAndInstall(
       } else if (info.isDirectory()) {
         const curDir = join(tmpDir, top)
         for (const i of readdirSync(curDir)) {
-          const next = join(top, i).replaceAll('\\', '/')
+          const next = cleanPath(join(top, i).replaceAll('\\', '/'))
           q.push(next)
         }
       }
@@ -81,7 +129,7 @@ async function downloadAndInstall(
       console.log(v.join('\n'))
       return {
         downloadUrl: url,
-        installDir
+        installDir,
       }
     }
   }

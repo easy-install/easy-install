@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import {
+  cleanPath,
   download,
   extractTo,
   getAssetNames,
@@ -192,5 +193,18 @@ test('toMsysPath', () => {
     ]
   ) {
     expect(toMsysPath(a)).toEqual(b)
+  }
+})
+
+test('cleanPath', () => {
+  for (
+    const [a, b] of [
+      ['/a/b', '/a/b'],
+      ['./a/b', 'a/b'],
+      ['/a/b/../c', '/a/c'],
+      ['a/b', 'a/b'],
+    ]
+  ) {
+    expect(cleanPath(a)).toEqual(b)
   }
 })

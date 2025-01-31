@@ -1,4 +1,4 @@
-import { run } from './setup'
+import { run } from './run'
 
 run({
   url: 'https://github.com/ahaoboy/easy-install',

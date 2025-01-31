@@ -301,3 +301,20 @@ export function atomiInstall(src: string, dst: string) {
 export function isDistManfiest(s: string) {
   return s.endsWith('.json')
 }
+
+export function cleanPath(path: string): string {
+  const parts = path.replaceAll('\\', '/').split('/')
+  const stack: string[] = []
+
+  for (const part of parts.filter((p) => p !== '' && p !== '.')) {
+    if (part === '..') {
+      if (stack.length > 0) {
+        stack.pop()
+      }
+    } else {
+      stack.push(part)
+    }
+  }
+
+  return (parts[0] === '' ? '/' : '') + stack.join('/')
+}

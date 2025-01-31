@@ -1,7 +1,13 @@
 import { readDistManfiest } from '../dist-manifest'
 import { downloadJson } from '../download'
 import { Repo } from '../repo'
-import { download, extractTo, isArchiveFile, isDistManfiest, isUrl } from '../tool'
+import {
+  download,
+  extractTo,
+  isArchiveFile,
+  isDistManfiest,
+  isUrl,
+} from '../tool'
 import type { DistManifest, Input, Output } from '../type'
 import { artifactInstall } from './artifact'
 import { manifestInstall } from './manifest'
@@ -12,9 +18,11 @@ export async function install(
 ): Promise<Output | undefined> {
   const { url, version = 'latest', bin } = input
   if (isDistManfiest(url)) {
-    const dist: DistManifest | undefined = isUrl(url) ? await downloadJson(url) : readDistManfiest(url)
+    const dist: DistManifest | undefined = isUrl(url)
+      ? await downloadJson(url)
+      : readDistManfiest(url)
     if (!dist) {
-      console.log("failed to read dist-manifest.json")
+      console.log('failed to read dist-manifest.json')
       return
     }
     return await manifestInstall(dist, installDir)
