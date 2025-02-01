@@ -13,7 +13,7 @@
       ]
     },
     "https://github.com/ip7z/7zip/releases/download/24.09/7z.*?-x64.exe": {
-      "name": "7z.exe",
+      "name": "7z",
       "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }

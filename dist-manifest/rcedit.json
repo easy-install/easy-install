@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "https://github.com/electron/rcedit/releases/latest/download/rcedit-x64.exe": {
-      "name": "rcedit.exe",
+      "name": "rcedit",
       "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }

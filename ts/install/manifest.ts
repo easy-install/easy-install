@@ -5,11 +5,11 @@ import { artifactInstall } from './artifact'
 export async function manifestInstall(
   dist: DistManifest,
   dir?: string,
-  manifestUrl?: string
+  manifestUrl?: string,
 ): Promise<Output> {
   const v = await getArtifactUrlFromManfiest(dist, manifestUrl)
   if (!v.length) {
-    console.log('manifestInstall failed')
+    console.log('failed to install from manifest')
     return []
   }
   const list: Output = []

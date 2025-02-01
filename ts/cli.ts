@@ -3,6 +3,11 @@ import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 
 const [url, name, version] = process.argv.slice(2)
 
+if (!url) {
+  console.log('usage:\nei <url>')
+  process.exit()
+}
+
 install({
   url,
   version,

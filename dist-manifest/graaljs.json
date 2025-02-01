@@ -7,7 +7,7 @@
           "name": "graaljs",
           "path": "graaljs-24.1.2-windows-amd64",
           "kind": "executable-dir",
-          "executable_dir": "bin"
+          "executable_dir": "graaljs-24.1.2-windows-amd64/bin"
         }
       ]
     },
@@ -18,7 +18,7 @@
           "name": "graaljs",
           "path": "graaljs-24.1.2-linux-amd64",
           "kind": "executable-dir",
-          "executable_dir": "bin"
+          "executable_dir": "graaljs-24.1.2-linux-amd64/bin"
         }
       ]
     },
@@ -29,7 +29,7 @@
           "name": "graaljs",
           "path": "graaljs-24.1.2-macos-amd64",
           "kind": "executable-dir",
-          "executable_dir": "bin"
+          "executable_dir": "graaljs-24.1.2-macos-amd64/bin"
         }
       ]
     },
@@ -40,7 +40,7 @@
           "name": "graaljs",
           "path": "graaljs-24.1.2-macos-aarch64",
           "kind": "executable-dir",
-          "executable_dir": "bin"
+          "executable_dir": "graaljs-24.1.2-macos-aarch64/bin"
         }
       ]
     }
