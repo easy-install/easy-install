@@ -21,20 +21,21 @@ import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 
 async function downloadAndInstall(
+  artUrl: string,
   downloadUrl: string,
   dist?: DistManifest,
   dir?: string,
 ): Promise<Output> {
+  const targets = detectTargets()
+  const art = (dist ? (dist.artifacts[artUrl] || getArtifact(dist, targets)) : undefined)
+  const asset = art ? getAssetsExecutableDir(art) : undefined
+
   const tmpPath = await downloadToFile(downloadUrl)
   const tmpDir = await extractTo(tmpPath)
 
   const getEntry = (p: string) => {
     return join(tmpDir, p)
   }
-
-  const targets = detectTargets()
-  const art = dist ? getArtifact(dist, targets) : undefined
-  const asset = art ? getAssetsExecutableDir(art) : undefined
 
   if (asset && art) {
     let installDir = getInstallDir()
@@ -153,7 +154,7 @@ export async function artifactInstall(
   for (const downloadUrl of v) {
     console.log(`download ${downloadUrl}`)
     return isArchiveFile(downloadUrl)
-      ? await downloadAndInstall(downloadUrl, dist, dir)
+      ? await downloadAndInstall(artUrl, downloadUrl, dist, dir)
       : await fileInstall({ url: artUrl }, downloadUrl, dist, dir)
   }
 
