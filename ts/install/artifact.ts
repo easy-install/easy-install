@@ -20,11 +20,11 @@ import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 
 async function downloadAndInstall(
-  url: string,
+  downloadUrl: string,
   dist?: DistManifest,
   dir?: string,
 ): Promise<Output> {
-  const tmpPath = await downloadToFile(url)
+  const tmpPath = await downloadToFile(downloadUrl)
   const tmpDir = await extractTo(tmpPath)
 
   const getEntry = (p: string) => {
@@ -83,7 +83,7 @@ async function downloadAndInstall(
         installDir = join(installDir, asset.executable_dir)
       }
       return [{
-        downloadUrl: url,
+        downloadUrl,
         installDir,
       }]
     }
@@ -131,7 +131,7 @@ async function downloadAndInstall(
       console.log('Installation Successful')
       console.log(v.join('\n'))
       return [{
-        downloadUrl: url,
+        downloadUrl,
         installDir,
       }]
     }
@@ -148,13 +148,12 @@ export async function artifactInstall(
     console.log(`not found download_url for ${artUrl}`)
     return []
   }
-  if (v.length === 1 && !isArchiveFile(v[0])) {
-    console.log(`download ${v[0]}`)
-    return await fileInstall({ url: v[0] }, dist, dir)
+  for (const downloadUrl of v) {
+    console.log(`download ${downloadUrl}`)
+    return isArchiveFile(downloadUrl)
+      ? await downloadAndInstall(downloadUrl, dist, dir)
+      : await fileInstall({ url: artUrl }, downloadUrl, dist, dir)
   }
-  for (const url of v) {
-    console.log(`download ${url}`)
-    return await downloadAndInstall(url, dist, dir)
-  }
+
   return []
 }

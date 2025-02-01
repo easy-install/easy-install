@@ -12,6 +12,7 @@ export type FileInstall = {
 
 export async function fileInstall(
   info: FileInstall,
+  downloadUrl: string,
   dist?: DistManifest,
   dir?: string,
 ): Promise<Output> {
@@ -25,21 +26,20 @@ export async function fileInstall(
   }
 
   const { url, name } = info
-  const filename = name ?? url.split('/').at(-1)!
+  const filename = name ?? downloadUrl.split('/').at(-1)!
 
   if (!dist) {
     const installPath = join(installDir, getBinName(filename))
-    await downloadToFile(url, installPath)
+    await downloadToFile(downloadUrl, installPath)
     return [{
-      downloadUrl: url,
+      downloadUrl,
       installPath,
       installDir,
     }]
   }
-
   const artifact = dist?.['artifacts'][url]
   if (artifact) {
-    const bin = await downloadBinary(url)
+    const bin = await downloadBinary(downloadUrl)
     const name = artifact.name ?? filename
     const installPath = join(installDir, getBinName(name))
     if (!existsSync(installDir)) {
@@ -48,9 +48,9 @@ export async function fileInstall(
     writeFileSync(installPath, new Uint8Array(bin))
     addExecutePermission(installPath)
     console.log('Installation Successful')
-    console.log([url, installPath.replaceAll('\\', '/')].join(' -> '))
+    console.log([downloadUrl, installPath.replaceAll('\\', '/')].join(' -> '))
     return [{
-      downloadUrl: url,
+      downloadUrl,
       installPath,
       installDir,
     }]

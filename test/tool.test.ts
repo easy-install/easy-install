@@ -5,7 +5,6 @@ import {
   extractTo,
   getAssetNames,
   isArchiveFile,
-  isMsys,
   toMsysPath,
 } from '../ts/tool'
 import * as path from 'path'
@@ -21,7 +20,6 @@ import {
   hasFile,
   readDistManfiest,
 } from '../ts/dist-manifest'
-import { assert } from 'console'
 
 test('getAssetNames', () => {
   expect(getAssetNames('deno', 'win32', 'x64')).toEqual([
