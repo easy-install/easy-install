@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, basename } from 'path'
 import {
   getArtifact,
   getArtifactDownloadUrl,
@@ -13,6 +13,7 @@ import {
   cleanPath,
   detectTargets,
   extractTo,
+  getBinName,
   isArchiveFile,
 } from '../tool'
 import { DistManifest, Output } from '../type'
@@ -56,11 +57,11 @@ async function downloadAndInstall(
       const info = statSync(entry)
       if (info.isFile()) {
         const src = join(tmpDir, top)
-        const dst = join(installDir, top.replace(prefix + '/', '')).replaceAll(
+        const dst = join(installDir, top.replaceAll(
           '\\',
           '/',
-        )
-        const dstDir = dst.split('/').slice(0, -1).join('/')
+        ).replace(prefix + '/', ''))
+        const dstDir = basename(dst)
         if (!existsSync(dstDir)) {
           mkdirSync(dstDir, { recursive: true })
         }
@@ -111,10 +112,16 @@ async function downloadAndInstall(
           continue
         }
 
-        const filename = top.split('/').at(-1)!
+        const filename = basename(top)
         const asset = art?.assets?.find((i) => i.path === top)
-        const name = asset?.name ?? filename
-        const src = join(tmpDir, asset?.path ?? name)
+        if (!asset) {
+          continue
+        }
+        let name = filename
+        if (asset.name) {
+          name = getBinName(asset.name)
+        }
+        const src = join(tmpDir, asset.path)
         const dst = join(installDir, name)
         atomiInstall(src, dst)
         addExecutePermission(dst)

@@ -102,9 +102,9 @@ export class Repo {
       : `https://github.com/${this.owner}/${this.name}/releases/latest/download/dist-manifest.json`
   }
 
-  getManfiest(): Promise<DistManifest | undefined> {
+  async getManfiest(): Promise<DistManifest | undefined> {
     try {
-      return downloadJson(this.getManfiestUrl())
+      return await downloadJson(this.getManfiestUrl())
     } finally {
     }
   }

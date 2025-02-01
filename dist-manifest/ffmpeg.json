@@ -9,7 +9,7 @@
           "name": "ffmpeg",
           "path": "ffmpeg-n7.1-latest-win64-gpl-7.1",
           "kind": "executable-dir",
-          "executable_dir": "ffmpeg-n7.1-latest-win64-gpl-7.1/bin"
+          "executable_dir": "bin"
         }
       ]
     },
@@ -22,7 +22,7 @@
           "name": "ffmpeg",
           "path": "ffmpeg-n7.1-latest-linux64-gpl-7.1",
           "kind": "executable-dir",
-          "executable_dir": "ffmpeg-n7.1-latest-linux64-gpl-7.1/bin"
+          "executable_dir": "bin"
         }
       ]
     }

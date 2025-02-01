@@ -187,9 +187,12 @@ jobs:
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
           ./cli/cli.js https://github.com/ahaoboy/neofetch
           ./cli/cli.js https://github.com/axodotdev/cargo-dist
-          ./cli/cli.js https://github.com/denoland/deno
+          ./cli/cli.js https://github.com/ahaoboy/jsc-build
+          ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
+          ./cli/cli.js https://github.com/ahaoboy/v8-build
 
           for file in ./dist-manifest/*.json; do
+            echo $file
             ./cli/cli.js $file
           done
 
