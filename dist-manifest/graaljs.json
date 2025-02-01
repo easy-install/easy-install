@@ -27,7 +27,7 @@
       "assets": [
         {
           "name": "graaljs",
-          "path": "graaljs-24.1.2-linux-amd64",
+          "path": "graaljs-24.1.2-macos-amd64",
           "kind": "executable-dir",
           "executable_dir": "bin"
         }
@@ -38,7 +38,7 @@
       "assets": [
         {
           "name": "graaljs",
-          "path": "graaljs-24.1.2-linux-amd64",
+          "path": "graaljs-24.1.2-macos-aarch64",
           "kind": "executable-dir",
           "executable_dir": "bin"
         }
