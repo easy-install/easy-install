@@ -26,6 +26,7 @@ export async function run(
 
 export async function runManifest(
   manifest: DistManifest,
+  name?: string,
   installDir = CLI_DIR,
   args = process.argv.slice(2),
 ) {
@@ -34,7 +35,7 @@ export async function runManifest(
     console.log('not found artifact')
     return
   }
-  const binPath = join(installDir, getBinName(art.name))
+  const binPath = join(installDir, getBinName(name ?? art.name))
   if (!existsSync(binPath)) {
     await setupManifest(manifest, installDir)
   }

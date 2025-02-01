@@ -15,7 +15,7 @@ import { manifestInstall } from './manifest'
 
 export async function install(
   input: Input,
-  installDir: string = getInstallDir(),
+  installDir?: string,
 ): Promise<Output> {
   const { url, version = 'latest', name: bin } = input
   if (isDistManfiest(url)) {

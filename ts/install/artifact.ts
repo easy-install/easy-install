@@ -53,7 +53,10 @@ async function downloadAndInstall(
       const info = statSync(entry)
       if (info.isFile()) {
         const src = join(tmpDir, top)
-        const dst = join(installDir, top.replace(prefix + '/', ''))
+        const dst = join(installDir, top.replace(prefix + '/', '')).replaceAll(
+          '\\',
+          '/',
+        )
         const dstDir = dst.split('/').slice(0, -1).join('/')
         if (!existsSync(dstDir)) {
           mkdirSync(dstDir, { recursive: true })
