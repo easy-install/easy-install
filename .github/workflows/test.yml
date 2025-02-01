@@ -231,7 +231,7 @@ jobs:
         if: matrix.os == 'ubuntu-24.04'
         run: |
           echo $PATH
-          cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
+          mv /home/runner/easy-install/graaljs/bin/js /home/runner/easy-install/graaljs/bin/graaljs
           # cat ~/.bashrc
           # source ~/.bashrc
           # echo $PATH
