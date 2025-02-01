@@ -190,7 +190,7 @@ jobs:
           ./cli/cli.js https://github.com/denoland/deno
 
           for file in ./dist-manifest/*.json; do
-            ./cli/cli.js "./dist-manifest/$file"
+            ./cli/cli.js $file
           done
 
       - name: test windows
