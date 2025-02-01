@@ -109,24 +109,6 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
   return oriDir
 }
 
-export function getPlatforms(os = process.platform) {
-  let platforms: string[]
-  switch (os) {
-    case 'linux':
-      platforms = ['unknown-linux-gnu']
-      break
-    case 'darwin':
-      platforms = ['apple-darwin']
-      break
-    case 'win32':
-      platforms = ['pc-windows-msvc', 'pc-windows-gnu']
-      break
-    default:
-      throw new Error(`Unsupported platform ${os}.`)
-  }
-  return platforms
-}
-
 export function detectTargets(
   platform = process.platform,
   arch = process.arch,
