@@ -34,6 +34,12 @@ export async function install(
   }
   const repo = Repo.fromUrl(url)
   if (repo) {
+    const distUrl = repo.getManfiestUrl()
+    const dist = await repo.getManfiest()
+    if (dist) {
+      return manifestInstall(dist, installDir, distUrl)
+    }
+
     const downloadUrlList = await repo.getAssetUrlList(
       bin?.length ? bin : undefined,
       version,
