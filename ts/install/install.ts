@@ -16,7 +16,7 @@ import { manifestInstall } from './manifest'
 export async function install(
   input: Input,
   installDir: string = getInstallDir(),
-): Promise<Output | undefined> {
+): Promise<Output> {
   const { url, version = 'latest', name: bin } = input
   if (isDistManfiest(url)) {
     const dist: DistManifest | undefined = isUrl(url)
@@ -24,7 +24,7 @@ export async function install(
       : readDistManfiest(url)
     if (!dist) {
       console.log('failed to read dist-manifest.json')
-      return
+      return []
     }
     return await manifestInstall(dist, installDir)
   }
@@ -34,18 +34,26 @@ export async function install(
   }
   const repo = Repo.fromUrl(url)
   if (repo) {
-    const downloadUrl = await repo.getAssetUrl(
+    const downloadUrlList = await repo.getAssetUrlList(
       bin?.length ? bin : undefined,
       version,
     )
-    const downloadPath = await download(downloadUrl)
-    await extractTo(downloadPath, installDir)
-    return {
-      // version,
-      installDir,
-      downloadUrl,
+
+    const v: Output = []
+    for (const i of downloadUrlList) {
+      console.log(`download ${i}`)
+      const downloadPath = await download(i)
+      await extractTo(downloadPath, installDir)
+      v.push({
+        installDir,
+        downloadUrl: i,
+      })
     }
+
+    console.log(v.map((i) => `${i.downloadUrl} -> ${i.installDir}`).join('\n'))
+    return v
   }
 
   console.log('failed to install', url, version, bin)
+  return []
 }

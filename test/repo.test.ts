@@ -16,10 +16,10 @@ test('getReleasesApiUrl', () => {
 
 test('getAssetUrl', async () => {
   const repo = Repo.fromUrl('https://github.com/denoland/deno')!
-  expect(await repo.getAssetUrl('deno', 'v2.1.6', 'win32', 'x64')).toEqual(
+  expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'win32', 'x64')).toEqual(
     'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-pc-windows-msvc.zip',
   )
-  expect(await repo.getAssetUrl('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
+  expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
     'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip',
   )
 })

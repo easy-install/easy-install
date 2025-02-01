@@ -1,3 +1,4 @@
+import { platform } from 'os'
 import { downloadJson } from './download'
 import {
   detectTargets,
@@ -46,21 +47,45 @@ export class Repo {
     return json as Artifacts
   }
 
-  async getAssetUrl(
-    bin = this.name,
+  async getAssetUrlList(
+    bin: string | undefined,
     tag = 'latest',
     os = process.platform,
     arch = process.arch,
-  ) {
+  ): Promise<string[]> {
     const releases = await this.getRelease(tag)
-    const names = getAssetNames(bin, os, arch)
-    const asset = releases.assets.find((asset) => {
-      return names.some((i) => asset.name.startsWith(i))
-    })
-    if (!asset) {
+    if (bin) {
+      const names = getAssetNames(bin, os, arch)
+      const asset = releases.assets.find((asset) => {
+        return names.some((i) => asset.name.startsWith(i))
+      })
+      if (!asset) {
+        throw new Error(`No asset found for ${bin} ${tag} ${os} ${arch}`)
+      }
+      return [asset.browser_download_url]
+    }
+    const targets = detectTargets(os, arch)
+    const filter = new Set<string>()
+    const v: string[] = []
+    for (const asset of releases.assets) {
+      if (isHashFile(asset.url)) {
+        continue
+      }
+      for (const i of targets) {
+        const index = asset.name.indexOf(i)
+        if (index !== -1) {
+          const bin = asset.name.slice(0, index)
+          if (!filter.has(bin)) {
+            v.push(asset.browser_download_url)
+          }
+          filter.add(bin)
+        }
+      }
+    }
+    if (!v.length) {
       throw new Error(`No asset found for ${bin} ${tag} ${os} ${arch}`)
     }
-    return asset.browser_download_url
+    return v
   }
 
   getArtifactApi(): string {

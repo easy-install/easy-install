@@ -23,7 +23,7 @@ async function downloadAndInstall(
   url: string,
   dist?: DistManifest,
   dir?: string,
-): Promise<undefined | Output> {
+): Promise<Output> {
   const tmpPath = await downloadToFile(url)
   const tmpDir = await extractTo(tmpPath)
 
@@ -79,10 +79,10 @@ async function downloadAndInstall(
       if (asset.executable_dir) {
         installDir = join(installDir, asset.executable_dir)
       }
-      return {
+      return [{
         downloadUrl: url,
         installDir,
-      }
+      }]
     }
   } else {
     let installDir = getInstallDir()
@@ -127,22 +127,23 @@ async function downloadAndInstall(
     } else {
       console.log('Installation Successful')
       console.log(v.join('\n'))
-      return {
+      return [{
         downloadUrl: url,
         installDir,
-      }
+      }]
     }
   }
+  return []
 }
 export async function artifactInstall(
   artUrl: string,
   dist?: DistManifest,
   dir?: string,
-): Promise<undefined | Output> {
+): Promise<Output> {
   const v = await getArtifactDownloadUrl(artUrl)
   if (v.length === 0) {
     console.log(`not found download_url for ${artUrl}`)
-    return
+    return []
   }
   if (v.length === 1 && !isArchiveFile(v[0])) {
     console.log(`download ${v[0]}`)
@@ -152,4 +153,5 @@ export async function artifactInstall(
     console.log(`download ${url}`)
     return await downloadAndInstall(url, dist, dir)
   }
+  return []
 }

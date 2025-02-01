@@ -14,7 +14,7 @@ export async function fileInstall(
   info: FileInstall,
   dist?: DistManifest,
   dir?: string,
-): Promise<Output | undefined> {
+): Promise<Output> {
   let installDir: string = getInstallDir()
   if (dir) {
     if (dir.includes('/') || dir.includes('\\')) {
@@ -30,11 +30,11 @@ export async function fileInstall(
   if (!dist) {
     const installPath = join(installDir, getBinName(filename))
     await downloadToFile(url, installPath)
-    return {
+    return [{
       downloadUrl: url,
       installPath,
       installDir,
-    }
+    }]
   }
 
   const artifact = dist?.['artifacts'][url]
@@ -49,12 +49,13 @@ export async function fileInstall(
     addExecutePermission(installPath)
     console.log('Installation Successful')
     console.log([url, installPath.replaceAll('\\', '/')].join(' -> '))
-    return {
+    return [{
       downloadUrl: url,
       installPath,
       installDir,
-    }
+    }]
   } else {
     console.log(`not found/download artifact for ${url}`)
   }
+  return []
 }

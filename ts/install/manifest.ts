@@ -1,14 +1,19 @@
 import { getArtifactUrlFromManfiest } from '../dist-manifest'
-import { DistManifest } from '../type'
+import { DistManifest, Output } from '../type'
 import { artifactInstall } from './artifact'
 
-export async function manifestInstall(dist: DistManifest, dir?: string) {
+export async function manifestInstall(
+  dist: DistManifest,
+  dir?: string,
+): Promise<Output> {
   const v = await getArtifactUrlFromManfiest(dist)
   if (!v.length) {
     console.log('manifestInstall failed')
-    return undefined
+    return []
   }
+  const list: Output = []
   for (const url of v) {
-    await artifactInstall(url, dist, dir)
+    list.push(...await artifactInstall(url, dist, dir))
   }
+  return list
 }

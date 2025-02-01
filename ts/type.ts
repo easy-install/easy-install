@@ -8,7 +8,7 @@ export type Output = {
   installDir?: string
   installPath?: string
   downloadUrl: string
-}
+}[]
 
 export type Asset = {
   name: string
