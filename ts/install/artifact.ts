@@ -13,6 +13,7 @@ import {
   cleanPath,
   detectTargets,
   extractTo,
+  getBinName,
   isArchiveFile,
 } from '../tool'
 import { DistManifest, Output } from '../type'
@@ -109,10 +110,11 @@ async function downloadAndInstall(
         }
 
         const filename = top.split('/').at(-1)!
-        const name = art?.assets?.find((i) =>
+        const asset = art?.assets?.find((i) =>
           i.path === top
-        )?.executable_name ?? filename
-        const src = join(tmpDir, name)
+        )
+        const name = getBinName(asset?.name ?? filename)
+        const src = join(tmpDir, asset?.path ?? name)
         const dst = join(installDir, name)
         atomiInstall(src, dst)
         addExecutePermission(dst)
