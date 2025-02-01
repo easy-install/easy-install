@@ -1,4 +1,4 @@
-import { join, basename } from 'path'
+import { basename, join } from 'path'
 import {
   getArtifact,
   getArtifactDownloadUrl,
@@ -57,10 +57,13 @@ async function downloadAndInstall(
       const info = statSync(entry)
       if (info.isFile()) {
         const src = join(tmpDir, top)
-        const dst = join(installDir, top.replaceAll(
-          '\\',
-          '/',
-        ).replace(prefix + '/', ''))
+        const dst = join(
+          installDir,
+          top.replaceAll(
+            '\\',
+            '/',
+          ).replace(prefix + '/', ''),
+        )
         const dstDir = basename(dst)
         if (!existsSync(dstDir)) {
           mkdirSync(dstDir, { recursive: true })

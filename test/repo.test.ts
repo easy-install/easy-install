@@ -117,7 +117,7 @@ test('getManfiest', async () => {
     'https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json',
   )
   const json = await repo.getManfiest()
-  expect(json.artifacts['cargo-dist-x86_64-apple-darwin.tar.xz'].name).toEqual(
+  expect(json!.artifacts['cargo-dist-x86_64-apple-darwin.tar.xz'].name).toEqual(
     'cargo-dist-x86_64-apple-darwin.tar.xz',
   )
 })

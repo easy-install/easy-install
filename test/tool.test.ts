@@ -95,7 +95,7 @@ test('extractTo', async () => {
 
 test('manifest_jsc', async () => {
   const repo = new Repo('ahaoboy', 'jsc-build')
-  const dist = await repo.getManfiest()
+  const dist = (await repo.getManfiest())!
   const art = getArtifact(dist, ['x86_64-unknown-linux-gnu'])!
   for (
     const [k, v] of [
@@ -110,7 +110,7 @@ test('manifest_jsc', async () => {
 
 test('manifest_mujs', async () => {
   const repo = new Repo('ahaoboy', 'mujs-build')
-  const dist = await repo.getManfiest()
+  const dist = (await repo.getManfiest())!
   const art = getArtifact(dist, ['x86_64-unknown-linux-gnu'])!
   for (
     const [k, v] of [

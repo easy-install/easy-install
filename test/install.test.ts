@@ -23,8 +23,8 @@ test('fileInstall', async () => {
 test('artifactInstall', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
-  const output = await artifactInstall(url)!
-  const mujsPath = join(output[0]?.installDir!, 'mujs')
+  const output = (await artifactInstall(url))!
+  const mujsPath = join(output[0].installDir, 'mujs')
   expect(existsSync(mujsPath)).toEqual(true)
 })
 
@@ -32,6 +32,6 @@ test('artifactInstall ', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
   const output = await artifactInstall(url)!
-  const mujsPath = join(output[0]?.installDir!, 'mujs')
+  const mujsPath = join(output[0].installDir, 'mujs')
   expect(existsSync(mujsPath)).toEqual(true)
 })
