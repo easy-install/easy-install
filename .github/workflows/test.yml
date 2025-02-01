@@ -268,4 +268,4 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: |
           which qjs
-          which qjs-ng
+          which qjsc
