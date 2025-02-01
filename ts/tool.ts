@@ -85,7 +85,10 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
         ? `unzip -o "${compressedFilePath}" -d "${outputDir}"`
         : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
     },
-    { ext: ['.tar'], cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"` },
+    {
+      ext: ['.tar', '.tar.xz'],
+      cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"`,
+    },
     {
       ext: ['.tar.gz', '.tgz'],
       cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,

@@ -11,7 +11,12 @@ test('fileInstall', async () => {
   const output = await fileInstall({ url, name }, url)
   expect(existsSync(output[0]?.installPath!)).toEqual(true)
 
-  const output2 = await fileInstall({ url, name }, url, undefined, 'test-install')
+  const output2 = await fileInstall(
+    { url, name },
+    url,
+    undefined,
+    'test-install',
+  )
   expect(existsSync(output2[0]?.installPath!)).toEqual(true)
 })
 

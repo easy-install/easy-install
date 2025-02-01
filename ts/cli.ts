@@ -7,8 +7,10 @@ install({
   url,
   version,
   name,
-}).then(output => {
-  for (const { installDir } of output) {
+}).then((output) => {
+  for (const item of output) {
+    console.log(JSON.stringify(item))
+    const { installDir } = item
     if (installDir && !hasPath(installDir)) {
       addPath(installDir)
       if (isGithub()) {

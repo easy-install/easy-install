@@ -27,7 +27,9 @@ async function downloadAndInstall(
   dir?: string,
 ): Promise<Output> {
   const targets = detectTargets()
-  const art = (dist ? (dist.artifacts[artUrl] || getArtifact(dist, targets)) : undefined)
+  const art = dist
+    ? (dist.artifacts[artUrl] || getArtifact(dist, targets))
+    : undefined
   const asset = art ? getAssetsExecutableDir(art) : undefined
 
   const tmpPath = await downloadToFile(downloadUrl)
@@ -111,9 +113,7 @@ async function downloadAndInstall(
         }
 
         const filename = top.split('/').at(-1)!
-        const asset = art?.assets?.find((i) =>
-          i.path === top
-        )
+        const asset = art?.assets?.find((i) => i.path === top)
         const name = getBinName(asset?.name ?? filename)
         const src = join(tmpDir, asset?.path ?? name)
         const dst = join(installDir, name)
