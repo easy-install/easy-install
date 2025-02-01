@@ -1,5 +1,5 @@
 import { install } from './install'
-import { addPath, hasPath } from 'crud-path'
+import { addGithubPath, addPath, hasPath } from 'crud-path'
 
 const [url, name, version] = process.argv.slice(2)
 
@@ -11,6 +11,7 @@ install({
   for (const { installDir } of output) {
     if (installDir && !hasPath(installDir)) {
       addPath(installDir)
+      addGithubPath(installDir)
     }
   }
 })
