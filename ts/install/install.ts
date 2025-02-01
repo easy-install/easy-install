@@ -40,6 +40,9 @@ export async function install(
     )
 
     const v: Output = []
+    if (!installDir) {
+      installDir = getInstallDir()
+    }
     for (const i of downloadUrlList) {
       console.log(`download ${i}`)
       const downloadPath = await download(i)

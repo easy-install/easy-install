@@ -1,4 +1,6 @@
+import { getArtifactDownloadUrl } from '../dist-manifest'
 import { Repo } from '../repo'
 
-export function repoInstall(repo: Repo, bin: string, version: string) {
+export async function repoInstall(repo: Repo, name?: string, version?: string) {
+  const artUrl = repo.getArtifactUrls()
 }
