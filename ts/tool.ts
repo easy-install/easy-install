@@ -282,6 +282,14 @@ export function addExecutePermission(filePath: string) {
 }
 
 export function atomiInstall(src: string, dst: string) {
+  const dir = path.dirname(dst)
+  if (fs.existsSync(dir) && fs.statSync(dir).isFile()) {
+    console.log(`delete ${dir}`)
+    fs.rmSync(dir)
+  }
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
   fs.copyFileSync(src, dst)
 }
 
