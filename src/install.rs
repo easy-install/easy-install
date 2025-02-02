@@ -347,6 +347,18 @@ async fn install_from_download_file(
                         dst.push(top.replace(&(prefix.clone() + "/"), ""));
 
                         if let Some(dst_dir) = dst.parent() {
+                            println!(
+                                "dst_dir {:?} {} {} {}",
+                                dst_dir,
+                                dst_dir.exists(),
+                                dst_dir.is_file(),
+                                dst_dir.is_dir()
+                            );
+                            if dst_dir.exists() && dst_dir.is_file() {
+                                std::fs::remove_file(dst_dir)
+                                    .expect(&format!("failed to remove file : {:?}", dst_dir));
+                                println!("remove {:?}", dst_dir);
+                            }
                             if !dst_dir.exists() {
                                 std::fs::create_dir_all(dst_dir)
                                     .expect("Failed to create_dir install_dir");
