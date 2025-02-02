@@ -1,4 +1,4 @@
-import { basename, join } from 'path'
+import { basename, dirname, join } from 'path'
 import {
   getArtifact,
   getArtifactDownloadUrl,
@@ -64,7 +64,7 @@ async function downloadAndInstall(
             '/',
           ).replace(prefix + '/', ''),
         )
-        const dstDir = basename(dst)
+        const dstDir = dirname(dst)
         if (!existsSync(dstDir)) {
           mkdirSync(dstDir, { recursive: true })
         }
@@ -121,8 +121,8 @@ async function downloadAndInstall(
           continue
         }
         let name = filename
-        if (asset.name) {
-          name = getBinName(asset.name)
+        if (asset.executable_name) {
+          name = getBinName(asset.executable_name)
         }
         const src = join(tmpDir, asset.path)
         const dst = join(installDir, name)
