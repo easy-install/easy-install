@@ -117,14 +117,13 @@ async function downloadAndInstall(
 
         const filename = basename(top)
         const asset = art?.assets?.find((i) => i.path === top)
-        if (!asset) {
-          continue
-        }
         let name = filename
-        if (asset.executable_name) {
-          name = getBinName(asset.executable_name)
+        if (asset) {
+          if (asset.executable_name) {
+            name = getBinName(asset.executable_name)
+          }
         }
-        const src = join(tmpDir, asset.path)
+        const src = join(tmpDir, asset?.path ?? top)
         const dst = join(installDir, name)
         atomiInstall(src, dst)
         addExecutePermission(dst)
