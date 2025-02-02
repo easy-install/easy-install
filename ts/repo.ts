@@ -75,7 +75,10 @@ export class Repo {
       }
       for (const i of targets) {
         const index = name.indexOf(i)
-        if (index !== -1 && !isHashFile(browser_download_url) && !isMsiFile(browser_download_url)) {
+        if (
+          index !== -1 && !isHashFile(browser_download_url) &&
+          !isMsiFile(browser_download_url)
+        ) {
           const bin = name.slice(0, index)
           if (!filter.has(bin)) {
             v.push(browser_download_url)

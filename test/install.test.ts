@@ -36,17 +36,15 @@ test('artifactInstall ', async () => {
   expect(existsSync(mujsPath)).toEqual(true)
 })
 
-
 test('install starship ', async () => {
-  const url =
-    'https://github.com/starship/starship'
+  const url = 'https://github.com/starship/starship'
   const repo = Repo.fromUrl(url)!
   const downloadUrlList = await repo.getAssetUrlList()
   console.log(downloadUrlList)
 
   expect(downloadUrlList.length).toEqual(1)
   const s = downloadUrlList[0]
-  expect(s.endsWith(process.platform === 'win32' ? '.zip' : '.tar.gz')).toEqual(true)
+  expect(s.endsWith(process.platform === 'win32' ? '.zip' : '.tar.gz')).toEqual(
+    true,
+  )
 })
-
-

@@ -2,7 +2,6 @@ use crate::download::{create_client, download_binary, download_dist_manfiest, re
 use crate::env::add_to_path;
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
 use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
-use atomic_file_install::atomic_install;
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
@@ -17,6 +16,10 @@ use tracing::trace;
 pub struct Output {
     // download_url: String,
     pub install_dir: String,
+}
+
+pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
+    std::fs::copy(src, dst)
 }
 
 pub async fn install(url: &str, dir: Option<String>) -> Vec<Output> {
@@ -351,7 +354,9 @@ async fn install_from_download_file(
                         }
 
                         println!("src,dst {:?} {:?}", src, dst);
-                        atomic_install(&src, dst.as_path()).unwrap();
+                        atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
+                            panic!("failed to atomic_install from {:?} to {:?}", src, dst)
+                        });
                         #[cfg(not(target_os = "windows"))]
                         add_execute_permission(dst.as_path().to_str().unwrap())
                             .expect("Failed to add_execute_permission");

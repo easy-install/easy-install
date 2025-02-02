@@ -6,9 +6,9 @@ import { getFetchOption, randomId } from './tool'
 
 export async function downloadJson<T>(url: string): Promise<T | undefined> {
   const response = await fetch(url, getFetchOption())
-  try{
+  try {
     return await response.json()
-  }catch(_){
+  } catch (_) {
   }
 }
 
@@ -42,6 +42,8 @@ export async function downloadToFile(url: string, outputPath?: string) {
   return outputPath
 }
 
-export async function downloadDistManfiest(url: string): Promise<DistManifest | undefined> {
+export async function downloadDistManfiest(
+  url: string,
+): Promise<DistManifest | undefined> {
   return downloadJson(url)
 }
