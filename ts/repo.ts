@@ -6,6 +6,7 @@ import {
   getFetchOption,
   isArchiveFile,
   isHashFile,
+  isMsiFile,
 } from './tool'
 import { Artifacts } from './type'
 import { DistManifest } from './type'
@@ -48,7 +49,7 @@ export class Repo {
   }
 
   async getAssetUrlList(
-    bin: string | undefined,
+    bin?: string,
     tag = 'latest',
     os = process.platform,
     arch = process.arch,
@@ -68,16 +69,16 @@ export class Repo {
     const targets = detectTargets(os, arch)
     const filter = new Set<string>()
     const v: string[] = []
-    for (const asset of releases.assets) {
-      if (isHashFile(asset.url)) {
+    for (const { name, url, browser_download_url } of releases.assets) {
+      if (isHashFile(url)) {
         continue
       }
       for (const i of targets) {
-        const index = asset.name.indexOf(i)
-        if (index !== -1) {
-          const bin = asset.name.slice(0, index)
+        const index = name.indexOf(i)
+        if (index !== -1 && !isHashFile(browser_download_url) && !isMsiFile(browser_download_url)) {
+          const bin = name.slice(0, index)
           if (!filter.has(bin)) {
-            v.push(asset.browser_download_url)
+            v.push(browser_download_url)
           }
           filter.add(bin)
         }

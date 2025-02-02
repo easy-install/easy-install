@@ -268,7 +268,9 @@ export function replaceFilename(baseUrl: string, name: string): string {
 export function isHashFile(s: string): boolean {
   return s.endsWith('.sha256')
 }
-
+export function isMsiFile(s: string): boolean {
+  return s.endsWith('.msi')
+}
 export function isMsys() {
   return !!process.env['MSYSTEM']
 }
