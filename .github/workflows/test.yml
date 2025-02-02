@@ -17,11 +17,11 @@ jobs:
     strategy:
       matrix:
         os: [
-            ubuntu-24.04,
-            windows-latest,
-            # macos-latest,
-            # macos-13,
-          ]
+          ubuntu-24.04,
+          windows-latest,
+          # macos-latest,
+          # macos-13,
+        ]
     runs-on: ${{ matrix.os }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,7 +78,6 @@ jobs:
           cargo run -- https://github.com/ahaoboy/spidermonkey-build
           cargo run -- https://github.com/ahaoboy/v8-build
           cargo run -- ./dist-manifest/ffmpeg.json
-
 
       - name: install on windows
         if: matrix.os == 'windows-latest'
@@ -161,3 +160,115 @@ jobs:
           d8 ./test.js
           js ./test.js
           jsc ./test.js
+
+  js-test:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest, macos-13]
+    runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: vitest
+        run: |
+          pnpm install
+          pnpm run build
+          pnpm run test:run
+      - name: install
+        run: |
+          ./cli/cli.js https://github.com/ahaoboy/easy-install
+          ./cli/cli.js https://github.com/denoland/deno
+          ./cli/cli.js https://github.com/starship/starship
+          ./cli/cli.js https://github.com/ahaoboy/mujs-build
+          ./cli/cli.js https://github.com/ahaoboy/neofetch
+          ./cli/cli.js https://github.com/axodotdev/cargo-dist
+          ./cli/cli.js https://github.com/ahaoboy/jsc-build
+          ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
+          ./cli/cli.js https://github.com/ahaoboy/v8-build
+
+          for file in ./dist-manifest/*.json; do
+            echo $file
+            ./cli/cli.js $file
+          done
+
+      - name: test windows
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          $env:PATH -split ';' | Write-Host
+
+          Copy-Item -Path "C:\Users\runneradmin\easy-install\graaljs\bin\js.exe" -Destination "C:\Users\runneradmin\easy-install\graaljs\bin\graaljs.exe"
+
+          get-command mujs
+          get-command neofetch
+          get-command dist
+          get-command deno
+          get-command ffmpeg
+          get-command zig
+          get-command llrt
+          get-command alist
+          get-command bun
+          get-command fnm
+          get-command 7z
+          get-command starship
+          get-command ScreenToGif
+          get-command yt-dlp
+          get-command pnpm
+          get-command biome
+          get-command qjs
+          get-command qjsc
+          get-command boa
+          get-command graaljs
+          get-command hermes
+          get-command xst
+          get-command mpv
+          get-command esbuild
+          get-command rcedit
+
+      - name: test ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          echo $PATH
+          mv /home/runner/easy-install/graaljs/bin/js /home/runner/easy-install/graaljs/bin/graaljs
+          # cat ~/.bashrc
+          # source ~/.bashrc
+          # echo $PATH
+
+          which jsc
+          which js
+          which d8
+          which deno
+          which ffmpeg
+          which zig
+          which llrt
+          which alist
+          which bun
+          which fnm
+          which 7z
+          which starship
+          which yt-dlp
+          which pnpm
+          which biome
+          which qjs
+          which qjsc
+          which boa
+          which graaljs
+          which hermes
+          which xst
+          which esbuild
+
+          echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
+          d8 ./test.js
+          js ./test.js
+          jsc ./test.js
+
+      - name: test macos
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          which qjs
+          which qjsc

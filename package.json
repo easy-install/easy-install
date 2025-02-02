@@ -1,36 +1,45 @@
 {
   "name": "@easy-install/easy-install",
-  "version": "1.2.1",
+  "version": "1.2.5",
   "description": "easy-install",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
   "bin": {
-    "easy-install": "bundle/cli.js"
+    "ei": "cli/cli.js"
   },
-  "files": ["dist", "bundle", "readme.md"],
+  "files": [
+    "dist",
+    "bundle",
+    "readme.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ahaoboy/easy-install.git"
   },
   "homepage": "https://github.com/ahaoboy/easy-install#readme",
-  "keywords": ["easy-install"],
+  "keywords": [
+    "easy-install"
+  ],
   "author": "ahaoboy",
   "license": "ISC",
   "scripts": {
-    "pre-check": "npm run clippy && npm run format && npm run lint:fix",
+    "dev": "tsc -w -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run bundle",
+    "pre-check": "npm run clippy && npm run format",
     "clippy": "cargo clippy --fix --allow-dirty --allow-staged",
-    "format": "deno fmt ts dist-manifest",
+    "format": "deno fmt --ignore=node_modules,dist,bundle,target --indent-width=2 --no-semicolons --single-quote",
     "test": "vitest",
     "test:run": "vitest --run",
-    "build": "tsc -p tsconfig.build.json",
     "bundle": "esbuild --outdir=bundle --bundle --minify --platform=node --format=cjs ts/cli.ts",
+    "clear": "rm -rf node_modules dist bundle",
+    "bump": "pnpm up --latest --force",
+    "release": "pnpm publish -r --access public",
+    "release-alpha": "pnpm publish -r --access public --tag alpha",
     "start": "npm run build && node dist/index.js"
   },
-  "dependencies": {},
   "devDependencies": {
-    "steal-cli": "^0.1.0",
-    "@biomejs/biome": "1.9.4",
     "@types/node": "^22.10.7",
+    "crud-path": "^0.1.0",
     "esbuild": "^0.24.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"

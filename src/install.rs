@@ -2,7 +2,6 @@ use crate::download::{create_client, download_binary, download_dist_manfiest, re
 use crate::env::add_to_path;
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
 use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
-use atomic_file_install::atomic_install;
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
@@ -14,26 +13,32 @@ use std::{collections::VecDeque, fmt::Display, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
 
-pub async fn install(url: &str, dir: Option<String>) {
+pub struct Output {
+    // download_url: String,
+    pub install_dir: String,
+}
+
+pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
+    std::fs::copy(src, dst)
+}
+
+pub async fn install(url: &str, dir: Option<String>) -> Vec<Output> {
     trace!("install {}", url);
     if is_dist_manfiest(url) {
-        install_from_manfiest(url, dir).await;
-        return;
+        return install_from_manfiest(url, dir).await;
     }
     if is_url(url) && is_archive_file(url) {
-        install_from_artifact_url(url, None, dir).await;
-        return;
+        return install_from_artifact_url(url, None, dir).await;
     }
 
     if let Ok(repo) = Repo::try_from(url) {
-        install_from_github(&repo, dir).await;
-        return;
+        return install_from_github(&repo, dir).await;
     }
 
-    install_from_crate_name(url, dir).await;
+    install_from_crate_name(url, dir).await
 }
 
-async fn install_from_crate_name(crate_name: &str, dir: Option<String>) {
+async fn install_from_crate_name(crate_name: &str, dir: Option<String>) -> Vec<Output> {
     trace!("install_from_crate_name {}", crate_name);
     let client = create_client().await;
     let version_req = &VersionReq::STAR;
@@ -42,13 +47,15 @@ async fn install_from_crate_name(crate_name: &str, dir: Option<String>) {
         .fetch_crate_matched(client, crate_name, version_req)
         .await
         .unwrap();
+    let mut v = vec![];
     if let Some(pkg) = manifest_from_sparse.package {
         if let Some(repository) = pkg.repository() {
             if let Ok(repo) = Repo::try_from(repository) {
-                install_from_github(&repo, dir).await;
+                v.extend(install_from_github(&repo, dir).await);
             }
         }
     }
+    v
 }
 async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     if !art_url.contains("*") {
@@ -60,10 +67,14 @@ async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     }
     vec![]
 }
-async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir: Option<String>) {
+async fn install_from_single_file(
+    url: &str,
+    manfiest: Option<DistManifest>,
+    dir: Option<String>,
+) -> Vec<Output> {
     // let targets = detect_targets().await;
     let mut install_dir = get_install_dir();
-
+    let mut output = vec![];
     if let Some(target_dir) = dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
@@ -92,39 +103,42 @@ async fn install_from_single_file(url: &str, manfiest: Option<DistManifest>, dir
         add_execute_permission(install_dir.as_path().to_str().unwrap())
             .expect("Failed to add_execute_permission");
 
+        let install_dir = install_dir.to_str().unwrap().replace("\\", "/");
         println!("Installation Successful");
-        println!(
-            "{} -> {}",
-            url,
-            install_dir.to_str().unwrap().replace("\\", "/")
-        )
+        println!("{} -> {}", url, install_dir);
+        output.push(Output {
+            // download_url: url.to_owned(),
+            install_dir,
+        });
     } else {
         println!("not found/download artifact for {url}")
     }
+    output
 }
 
 async fn install_from_artifact_url(
     art_url: &str,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
-) {
+) -> Vec<Output> {
     trace!("install_from_artifact_url {}", art_url);
     let urls = get_artifact_download_url(art_url).await;
+    let mut v = vec![];
     if urls.is_empty() {
         println!("not found download_url for {art_url}");
-        return;
+        return v;
     }
     if urls.len() == 1 && !is_archive_file(&urls[0]) {
         println!("download {}", urls[0]);
-        install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
-        return;
+        return install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
     }
     for url in urls {
         println!("download {}", url);
         let files = download_files(&url).await;
         let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
-        install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await;
+        v.extend(install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await);
     }
+    v
 }
 
 fn replace_filename(base_url: &str, name: &str) -> String {
@@ -153,24 +167,29 @@ async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> V
     v
 }
 
-async fn install_from_manfiest(url: &str, dir: Option<String>) {
+async fn install_from_manfiest(url: &str, dir: Option<String>) -> Vec<Output> {
     trace!("install_from_manfiest {}", url);
     let manfiest = if is_url(url) {
         download_dist_manfiest(url).await
     } else {
         read_dist_manfiest(url)
     };
+
+    let mut v = vec![];
     if let Some(manfiest) = manfiest {
         let art_url_list = get_artifact_url_from_manfiest(url, &manfiest).await;
         if art_url_list.is_empty() {
             println!("install_from_manfiest {} failed", url);
-            return;
+            return v;
         }
         for art_url in art_url_list {
             trace!("install_from_manfiest art_url {}", art_url);
-            install_from_artifact_url(&art_url, Some(manfiest.clone()), dir.clone()).await;
+            v.extend(
+                install_from_artifact_url(&art_url, Some(manfiest.clone()), dir.clone()).await,
+            );
         }
     }
+    v
 }
 
 fn remove_postfix(s: &str) -> String {
@@ -285,7 +304,7 @@ async fn install_from_download_file(
     download: Download<'static>,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
-) {
+) -> Vec<Output> {
     trace!("install_from_download_file");
     let out_dir = tempdir().unwrap();
     let mut install_dir = get_install_dir();
@@ -294,7 +313,7 @@ async fn install_from_download_file(
     let mut q = VecDeque::new();
     let targets = detect_targets().await;
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
-
+    let mut output = vec![];
     if let Some(asset) = artifact.clone().and_then(|a| a.get_assets_executable_dir()) {
         if let Some(target_dir) = dir.or(asset.name) {
             if target_dir.contains("/") || target_dir.contains("\\") {
@@ -328,13 +347,28 @@ async fn install_from_download_file(
                         dst.push(top.replace(&(prefix.clone() + "/"), ""));
 
                         if let Some(dst_dir) = dst.parent() {
+                            println!(
+                                "dst_dir {:?} {} {} {}",
+                                dst_dir,
+                                dst_dir.exists(),
+                                dst_dir.is_file(),
+                                dst_dir.is_dir()
+                            );
+                            if dst_dir.exists() && dst_dir.is_file() {
+                                std::fs::remove_file(dst_dir)
+                                    .expect(&format!("failed to remove file : {:?}", dst_dir));
+                                println!("remove {:?}", dst_dir);
+                            }
                             if !dst_dir.exists() {
                                 std::fs::create_dir_all(dst_dir)
                                     .expect("Failed to create_dir install_dir");
                             }
                         }
 
-                        atomic_install(&src, dst.as_path()).unwrap();
+                        println!("src,dst {:?} {:?}", src, dst);
+                        atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
+                            panic!("failed to atomic_install from {:?} to {:?}", src, dst)
+                        });
                         #[cfg(not(target_os = "windows"))]
                         add_execute_permission(dst.as_path().to_str().unwrap())
                             .expect("Failed to add_execute_permission");
@@ -356,6 +390,9 @@ async fn install_from_download_file(
                 if let Some(d) = asset.executable_dir {
                     install_dir.push(d);
                 }
+                output.push(Output {
+                    install_dir: install_dir.to_str().unwrap().to_string(),
+                });
                 add_to_path(install_dir.to_str().unwrap());
             }
         } else {
@@ -422,6 +459,12 @@ async fn install_from_download_file(
                         p.to_str().unwrap(),
                         dst.to_str().unwrap().replace("\\", "/")
                     ));
+
+                    if let Some(d) = dst.parent() {
+                        output.push(Output {
+                            install_dir: d.to_str().unwrap().to_string(),
+                        });
+                    }
                 }
                 None => {}
             }
@@ -433,6 +476,8 @@ async fn install_from_download_file(
             println!("{}", v.join("\n"));
         }
     }
+
+    output
 }
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -593,6 +638,7 @@ impl Repo {
 
         for art in artifacts.assets {
             if !is_hash_file(&art.browser_download_url)
+                && !is_msi_file(&art.browser_download_url)
                 && (re.is_match(&art.browser_download_url)
                     || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true))
             {
@@ -612,14 +658,15 @@ impl Display for Repo {
     }
 }
 
-async fn install_from_github(repo: &Repo, dir: Option<String>) {
+async fn install_from_github(repo: &Repo, dir: Option<String>) -> Vec<Output> {
     trace!("install_from_git {}", repo);
     let artifact_url = repo.get_artifact_url().await;
+    let mut v = vec![];
     if !artifact_url.is_empty() {
         for i in artifact_url {
             trace!("install_from_git artifact_url {}", i);
             let manfiest = repo.get_manfiest().await;
-            install_from_artifact_url(&i, manfiest, dir.clone()).await;
+            v.extend(install_from_artifact_url(&i, manfiest, dir.clone()).await);
         }
     } else {
         println!(
@@ -628,6 +675,7 @@ async fn install_from_github(repo: &Repo, dir: Option<String>) {
             repo.get_gh_url()
         );
     }
+    v
 }
 
 const IS_WINDOWS: bool = cfg!(target_os = "windows");
@@ -659,6 +707,10 @@ fn is_dist_manfiest(s: &str) -> bool {
 
 fn is_hash_file(s: &str) -> bool {
     s.ends_with(".sha256")
+}
+
+fn is_msi_file(s: &str) -> bool {
+    s.ends_with(".msi")
 }
 
 #[cfg(test)]
@@ -869,39 +921,18 @@ mod test {
 
     #[tokio::test]
     async fn test_get_artifact_download_url() {
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-            "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url =
-        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url = "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
-
-        let url = "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip";
-        let art_url = get_artifact_download_url(url).await;
-        assert_eq!(art_url.len(), 1);
+        for url in [
+        "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
+        "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
+        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
+        "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
+        "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
+      ]{
+          let art_url = get_artifact_download_url(url).await;
+          assert_eq!(art_url.len(), 1);
+      }
     }
 
     #[tokio::test]

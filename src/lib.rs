@@ -15,8 +15,17 @@ pub struct Args {
 }
 
 use clap::Parser;
+use crud_path::{add_github_path, add_path, has_path, is_github};
 
 pub async fn run_main(args: Args) {
     let Args { name_or_url, dir } = args;
-    install::install(&name_or_url, dir).await;
+    let v = install::install(&name_or_url, dir).await;
+    for i in v {
+        if has_path(&i.install_dir) {
+            add_path(&i.install_dir);
+            if is_github() {
+                add_github_path(&i.install_dir);
+            }
+        }
+    }
 }

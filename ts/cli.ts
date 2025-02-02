@@ -1,7 +1,26 @@
-import { run } from "steal-cli"
+import { install } from './install'
+import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 
-run({
-  url: "https://github.com/ahaoboy/easy-install",
-  version: "latest",
-  bin: "ei",
+const [url, name, version] = process.argv.slice(2)
+
+if (!url) {
+  console.log('usage:\nei <url>')
+  process.exit()
+}
+
+install({
+  url,
+  version,
+  name,
+}).then((output) => {
+  for (const item of output) {
+    console.log(JSON.stringify(item))
+    const { installDir } = item
+    if (installDir && !hasPath(installDir)) {
+      addPath(installDir)
+      if (isGithub()) {
+        addGithubPath(installDir)
+      }
+    }
+  }
 })

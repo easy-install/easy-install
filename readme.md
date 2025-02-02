@@ -1,16 +1,19 @@
 ## install
 
 ### windows
+
 ```bash
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/ahaoboy/easy-install/releases/latest/download/install.ps1 | iex"
 ```
 
 ### linux/macos
+
 ```bash
 curl -fsSL https://github.com/ahaoboy/easy-install/releases/latest/download/install.sh | bash
 ```
 
 ### cargo
+
 ```bash
 cargo binstall easy-install
 
@@ -22,6 +25,7 @@ cargo install easy-install
 ```bash
 npm i @easy-install/easy-install -g
 ```
+
 ## usage
 
 ```bash
@@ -56,16 +60,14 @@ cargo run -- ./dist-manifest/mpv-easy.json -d c:/mpv-easy
 cargo run -- ./dist-manifest/mpv-easy.json -d custom-name
 ```
 
-
 ## dist-manifest.json
 
-When the release package contains many files, add a dist-manifest.json file to define the format of each file
+When the release package contains many files, add a dist-manifest.json file to
+define the format of each file
 
 [cargo-dist-schema](https://github.com/axodotdev/cargo-dist/tree/main/cargo-dist-schema)
 
-
 Taking mujs as an example, it contains the following files
-
 
 ```
 .
@@ -75,9 +77,7 @@ Taking mujs as an example, it contains the following files
 ├── mujs-pp.exe
 ├── mujs.exe
 └── mujs.pc
-
 ```
-
 
 [dist-manifest.json](https://github.com/ahaoboy/mujs-build/blob/main/dist-manifest.json)
 

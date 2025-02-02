@@ -4,7 +4,7 @@
       "target_triples": ["x86_64-pc-windows-gnu"],
       "assets": [
         {
-          "name": "ScreenToGif.exe",
+          "name": "ScreenToGif",
           "path": "ScreenToGif.exe",
           "kind": "executable"
         }

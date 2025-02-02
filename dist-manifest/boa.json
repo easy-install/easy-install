@@ -5,7 +5,7 @@
       "target_triples": ["x86_64-unknown-linux-gnu"]
     },
     "https://github.com/boa-dev/boa/releases/latest/download/boa-windows-amd64.exe": {
-      "name": "boa.exe",
+      "name": "boa",
       "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }
