@@ -134,7 +134,7 @@ test('manifest_mujs', async () => {
 test('install_from_manfiest', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json'
-  const dist = await downloadDistManfiest(url)
+  const dist = (await downloadDistManfiest(url))!
   const v = getArtifactUrlFromManfiest(dist, url)
   expect(v.length > 0).toEqual(true)
 })
@@ -142,7 +142,7 @@ test('install_from_manfiest', async () => {
 test('cargo_dist', async () => {
   const url =
     'https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json'
-  const dist = await downloadDistManfiest(url)
+  const dist = (await downloadDistManfiest(url))!
   const v = getArtifactUrlFromManfiest(dist, url)
   expect(v.length > 0).toEqual(true)
 })

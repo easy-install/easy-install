@@ -111,11 +111,11 @@ export class Repo {
 
   async getArtifactUrls(): Promise<string[]> {
     const api = this.getArtifactApi()
-    const artifacts: Artifacts = await downloadJson(api)
+    const artifacts = await downloadJson<Artifacts>(api)
     const target = detectTargets()
     const v: string[] = []
     const filter: string[] = []
-    for (const i of artifacts.assets) {
+    for (const i of artifacts?.assets || []) {
       for (const pat of target) {
         const remove_target = i.name.replace(pat, '')
         if (
@@ -133,11 +133,11 @@ export class Repo {
   async matchArtifactUrl(pattern: string): Promise<string[]> {
     const v: string[] = []
     const api = this.getArtifactApi()
-    const art: Artifacts = await downloadJson(api)
+    const art = await downloadJson<Artifacts>(api)
     const re = new RegExp(pattern)
     const patternName = pattern.split('/').at(-1)
     const nameRe = patternName && new RegExp(patternName)
-    for (const asset of art.assets || []) {
+    for (const asset of art?.assets || []) {
       if (
         !isHashFile(asset.browser_download_url) &&
         (re.test(asset.browser_download_url) ||

@@ -4,9 +4,12 @@ import fs from 'fs'
 import { DistManifest } from './type'
 import { getFetchOption, randomId } from './tool'
 
-export async function downloadJson<T>(url: string): Promise<T> {
+export async function downloadJson<T>(url: string): Promise<T | undefined> {
   const response = await fetch(url, getFetchOption())
-  return await response.json()
+  try{
+    return await response.json()
+  }catch(_){
+  }
 }
 
 export async function downloadText(url: string) {
@@ -39,6 +42,6 @@ export async function downloadToFile(url: string, outputPath?: string) {
   return outputPath
 }
 
-export async function downloadDistManfiest(url: string): Promise<DistManifest> {
+export async function downloadDistManfiest(url: string): Promise<DistManifest | undefined> {
   return downloadJson(url)
 }

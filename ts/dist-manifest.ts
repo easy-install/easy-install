@@ -115,6 +115,6 @@ export function readDistManfiest(path: string): DistManifest | undefined {
   const s = readFileSync(path, 'utf-8')
   try {
     return JSON.parse(s)
-  } finally {
+  } catch (_) {
   }
 }
