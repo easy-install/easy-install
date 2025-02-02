@@ -12,7 +12,6 @@ export async function run(
   installDir = CLI_DIR,
   args = process.argv.slice(2),
 ) {
-  console.log(installDir, getBinName(input.name), CLI_DIR)
   const binPath = join(installDir, getBinName(input.name))
   if (!existsSync(binPath)) {
     await setup(input)

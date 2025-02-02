@@ -347,16 +347,9 @@ async fn install_from_download_file(
                         dst.push(top.replace(&(prefix.clone() + "/"), ""));
 
                         if let Some(dst_dir) = dst.parent() {
-                            println!(
-                                "dst_dir {:?} {} {} {}",
-                                dst_dir,
-                                dst_dir.exists(),
-                                dst_dir.is_file(),
-                                dst_dir.is_dir()
-                            );
                             if dst_dir.exists() && dst_dir.is_file() {
                                 std::fs::remove_file(dst_dir)
-                                    .expect(&format!("failed to remove file : {:?}", dst_dir));
+                                    .unwrap_or_else(|_| panic!("failed to remove file : {:?}", dst_dir));
                                 println!("remove {:?}", dst_dir);
                             }
                             if !dst_dir.exists() {
@@ -365,7 +358,6 @@ async fn install_from_download_file(
                             }
                         }
 
-                        println!("src,dst {:?} {:?}", src, dst);
                         atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
                             panic!("failed to atomic_install from {:?} to {:?}", src, dst)
                         });

@@ -82,8 +82,8 @@ check_dependencies() {
 
 ensure_containing_dir_exists() {
   if [ "$OS" = "Windows" ]; then
-    powershell -c "New-Item -Path "~/easy-install" -ItemType Directory -Force | Out-Null"
-    INSTALL_DIR=$(powershell -c "[string](Resolve-Path ~/easy-install)")
+    powershell -c "New-Item -Path "~/.easy-install" -ItemType Directory -Force | Out-Null"
+    INSTALL_DIR=$(powershell -c "[string](Resolve-Path ~/.easy-install)")
     is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')")
     if [ "$is_admin" = "True" ]; then
       mode="Machine"

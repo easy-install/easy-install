@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $RELEASE = "latest"
 $FILENAME = "ei-x86_64-pc-windows-gnu.zip"
 $HOME_PATH = (Resolve-Path "~").Path
-$INSTALL_DIR = Join-Path -Path $HOME_PATH -ChildPath "easy-install"
+$INSTALL_DIR = Join-Path -Path $HOME_PATH -ChildPath ".easy-install"
 
 function Ensure-ContainingDirExists {
   if (-not (Test-Path -Path $INSTALL_DIR)) {
