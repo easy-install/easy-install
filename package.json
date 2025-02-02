@@ -14,9 +14,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ahaoboy/easy-install.git"
+    "url": "git+https://github.com/easy-install/easy-install.git"
   },
-  "homepage": "https://github.com/ahaoboy/easy-install#readme",
+  "homepage": "https://github.com/easy-install/easy-install#readme",
   "keywords": [
     "easy-install"
   ],

@@ -18,9 +18,9 @@ function Ensure-ContainingDirExists {
 
 function Download {
     if ($RELEASE -eq "latest") {
-        $URL = "https://github.com/ahaoboy/easy-install/releases/latest/download/$FILENAME"
+        $URL = "https://github.com/easy-install/easy-install/releases/latest/download/$FILENAME"
     } else {
-        $URL = "https://github.com/ahaoboy/easy-install/releases/download/$RELEASE/$FILENAME"
+        $URL = "https://github.com/easy-install/easy-install/releases/download/$RELEASE/$FILENAME"
     }
 
     $tempFile = [System.IO.Path]::GetTempFileName()+(Get-Random)

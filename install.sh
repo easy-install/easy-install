@@ -40,7 +40,7 @@ set_filename() {
     echo "Downloading the latest binary from GitHub..."
   else
     echo "OS $OS is not supported."
-    echo "If you think that's a bug - please file an issue to https://github.com/ahaoboy/easy-install/issues"
+    echo "If you think that's a bug - please file an issue to https://github.com/easy-install/easy-install/issues"
     exit 1
   fi
 }
@@ -103,9 +103,9 @@ ensure_containing_dir_exists() {
 
 download() {
   if [ "$RELEASE" = "latest" ]; then
-    URL="https://github.com/ahaoboy/easy-install/releases/latest/download/$FILENAME"
+    URL="https://github.com/easy-install/easy-install/releases/latest/download/$FILENAME"
   else
-    URL="https://github.com/ahaoboy/easy-install/releases/download/$RELEASE/$FILENAME"
+    URL="https://github.com/easy-install/easy-install/releases/download/$RELEASE/$FILENAME"
   fi
 
   DOWNLOAD_DIR=$(mktemp -d)

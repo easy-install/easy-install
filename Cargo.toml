@@ -4,8 +4,8 @@ version = "0.1.5"
 edition = "2021"
 license = "MIT"
 description = "easy-install"
-repository = "https://github.com/ahaoboy/easy-install"
-homepage = "https://github.com/ahaoboy/easy-install"
+repository = "https://github.com/easy-install/easy-install"
+homepage = "https://github.com/easy-install/easy-install"
 authors = ["ahaoboy"]
 
 [dependencies]

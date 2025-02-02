@@ -49,7 +49,7 @@ jobs:
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
           cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/ahaoboy/easy-install/releases/latest/download/ffmpeg.json
+          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
           cargo run -- ./dist-manifest/zig.json
           cargo run -- ./dist-manifest/FiraCode.json
           cargo run -- ./dist-manifest/JetBrainsMono.json
@@ -181,7 +181,7 @@ jobs:
           pnpm run test:run
       - name: install
         run: |
-          ./cli/cli.js https://github.com/ahaoboy/easy-install
+          ./cli/cli.js https://github.com/easy-install/easy-install
           ./cli/cli.js https://github.com/denoland/deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
