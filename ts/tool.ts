@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
+import { decode, guess } from '@easy-install/easy-archive'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -63,53 +64,56 @@ export function toMsysPath(s: string): string {
 export function randomId() {
   return Math.random().toString(36).slice(2)
 }
-export function extractTo(compressedFilePath: string, outputDir?: string) {
+
+export function extractTo(
+  compressedFilePath: string,
+  outputDir?: string,
+): string {
+  const fmt = guess(compressedFilePath)
   if (!outputDir) {
     outputDir = path.join(tmpdir(), randomId())
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true })
     }
   }
-  const oriDir = outputDir
-  if (isMsys() && !compressedFilePath.endsWith('.zip')) {
-    compressedFilePath = toMsysPath(compressedFilePath)
-    outputDir = toMsysPath(outputDir)
+  if (!fmt) {
+    console.log('extractTo not support this file type')
+    return outputDir
   }
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true })
   }
-  const rules = [
-    {
-      ext: ['.zip'],
-      cmd: process.platform !== 'win32'
-        ? `unzip -o "${compressedFilePath}" -d "${outputDir}"`
-        : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
-    },
-    {
-      ext: ['.tar', '.tar.xz'],
-      cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    {
-      ext: ['.tar.gz', '.tgz'],
-      cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    {
-      ext: ['.tar.bz2'],
-      cmd: `tar -xjf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    { ext: ['.7z'], cmd: `7z x "${compressedFilePath}" -o"${outputDir}"` },
-    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
-    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
-  ] as const
+  const buf = new Uint8Array(readFileSync(compressedFilePath))
+  const files = decode(fmt, buf)
+  if (!files) {
+    console.log('failed to decode')
+    return outputDir
+  }
+  for (const i of files.keys()) {
+    const file = files.get(i)
+    if (!file) {
+      continue
+    }
+    const filePath = file.get_path()
+    const mode = file.get_mode()
+    const buffer = file.get_buffer()
 
-  for (const { ext, cmd } of rules) {
-    for (const e of ext) {
-      if (compressedFilePath.endsWith(e)) {
-        execSync(cmd)
-      }
+    if (filePath.endsWith('/') || !buffer.length) {
+      continue
+    }
+
+    const outputPath = path.join(outputDir, filePath)
+    const dir = path.dirname(outputPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(outputPath, buffer)
+
+    if (mode && process.platform !== 'win32') {
+      fs.chmodSync(outputPath, mode)
     }
   }
-  return oriDir
+  return outputDir
 }
 
 export function detectTargets(

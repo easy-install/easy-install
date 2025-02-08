@@ -29,7 +29,7 @@ export async function repoInstall(
   for (const i of downloadUrlList) {
     console.log(`download ${i}`)
     const downloadPath = await download(i)
-    await extractTo(downloadPath, installDir)
+    extractTo(downloadPath, installDir)
     v.push({
       installDir,
       downloadUrl: i,
