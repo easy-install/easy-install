@@ -182,7 +182,8 @@ jobs:
       - name: install
         run: |
           ./cli/cli.js https://github.com/easy-install/easy-install
-          ./cli/cli.js https://github.com/denoland/deno
+          # deno and denort
+          ./cli/cli.js https://github.com/denoland/deno deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
           ./cli/cli.js https://github.com/ahaoboy/neofetch
