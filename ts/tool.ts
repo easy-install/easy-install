@@ -3,7 +3,7 @@ import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
-import { decode, guess } from '@easy-install/easy-archive'
+import { decode, Files, guess } from '@easy-install/easy-archive'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -68,7 +68,7 @@ export function randomId() {
 export function extractTo(
   compressedFilePath: string,
   outputDir?: string,
-): string {
+): { outputDir: string; files?: Files } {
   const fmt = guess(compressedFilePath)
   if (!outputDir) {
     outputDir = path.join(tmpdir(), randomId())
@@ -78,7 +78,7 @@ export function extractTo(
   }
   if (!fmt) {
     console.log('extractTo not support this file type')
-    return outputDir
+    return { outputDir }
   }
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true })
@@ -87,7 +87,7 @@ export function extractTo(
   const files = decode(fmt, buf)
   if (!files) {
     console.log('failed to decode')
-    return outputDir
+    return { outputDir }
   }
   for (const i of files.keys()) {
     const file = files.get(i)
@@ -113,7 +113,7 @@ export function extractTo(
       fs.chmodSync(outputPath, mode)
     }
   }
-  return outputDir
+  return { outputDir, files }
 }
 
 export function detectTargets(

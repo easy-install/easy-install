@@ -1,5 +1,6 @@
 import { install } from './install'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
+import { addExecutePermission } from './tool'
 
 const [url, name, version] = process.argv.slice(2)
 
@@ -20,6 +21,13 @@ install({
       if (isGithub()) {
         addGithubPath(installDir)
       }
+    }
+  }
+
+  if (output.length === 1) {
+    const first = output[0].installPath
+    if (first) {
+      addExecutePermission(first)
     }
   }
 })

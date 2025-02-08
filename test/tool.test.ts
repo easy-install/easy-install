@@ -88,7 +88,7 @@ test('extractTo', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/archive/refs/tags/v0.0.4.zip'
   const tmpPath = await downloadToFile(url)
-  const tmpDir = extractTo(tmpPath)
+  const tmpDir = extractTo(tmpPath).outputDir
   expect(fs.existsSync(join(tmpDir, 'mujs-build-0.0.4', 'dist-manifest.json')))
     .toEqual(true)
 })

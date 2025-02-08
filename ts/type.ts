@@ -7,6 +7,7 @@ export type Input = {
 export type Output = {
   installDir: string
   installPath?: string
+  originPath?: string
   downloadUrl: string
 }[]
 

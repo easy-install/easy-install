@@ -1,3 +1,4 @@
+import { join } from 'path'
 import { getArtifactDownloadUrl } from '../dist-manifest'
 import { getInstallDir } from '../env'
 import { Repo } from '../repo'
@@ -29,13 +30,30 @@ export async function repoInstall(
   for (const i of downloadUrlList) {
     console.log(`download ${i}`)
     const downloadPath = await download(i)
-    extractTo(downloadPath, installDir)
-    v.push({
-      installDir,
-      downloadUrl: i,
-    })
+    const files = extractTo(downloadPath, installDir).files
+
+    if (files) {
+      for (const originPath of files.keys()) {
+        const installPath = join(installDir, originPath)
+        v.push({
+          installDir,
+          downloadUrl: i,
+          installPath,
+          originPath,
+        })
+      }
+    } else {
+      v.push({
+        installDir,
+        downloadUrl: i,
+      })
+    }
   }
 
-  console.log(v.map((i) => `${i.downloadUrl} -> ${i.installDir}`).join('\n'))
+  console.log(
+    v.map((i) =>
+      `${i.originPath ?? i.downloadUrl} -> ${i.installPath ?? i.installDir}`
+    ).join('\n'),
+  )
   return v
 }
