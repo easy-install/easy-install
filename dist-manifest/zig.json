@@ -5,8 +5,8 @@
       "assets": [
         {
           "name": "zig",
-          "path": "zig-linux-x86_64-0.13.0/zig",
-          "kind": "executable"
+          "path": "zig-linux-x86_64-0.13.0",
+          "kind": "executable-dir"
         }
       ]
     },
@@ -15,8 +15,8 @@
       "assets": [
         {
           "name": "zig",
-          "path": "zig-windows-x86_64-0.13.0/zig.exe",
-          "kind": "executable"
+          "path": "zig-windows-x86_64-0.13.0",
+          "kind": "executable-dir"
         }
       ]
     }
