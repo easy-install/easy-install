@@ -385,6 +385,11 @@ async fn install_from_download_file(
                         });
 
                         let (mode, size, is_dir) = get_meta(&dst);
+
+                        let mut install_dir = install_dir.clone();
+                        if let Some(ref dir) = asset.executable_dir {
+                            install_dir.push(dir);
+                        }
                         v.push(OutputItem {
                             download_url: url.to_string(),
                             install_dir: install_dir
