@@ -17,7 +17,7 @@ test('download mujs', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
   const tmpPath = await downloadToFile(url)
-  const tmpDir = await extractTo(tmpPath)
+  const tmpDir = extractTo(tmpPath).outputDir
   for (
     const i of [
       'mujs',

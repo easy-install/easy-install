@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
+import { decode, Files, Fmt, guess, File } from '@easy-install/easy-archive'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -63,20 +64,45 @@ export function toMsysPath(s: string): string {
 export function randomId() {
   return Math.random().toString(36).slice(2)
 }
-export function extractTo(compressedFilePath: string, outputDir?: string) {
-  if (!outputDir) {
-    outputDir = path.join(tmpdir(), randomId())
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true })
+
+export function createFiles(dir: string): Files {
+  const files = Files.new()
+  async function dfs(currentPath: string) {
+    const entries = fs.readdirSync(currentPath);
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        // ignore empty dir
+        dfs(fullPath);
+      } else if (stat.isFile()) {
+        const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/');
+        const buffer = fs.readFileSync(fullPath);
+        const file = File.new(relativePath, buffer, stat.mode)
+        files.insert(relativePath, file)
+      }
     }
   }
-  const oriDir = outputDir
+  dfs(dir);
+  return files;
+}
+
+export function extractToByShell(compressedFilePath: string, outputDir?: string): { outputDir: string; files?: Files } {
+  const tmpDir = path.join(tmpdir(), randomId())
+  let oriDir = outputDir ?? tmpDir
+  const needCopy = !!outputDir
+
+  outputDir = tmpDir
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+
   if (isMsys() && !compressedFilePath.endsWith('.zip')) {
     compressedFilePath = toMsysPath(compressedFilePath)
     outputDir = toMsysPath(outputDir)
   }
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true })
+  if (!fs.existsSync(oriDir)) {
+    fs.mkdirSync(oriDir, { recursive: true })
   }
   const rules = [
     {
@@ -109,7 +135,70 @@ export function extractTo(compressedFilePath: string, outputDir?: string) {
       }
     }
   }
-  return oriDir
+  const files = createFiles(outputDir)
+  if (needCopy && tmpDir !== oriDir) {
+    fs.cpSync(tmpDir, oriDir, { recursive: true })
+  }
+  return { outputDir: oriDir, files }
+}
+
+export function extractToByWasm(
+  compressedFilePath: string,
+  outputDir?: string,
+): { outputDir: string; files?: Files } {
+  const fmt = guess(compressedFilePath)
+  if (!outputDir) {
+    outputDir = path.join(tmpdir(), randomId())
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
+  }
+  if (!fmt) {
+    console.log('extractTo not support this file type')
+    return { outputDir }
+  }
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+  const buf = new Uint8Array(readFileSync(compressedFilePath))
+  const files = decode(fmt, buf)
+  if (!files) {
+    console.log('failed to decode')
+    return { outputDir }
+  }
+  for (const i of files.keys()) {
+    const file = files.get(i)
+    if (!file) {
+      continue
+    }
+    const filePath = file.get_path()
+    const mode = file.get_mode()
+    const buffer = file.get_buffer()
+
+    if (filePath.endsWith('/') || !buffer.length) {
+      continue
+    }
+
+    const outputPath = path.join(outputDir, filePath)
+    const dir = path.dirname(outputPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(outputPath, buffer)
+
+    if (mode && process.platform !== 'win32') {
+      fs.chmodSync(outputPath, mode)
+    }
+  }
+  return { outputDir, files }
+}
+
+export function extractTo(compressedFilePath: string, outputDir?: string) {
+  try {
+    return extractToByWasm(compressedFilePath, outputDir)
+  } catch {
+    return extractToByShell(compressedFilePath, outputDir)
+  }
 }
 
 export function detectTargets(
@@ -168,7 +257,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }

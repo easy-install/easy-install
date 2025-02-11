@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import {
   cleanPath,
+  createFiles,
   download,
   extractTo,
   getAssetNames,
@@ -88,7 +89,7 @@ test('extractTo', async () => {
   const url =
     'https://github.com/ahaoboy/mujs-build/archive/refs/tags/v0.0.4.zip'
   const tmpPath = await downloadToFile(url)
-  const tmpDir = await extractTo(tmpPath)
+  const tmpDir = extractTo(tmpPath).outputDir
   expect(fs.existsSync(join(tmpDir, 'mujs-build-0.0.4', 'dist-manifest.json')))
     .toEqual(true)
 })
@@ -205,4 +206,12 @@ test('cleanPath', () => {
   ) {
     expect(cleanPath(a)).toEqual(b)
   }
+})
+
+test('createFiles', () => {
+  const files = createFiles("src")
+  expect(files.keys().length > 0).toEqual(true)
+  const ei = files.get("bin/ei.rs")!.get_buffer()
+  const txt = Buffer.from(ei).toString()
+  expect(txt.includes('#[tokio::main]')).toEqual(true)
 })

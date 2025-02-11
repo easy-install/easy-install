@@ -182,7 +182,8 @@ jobs:
       - name: install
         run: |
           ./cli/cli.js https://github.com/easy-install/easy-install
-          ./cli/cli.js https://github.com/denoland/deno
+          # deno and denort
+          ./cli/cli.js https://github.com/denoland/deno deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
           ./cli/cli.js https://github.com/ahaoboy/neofetch
@@ -190,11 +191,12 @@ jobs:
           ./cli/cli.js https://github.com/ahaoboy/jsc-build
           ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
           ./cli/cli.js https://github.com/ahaoboy/v8-build
-
           for file in ./dist-manifest/*.json; do
             echo $file
             ./cli/cli.js $file
           done
+
+          ls -lhR ~/.easy-install
 
       - name: test windows
         if: matrix.os == 'windows-latest'
@@ -214,7 +216,7 @@ jobs:
           get-command alist
           get-command bun
           get-command fnm
-          get-command 7z
+          # get-command 7z
           get-command starship
           get-command ScreenToGif
           get-command yt-dlp
@@ -249,7 +251,7 @@ jobs:
           which alist
           which bun
           which fnm
-          which 7z
+          # which 7z
           which starship
           which yt-dlp
           which pnpm

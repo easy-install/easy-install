@@ -33,7 +33,7 @@ async function downloadAndInstall(
   const asset = art ? getAssetsExecutableDir(art) : undefined
 
   const tmpPath = await downloadToFile(downloadUrl)
-  const tmpDir = await extractTo(tmpPath)
+  const tmpDir = extractTo(tmpPath).outputDir
 
   const getEntry = (p: string) => {
     return join(tmpDir, p)
