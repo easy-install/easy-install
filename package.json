@@ -37,10 +37,12 @@
     "release-alpha": "pnpm publish -r --access public --tag alpha",
     "start": "npm run build && node dist/index.js"
   },
-  "devDependencies": {
-    "@easy-install/easy-archive": "^0.1.2",
-    "@types/node": "^22.10.7",
+  "dependencies": {
     "crud-path": "^0.1.0",
+    "@easy-install/easy-archive": "^0.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
     "esbuild": "0.25.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"
