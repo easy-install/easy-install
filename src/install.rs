@@ -1,6 +1,8 @@
-use crate::download::{create_client, download_binary, download_dist_manfiest, read_dist_manfiest};
+use crate::download::{
+    create_client, download_binary, download_dist_manfiest, download_json, read_dist_manfiest,
+};
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
-use crate::tool::{display_output, get_meta};
+use crate::tool::{display_output, get_bin_name, get_meta};
 use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
@@ -35,8 +37,14 @@ pub async fn install(url: &str, dir: Option<String>) -> Output {
     if is_dist_manfiest(url) {
         return install_from_manfiest(url, dir).await;
     }
-    if is_url(url) && is_archive_file(url) {
-        return install_from_artifact_url(url, None, dir).await;
+    if is_url(url) {
+        if is_archive_file(url) {
+            return install_from_artifact_url(url, None, dir).await;
+        }
+
+        if is_exe_file(url) {
+            return install_from_single_file(url, None, dir).await;
+        }
     }
 
     if let Ok(repo) = Repo::try_from(url) {
@@ -91,18 +99,17 @@ async fn install_from_single_file(
         }
     }
 
-    if let (Some(artifact), Some(bin)) = (
-        manfiest.and_then(|i| i.get_artifact_by_key(url)),
-        download_binary(url).await,
-    ) {
+    if let Some(bin) = download_binary(url).await {
+        let artifact = manfiest.and_then(|i| i.get_artifact_by_key(url));
+
         let art_name = url
             .split("/")
             .last()
             .map(|i| i.to_string())
             .expect("can't get artifact name");
-        let name = artifact.name.unwrap_or(art_name);
+        let name = artifact.and_then(|i| i.name).unwrap_or(art_name);
         let mut install_path = install_dir.clone();
-        install_path.push(&name);
+        install_path.push(get_bin_name(&name));
 
         if let Some(dir) = install_path.parent() {
             std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
@@ -112,16 +119,18 @@ async fn install_from_single_file(
         let install_path = install_path.to_str().unwrap().replace("\\", "/");
         let install_dir = install_dir.to_str().unwrap().replace("\\", "/");
         println!("Installation Successful");
+        let origin_path = url.split("/").last().unwrap_or(name.as_str()).to_string();
         let item = vec![OutputItem {
             download_url: url.to_string(),
             install_dir,
             install_path,
             mode,
             size,
-            origin_path: name,
+            origin_path,
             is_dir,
         }];
         output.insert(url.to_string(), item);
+        println!("{}", display_output(&output));
     } else {
         println!("not found/download artifact for {url}")
     }
@@ -143,7 +152,6 @@ async fn install_from_artifact_url(
     if urls.len() == 1 && !is_archive_file(&urls[0]) {
         println!("download {}", urls[0]);
         let output = install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
-        println!("{}", display_output(&output));
         return output;
     }
     for url in urls {
@@ -465,7 +473,7 @@ async fn install_from_download_file(
                         .unwrap_or(file_name.clone());
 
                     src.push(&top);
-                    dst.push(&name);
+                    dst.push(get_bin_name(&name));
                     atomic_install(&src, dst.as_path()).unwrap();
                     let (mode, size, is_dir) = get_meta(&dst);
                     v.push(OutputItem {
@@ -597,31 +605,20 @@ impl Repo {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
-
-        let client = reqwest::Client::new();
-        let response = client
-            .get(&api)
-            .header("User-Agent", "reqwest")
-            .send()
-            .await
-            .unwrap();
-
-        let artifacts: Artifacts = response.json().await.unwrap();
-
-        let targets = detect_targets().await;
-
         let mut v = vec![];
-
-        let mut filter = vec![];
-        for i in artifacts.assets {
-            for pat in &targets {
-                let remove_target = i.name.replace(pat, "");
-                if i.name.contains(pat)
-                    && is_archive_file(&i.name)
-                    && !filter.contains(&remove_target)
-                {
-                    v.push(i.browser_download_url.clone());
-                    filter.push(remove_target)
+        if let Some(artifacts) = download_json::<Artifacts>(&api).await {
+            let targets = detect_targets().await;
+            let mut filter = vec![];
+            for i in artifacts.assets {
+                for pat in &targets {
+                    let remove_target = i.name.replace(pat, "");
+                    if i.name.contains(pat)
+                        && is_archive_file(&i.name)
+                        && !filter.contains(&remove_target)
+                    {
+                        v.push(i.browser_download_url.clone());
+                        filter.push(remove_target)
+                    }
                 }
             }
         }
@@ -634,28 +631,19 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
-        let client = reqwest::Client::new();
-        let response = client
-            .get(&api)
-            .header("User-Agent", "reqwest")
-            .send()
-            .await
-            .unwrap();
-
-        let artifacts: Artifacts = response.json().await.unwrap();
-
         let mut v = vec![];
         let re = Regex::new(pattern).unwrap();
         let pattern_name = pattern.split("/").last();
         let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
-
-        for art in artifacts.assets {
-            if !is_hash_file(&art.browser_download_url)
-                && !is_msi_file(&art.browser_download_url)
-                && (re.is_match(&art.browser_download_url)
-                    || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true))
-            {
-                v.push(art.browser_download_url);
+        if let Some(artifacts) = download_json::<Artifacts>(&api).await {
+            for art in artifacts.assets {
+                if !is_hash_file(&art.browser_download_url)
+                    && !is_msi_file(&art.browser_download_url)
+                    && (re.is_match(&art.browser_download_url)
+                        || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true))
+                {
+                    v.push(art.browser_download_url);
+                }
             }
         }
         v
@@ -710,6 +698,33 @@ fn is_archive_file(s: &str) -> bool {
     false
 }
 
+pub fn is_exe_file(s: &str) -> bool {
+    if s.ends_with(".exe") {
+        return true;
+    }
+    let re_latest =
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/latest/download/([^/]+)$")
+            .expect("failed to build github latest release regex");
+    let re_tag =
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")
+            .expect("failed to build github release regex");
+
+    for (re, n) in [(re_latest, 3), (re_tag, 4)] {
+        if let Some(cap) = re.captures(s) {
+            if let Some(name) = cap.get(n) {
+                if is_archive_file(name.as_str()) {
+                    return false;
+                }
+                if !name.as_str().contains(".") {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 fn is_url(s: &str) -> bool {
     s.starts_with("http://") || s.starts_with("https://")
 }
@@ -737,8 +752,8 @@ mod test {
         download::{download_dist_manfiest, download_files, read_dist_manfiest},
         env::IS_WINDOWS,
         install::{
-            get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file, is_url,
-            Repo,
+            get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file,
+            is_exe_file, is_url, Repo,
         },
     };
 
@@ -979,5 +994,19 @@ mod test {
             let download_urls = get_artifact_download_url(&i).await;
             assert_eq!(download_urls.len(), 1);
         }
+    }
+
+    #[test]
+    fn test_is_exe_file() {
+        for (a,b) in [
+          ("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", true),
+        ("https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe", true),
+        ("https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64", true),
+        ("https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz", false),
+        ("https://github.com/easy-install/easy-install", false),
+        ("https://github.com/easy-install/easy-install/releases/tag/v0.1.5", false)
+      ]{
+        assert_eq!(is_exe_file(a),b);
+      }
     }
 }

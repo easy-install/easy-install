@@ -1,9 +1,10 @@
 import { readDistManfiest } from '../dist-manifest'
 import { downloadJson } from '../download'
 import { Repo } from '../repo'
-import { isArchiveFile, isDistManfiest, isUrl } from '../tool'
+import { isArchiveFile, isDistManfiest, isExeFile, isUrl } from '../tool'
 import type { DistManifest, Input, Output } from '../type'
 import { artifactInstall } from './artifact'
+import { fileInstall } from './file'
 import { manifestInstall } from './manifest'
 import { repoInstall } from './repo'
 
@@ -23,8 +24,14 @@ export async function install(
     return await manifestInstall(dist, installDir)
   }
 
-  if (isUrl(url) && isArchiveFile(url)) {
-    return artifactInstall(url, undefined, installDir)
+  if (isUrl(url)) {
+    if (isArchiveFile(url)) {
+      return artifactInstall(url, undefined, installDir)
+    }
+
+    if (isExeFile(url)) {
+      return fileInstall({ url, name }, url, undefined, installDir)
+    }
   }
   const repo = Repo.fromUrl(url)
 

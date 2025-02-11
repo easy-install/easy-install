@@ -1,5 +1,25 @@
 {
   "artifacts": {
+    "https://github.com/AlistGo/alist/releases/latest/download/alist-darwin-amd64.tar.gz": {
+      "target_triples": ["x86_64-apple-darwin"],
+      "assets": [
+        {
+          "name": "alist",
+          "path": "alist",
+          "kind": "executable"
+        }
+      ]
+    },
+    "https://github.com/AlistGo/alist/releases/latest/download/alist-darwin-arm64.tar.gz": {
+      "target_triples": ["aarch64-apple-darwin"],
+      "assets": [
+        {
+          "name": "alist",
+          "path": "alist",
+          "kind": "executable"
+        }
+      ]
+    },
     "https://github.com/AlistGo/alist/releases/latest/download/alist-linux-amd64.tar.gz": {
       "target_triples": ["x86_64-unknown-linux-gnu"],
       "assets": [

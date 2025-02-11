@@ -19,6 +19,16 @@
           "kind": "executable-dir"
         }
       ]
+    },
+    "https://github.com/facebook/hermes/releases/download/v0.13.0/hermes-cli-darwin.tar.gz": {
+      "target_triples": ["aarch64-apple-darwin", "x86_64-apple-darwin"],
+      "assets": [
+        {
+          "name": "hermes",
+          "path": ".",
+          "kind": "executable-dir"
+        }
+      ]
     }
   }
 }

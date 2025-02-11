@@ -34,6 +34,32 @@ export function isArchiveFile(s: string): boolean {
   return false
 }
 
+export function isExeFile(s: string): boolean {
+  if (s.endsWith('.exe')) {
+    return true
+  }
+
+  const reLatest =
+    /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/latest\/download\/([^\/]+)/
+  const reTag =
+    /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/([^\/]+)/
+
+  for (
+    const [re, n] of [
+      [reLatest, 3],
+      [reTag, 4],
+    ] as const
+  ) {
+    const match = re.exec(s)
+    const name = match?.[n]
+
+    if (name && !isArchiveFile(name) && !name.includes('.')) {
+      return true
+    }
+  }
+  return false
+}
+
 export function getFetchOption() {
   const headers: HeadersInit = {
     'User-Agent': 'GitHub Actions',

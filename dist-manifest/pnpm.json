@@ -4,6 +4,14 @@
       "name": "pnpm",
       "target_triples": ["x86_64-unknown-linux-gnu"]
     },
+    "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-macos-x64": {
+      "name": "pnpm",
+      "target_triples": ["x86_64-apple-darwin"]
+    },
+    "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-macos-arm64": {
+      "name": "pnpm",
+      "target_triples": ["aarch64-apple-darwin"]
+    },
     "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe": {
       "name": "pnpm",
       "target_triples": ["x86_64-pc-windows-gnu"]

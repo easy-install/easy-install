@@ -19,7 +19,7 @@ export async function repoInstall(
 
   const downloadUrlList = await repo.getAssetUrlList(
     name?.length ? name : undefined,
-    version,
+    version?.length ? version : undefined,
   )
 
   const output: Output = {}

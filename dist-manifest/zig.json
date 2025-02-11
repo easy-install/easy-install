@@ -10,6 +10,26 @@
         }
       ]
     },
+    "https://ziglang.org/download/0.13.0/zig-macos-x86_64-0.13.0.tar.xz": {
+      "target_triples": ["x86_64-apple-darwin"],
+      "assets": [
+        {
+          "name": "zig",
+          "path": "zig-macos-x86_64-0.13.0",
+          "kind": "executable-dir"
+        }
+      ]
+    },
+    "https://ziglang.org/download/0.13.0/zig-macos-aarch64-0.13.0.tar.xz": {
+      "target_triples": ["aarch64-apple-darwin"],
+      "assets": [
+        {
+          "name": "zig",
+          "path": "zig-macos-aarch64-0.13.0",
+          "kind": "executable-dir"
+        }
+      ]
+    },
     "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip": {
       "target_triples": ["x86_64-pc-windows-gnu"],
       "assets": [

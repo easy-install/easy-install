@@ -4,7 +4,8 @@ permissions:
   contents: write
 
 on: [push]
-
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 # env:
 #   CARGO_TERM_COLOR: always
 
@@ -14,13 +15,15 @@ defaults:
 
 jobs:
   rust-test:
+    # avoid github api limit
+    # needs: js-test
     strategy:
       matrix:
         os: [
           ubuntu-24.04,
           windows-latest,
-          # macos-latest,
-          # macos-13,
+          macos-latest,
+          macos-13,
         ]
     runs-on: ${{ matrix.os }}
     env:
@@ -34,17 +37,15 @@ jobs:
           toolchain: nightly
           override: true
       - name: cargo test
-        # env:
-        #   LOG_LEVEL: TRACE
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           cargo test
 
       - name: cargo run
-        # env:
-        #   LOG_LEVEL: TRACE
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           echo $PATH
-          cargo run -- starship
+          # cargo run -- starship
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
@@ -78,6 +79,27 @@ jobs:
           cargo run -- https://github.com/ahaoboy/spidermonkey-build
           cargo run -- https://github.com/ahaoboy/v8-build
           cargo run -- ./dist-manifest/ffmpeg.json
+      - name: install on macos
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          # cargo run -- starship
+          cargo run -- ./dist-manifest/esbuild.json
+          cargo run -- ./dist-manifest/zig.json
+          cargo run -- ./dist-manifest/boa.json
+          cargo run -- ./dist-manifest/llrt.json
+          cargo run -- ./dist-manifest/alist.json
+          cargo run -- ./dist-manifest/pnpm.json
+          cargo run -- ./dist-manifest/biome.json
+          cargo run -- ./dist-manifest/hermes.json
+          cargo run -- ./dist-manifest/xst.json
+          cargo run -- ./dist-manifest/quickjs-ng.json
+          # cargo run -- https://github.com/denoland/deno
+          cargo run -- https://github.com/easy-install/easy-install
+          cargo run -- https://github.com/axodotdev/cargo-dist
+          cargo run -- https://github.com/ahaoboy/neofetch
+          cargo run -- https://github.com/starship/starship
+          cargo run -- https://github.com/ahaoboy/mujs-build
+          cargo run -- https://github.com/ahaoboy/txiki.js-build
 
       - name: install on windows
         if: matrix.os == 'windows-latest'
@@ -157,10 +179,47 @@ jobs:
           which xst
           which esbuild
 
-          echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
+          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
+
+      - name: test which on macos
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          echo $PATH
+          # cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
+          # mv ~/.easy-install/graaljs/bin/js ~/.easy-install/graaljs/bin/graaljs
+
+          # which deno
+          which zig
+          which llrt
+          which alist
+          which mujs
+          # which bun
+          # TODO: need fnm support x86_64 and arm64
+          # which fnm
+          # which 7z
+          # which starship
+          # which yt-dlp
+          which pnpm
+          which biome
+          which qjs
+          which qjsc
+          which boa
+          # which graaljs
+          # which js
+          which hermes
+          which xst
+          which esbuild
+
+          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
+          # d8 ./test.js
+          # js ./test.js
+          # jsc ./test.js
+          mujs test.js
+          qjs test.js
+          boa test.js
 
   js-test:
     strategy:
@@ -191,6 +250,7 @@ jobs:
           ./cli/cli.js https://github.com/ahaoboy/jsc-build
           ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
           ./cli/cli.js https://github.com/ahaoboy/v8-build
+          ./cli/cli.js https://github.com/ahaoboy/txiki.js-build
           for file in ./dist-manifest/*.json; do
             echo $file
             ./cli/cli.js $file
@@ -232,6 +292,7 @@ jobs:
           get-command mpv
           get-command esbuild
           get-command rcedit
+          get-command tjs
 
       - name: test ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -265,8 +326,9 @@ jobs:
           which hermes
           which xst
           which esbuild
+          which tjs
 
-          echo "typeof globalThis.print>'u'&&(globalThis.print=console.log);print(2);" >> test.js
+          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
@@ -280,3 +342,9 @@ jobs:
           which starship
           which qjs
           which qjsc
+          which boa
+          which llrt
+          which hermes
+          which xst
+          which tjs
+          which pnpm

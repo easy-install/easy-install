@@ -1,21 +1,41 @@
+use crate::manfiest::DistManifest;
 use binstalk_downloader::{bytes::Bytes, download::Download, remote::Client};
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    ClientBuilder,
+};
+use serde::de::DeserializeOwned;
 use std::num::NonZeroU16;
 use tracing::trace;
 use url::Url;
 
-use crate::manfiest::DistManifest;
+fn get_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.append("User-Agent", HeaderValue::from_static("reqwest"));
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        headers.append(
+            "Authorization",
+            HeaderValue::from_str(&format!("token {token}")).expect("Authorization token error"),
+        );
+    };
+    headers
+}
 
 pub async fn create_client() -> Client {
     trace!("create_client");
-    Client::new(
-        concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-        None,
+    let headers = get_headers();
+    Client::from_builder(
+        ClientBuilder::new().default_headers(headers),
         NonZeroU16::new(10).unwrap(),
         1.try_into().unwrap(),
-        [],
     )
-    .unwrap()
+    .expect("failed to create_client")
+}
+
+pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
+    let client = reqwest::Client::new();
+    let response = client.get(url).headers(get_headers()).send().await.ok()?;
+    response.json::<T>().await.ok()
 }
 
 pub async fn download_files(url: &str) -> Download<'static> {
@@ -27,14 +47,7 @@ pub async fn download_files(url: &str) -> Download<'static> {
 pub async fn download(url: &str) -> Option<reqwest::Response> {
     trace!("download {}", url);
     let client = reqwest::Client::new();
-    let mut headers = HeaderMap::new();
-    headers.append("User-Agent", HeaderValue::from_static("reqwest"));
-    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-        headers.append(
-            "Authorization",
-            HeaderValue::from_str(&format!("token {token}")).expect("Authorization token error"),
-        );
-    };
+    let headers = get_headers();
     client.get(url).headers(headers).send().await.ok()
 }
 

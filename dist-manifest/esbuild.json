@@ -4,6 +4,14 @@
       "name": "esbuild",
       "target_triples": ["x86_64-unknown-linux-gnu"]
     },
+    "https://www.unpkg.com/@esbuild/darwin-x64@latest/bin/esbuild": {
+      "name": "esbuild",
+      "target_triples": ["x86_64-apple-darwin"]
+    },
+    "https://www.unpkg.com/@esbuild/darwin-arm64@latest/bin/esbuild": {
+      "name": "esbuild",
+      "target_triples": ["aarch64-apple-darwin"]
+    },
     "https://www.unpkg.com/@esbuild/win32-x64@latest/esbuild.exe": {
       "name": "esbuild",
       "target_triples": ["x86_64-pc-windows-gnu"]

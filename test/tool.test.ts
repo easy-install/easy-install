@@ -6,6 +6,7 @@ import {
   extractTo,
   getAssetNames,
   isArchiveFile,
+  isExeFile,
   toMsysPath,
 } from '../ts/tool'
 import * as path from 'path'
@@ -214,4 +215,34 @@ test('createFiles', () => {
   const ei = files.get('bin/ei.rs')!.buffer
   const txt = Buffer.from(ei).toString()
   expect(txt.includes('#[tokio::main]')).toEqual(true)
+})
+
+test('isExeFile', () => {
+  for (
+    const [a, b] of [
+      [
+        'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
+        true,
+      ],
+      [
+        'https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe',
+        true,
+      ],
+      [
+        'https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64',
+        true,
+      ],
+      [
+        'https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz',
+        false,
+      ],
+      ['https://github.com/easy-install/easy-install', false],
+      [
+        'https://github.com/easy-install/easy-install/releases/tag/v0.1.5',
+        false,
+      ],
+    ] as const
+  ) {
+    expect(isExeFile(a)).toEqual(b)
+  }
 })

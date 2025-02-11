@@ -7,6 +7,13 @@ use std::path::Path;
 
 use crate::install::Output;
 
+pub fn get_bin_name(s: &str) -> String {
+    if cfg!(windows) && !s.ends_with(".exe") && !s.contains(".") {
+        return s.to_string() + ".exe";
+    }
+    s.to_string()
+}
+
 pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
     let mut mode = 0;
     let mut size = 0;
@@ -14,7 +21,7 @@ pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
     if let Ok(meta) = std::fs::metadata(s) {
         #[cfg(windows)]
         {
-          mode = 0;
+            mode = 0;
             size = meta.file_size() as u32;
         }
 
