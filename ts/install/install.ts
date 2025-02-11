@@ -25,7 +25,7 @@ export async function install(
       : readDistManfiest(url)
     if (!dist) {
       console.log('failed to read dist-manifest.json')
-      return []
+      return {}
     }
     return await manifestInstall(dist, installDir)
   }
@@ -40,5 +40,5 @@ export async function install(
   }
 
   console.log('failed to install', url, version, name)
-  return []
+  return {}
 }

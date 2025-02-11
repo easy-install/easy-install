@@ -14,20 +14,21 @@ install({
   version,
   name,
 }).then((output) => {
-  for (const item of output) {
-    const { installDir } = item
-    if (installDir && !hasPath(installDir)) {
-      addPath(installDir)
-      if (isGithub()) {
-        addGithubPath(installDir)
+  for (const files of Object.values(output)) {
+    for (const item of files) {
+      const { installDir } = item
+      if (installDir && !hasPath(installDir)) {
+        addPath(installDir)
+        if (isGithub()) {
+          addGithubPath(installDir)
+        }
       }
     }
-  }
-
-  if (output.length === 1) {
-    const first = output[0].installPath
-    if (first) {
-      addExecutePermission(first)
+    if (files.length === 1 && files[0].installPath) {
+      const first = files[0].installPath
+      if (first) {
+        addExecutePermission(first)
+      }
     }
   }
 })

@@ -3,7 +3,7 @@ import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
-import { decode, Files, Fmt, guess, File } from '@easy-install/easy-archive'
+import { decode, File, Files, guess } from '@easy-install/easy-archive'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -68,26 +68,29 @@ export function randomId() {
 export function createFiles(dir: string): Files {
   const files = Files.new()
   async function dfs(currentPath: string) {
-    const entries = fs.readdirSync(currentPath);
+    const entries = fs.readdirSync(currentPath)
     for (const entry of entries) {
-      const fullPath = path.join(currentPath, entry);
-      const stat = fs.statSync(fullPath);
+      const fullPath = path.join(currentPath, entry)
+      const stat = fs.statSync(fullPath)
       if (stat.isDirectory()) {
         // ignore empty dir
-        dfs(fullPath);
+        dfs(fullPath)
       } else if (stat.isFile()) {
-        const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/');
-        const buffer = fs.readFileSync(fullPath);
+        const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/')
+        const buffer = fs.readFileSync(fullPath)
         const file = File.new(relativePath, buffer, stat.mode)
         files.insert(relativePath, file)
       }
     }
   }
-  dfs(dir);
-  return files;
+  dfs(dir)
+  return files
 }
 
-export function extractToByShell(compressedFilePath: string, outputDir?: string): { outputDir: string; files?: Files } {
+export function extractToByShell(
+  compressedFilePath: string,
+  outputDir?: string,
+): { outputDir: string; files?: Files } {
   const tmpDir = path.join(tmpdir(), randomId())
   let oriDir = outputDir ?? tmpDir
   const needCopy = !!outputDir

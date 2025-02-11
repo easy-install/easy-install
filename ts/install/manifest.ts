@@ -10,11 +10,11 @@ export async function manifestInstall(
   const v = await getArtifactUrlFromManfiest(dist, manifestUrl)
   if (!v.length) {
     console.log('failed to install from manifest')
-    return []
+    return {}
   }
-  const list: Output = []
+  const outptu: Output = {}
   for (const url of v) {
-    list.push(...await artifactInstall(url, dist, dir))
+    Object.assign(outptu, await artifactInstall(url, dist, dir))
   }
-  return list
+  return outptu
 }

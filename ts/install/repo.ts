@@ -23,7 +23,7 @@ export async function repoInstall(
     version,
   )
 
-  const v: Output = []
+  const output: Output = {}
   if (!installDir) {
     installDir = getInstallDir()
   }
@@ -31,7 +31,7 @@ export async function repoInstall(
     console.log(`download ${i}`)
     const downloadPath = await download(i)
     const files = extractTo(downloadPath, installDir).files
-
+    const v = []
     if (files) {
       for (const originPath of files.keys()) {
         const installPath = join(installDir, originPath)
@@ -48,12 +48,16 @@ export async function repoInstall(
         downloadUrl: i,
       })
     }
+
+    output[i] = v
   }
 
-  console.log(
-    v.map((i) =>
-      `${i.originPath ?? i.downloadUrl} -> ${i.installPath ?? i.installDir}`
-    ).join('\n'),
-  )
-  return v
+  for (const v of Object.values(output)) {
+    console.log(
+      v.map((i) =>
+        `${i.originPath ?? i.downloadUrl} -> ${i.installPath ?? i.installDir}`
+      ).join('\n'),
+    )
+  }
+  return output
 }

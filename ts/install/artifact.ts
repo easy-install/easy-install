@@ -89,10 +89,12 @@ async function downloadAndInstall(
       if (asset.executable_dir) {
         installDir = join(installDir, asset.executable_dir)
       }
-      return [{
-        downloadUrl,
-        installDir,
-      }]
+      return {
+        [downloadUrl]: [{
+          downloadUrl,
+          installDir,
+        }]
+      }
     }
   } else {
     let installDir = getInstallDir()
@@ -141,13 +143,15 @@ async function downloadAndInstall(
     } else {
       console.log('Installation Successful')
       console.log(v.join('\n'))
-      return [{
-        downloadUrl,
-        installDir,
-      }]
+      return {
+        [downloadUrl]: [{
+          downloadUrl,
+          installDir,
+        }]
+      }
     }
   }
-  return []
+  return {}
 }
 export async function artifactInstall(
   artUrl: string,
@@ -157,7 +161,7 @@ export async function artifactInstall(
   const v = await getArtifactDownloadUrl(artUrl)
   if (v.length === 0) {
     console.log(`not found download_url for ${artUrl}`)
-    return []
+    return {}
   }
   for (const downloadUrl of v) {
     console.log(`download ${downloadUrl}`)
@@ -166,5 +170,5 @@ export async function artifactInstall(
       : await fileInstall({ url: artUrl }, downloadUrl, dist, dir)
   }
 
-  return []
+  return {}
 }

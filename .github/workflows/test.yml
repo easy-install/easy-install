@@ -182,8 +182,7 @@ jobs:
       - name: install
         run: |
           ./cli/cli.js https://github.com/easy-install/easy-install
-          # deno and denort
-          ./cli/cli.js https://github.com/denoland/deno deno
+          ./cli/cli.js https://github.com/denoland/deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
           ./cli/cli.js https://github.com/ahaoboy/neofetch
@@ -210,13 +209,14 @@ jobs:
           get-command neofetch
           get-command dist
           get-command deno
+          get-command denort
           get-command ffmpeg
           get-command zig
           get-command llrt
           get-command alist
           get-command bun
           get-command fnm
-          # get-command 7z
+          get-command 7z
           get-command starship
           get-command ScreenToGif
           get-command yt-dlp
@@ -245,13 +245,14 @@ jobs:
           which js
           which d8
           which deno
+          which denort
           which ffmpeg
           which zig
           which llrt
           which alist
           which bun
           which fnm
-          # which 7z
+          which 7z
           which starship
           which yt-dlp
           which pnpm
@@ -272,5 +273,9 @@ jobs:
       - name: test macos
         if: startsWith(matrix.os, 'macos')
         run: |
+          which ei
+          which dist
+          which js
+          which starship
           which qjs
           which qjsc

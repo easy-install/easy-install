@@ -4,12 +4,12 @@ export type Input = {
   name: string
 }
 
-export type Output = {
+export type Output = Record<string, {
   installDir: string
   installPath?: string
   originPath?: string
   downloadUrl: string
-}[]
+}[]>
 
 export type Asset = {
   name: string
