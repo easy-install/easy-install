@@ -3,7 +3,7 @@ import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
-import { decode, Files, guess } from '@easy-install/easy-archive'
+import { decode, Files, Fmt, guess, File } from '@easy-install/easy-archive'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -65,7 +65,84 @@ export function randomId() {
   return Math.random().toString(36).slice(2)
 }
 
-export function extractTo(
+export function createFiles(dir: string): Files {
+  const files = Files.new()
+  async function dfs(currentPath: string) {
+    const entries = fs.readdirSync(currentPath);
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        // ignore empty dir
+        dfs(fullPath);
+      } else if (stat.isFile()) {
+        const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/');
+        const buffer = fs.readFileSync(fullPath);
+        const file = File.new(relativePath, buffer, stat.mode)
+        files.insert(relativePath, file)
+      }
+    }
+  }
+  dfs(dir);
+  return files;
+}
+
+export function extractToByShell(compressedFilePath: string, outputDir?: string): { outputDir: string; files?: Files } {
+  const tmpDir = path.join(tmpdir(), randomId())
+  let oriDir = outputDir ?? tmpDir
+  const needCopy = !!outputDir
+
+  outputDir = tmpDir
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+
+  if (isMsys() && !compressedFilePath.endsWith('.zip')) {
+    compressedFilePath = toMsysPath(compressedFilePath)
+    outputDir = toMsysPath(outputDir)
+  }
+  if (!fs.existsSync(oriDir)) {
+    fs.mkdirSync(oriDir, { recursive: true })
+  }
+  const rules = [
+    {
+      ext: ['.zip'],
+      cmd: process.platform !== 'win32'
+        ? `unzip -o "${compressedFilePath}" -d "${outputDir}"`
+        : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
+    },
+    {
+      ext: ['.tar', '.tar.xz'],
+      cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"`,
+    },
+    {
+      ext: ['.tar.gz', '.tgz'],
+      cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,
+    },
+    {
+      ext: ['.tar.bz2'],
+      cmd: `tar -xjf "${compressedFilePath}" -C "${outputDir}"`,
+    },
+    { ext: ['.7z'], cmd: `7z x "${compressedFilePath}" -o"${outputDir}"` },
+    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
+    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
+  ] as const
+
+  for (const { ext, cmd } of rules) {
+    for (const e of ext) {
+      if (compressedFilePath.endsWith(e)) {
+        execSync(cmd)
+      }
+    }
+  }
+  const files = createFiles(outputDir)
+  if (needCopy && tmpDir !== oriDir) {
+    fs.cpSync(tmpDir, oriDir, { recursive: true })
+  }
+  return { outputDir: oriDir, files }
+}
+
+export function extractToByWasm(
   compressedFilePath: string,
   outputDir?: string,
 ): { outputDir: string; files?: Files } {
@@ -114,6 +191,14 @@ export function extractTo(
     }
   }
   return { outputDir, files }
+}
+
+export function extractTo(compressedFilePath: string, outputDir?: string) {
+  try {
+    return extractToByWasm(compressedFilePath, outputDir)
+  } catch {
+    return extractToByShell(compressedFilePath, outputDir)
+  }
 }
 
 export function detectTargets(
@@ -172,7 +257,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }

@@ -192,9 +192,6 @@ jobs:
           ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
           ./cli/cli.js https://github.com/ahaoboy/v8-build
           for file in ./dist-manifest/*.json; do
-            if [ "$(basename "$file")" = "7zip.json" ]; then
-                continue
-            fi
             echo $file
             ./cli/cli.js $file
           done
