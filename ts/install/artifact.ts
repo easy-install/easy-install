@@ -93,7 +93,7 @@ async function downloadAndInstall(
         [downloadUrl]: [{
           downloadUrl,
           installDir,
-        }]
+        }],
       }
     }
   } else {
@@ -147,7 +147,7 @@ async function downloadAndInstall(
         [downloadUrl]: [{
           downloadUrl,
           installDir,
-        }]
+        }],
       }
     }
   }

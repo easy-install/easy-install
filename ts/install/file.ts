@@ -36,7 +36,7 @@ export async function fileInstall(
         downloadUrl,
         installPath,
         installDir,
-      }]
+      }],
     }
   }
   const artifact = dist?.['artifacts'][url]
@@ -56,7 +56,7 @@ export async function fileInstall(
         downloadUrl,
         installPath,
         installDir,
-      }]
+      }],
     }
   } else {
     console.log(`not found/download artifact for ${url}`)

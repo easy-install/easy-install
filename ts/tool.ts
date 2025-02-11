@@ -260,7 +260,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
