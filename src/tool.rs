@@ -7,17 +7,21 @@ use std::path::Path;
 
 use crate::install::Output;
 
-pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, usize, bool) {
+pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
     let mut mode = 0;
     let mut size = 0;
     let mut is_dir = false;
     if let Ok(meta) = std::fs::metadata(s) {
-        mode = 0;
-        size = meta.file_size() as usize;
+        #[cfg(windows)]
+        {
+          mode = 0;
+            size = meta.file_size() as u32;
+        }
 
         #[cfg(unix)]
         {
             mode = meta.mode();
+            size = meta.size() as u32;
         }
 
         is_dir = meta.is_dir()
@@ -49,7 +53,7 @@ fn round(value: f64) -> String {
     s
 }
 
-pub fn human_size(bytes: usize) -> String {
+pub fn human_size(bytes: u32) -> String {
     if bytes == 0 {
         return "0".to_string();
     }

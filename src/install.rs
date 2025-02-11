@@ -19,7 +19,7 @@ pub struct OutputItem {
     pub install_dir: String,
     pub install_path: String,
     pub mode: u32,
-    pub size: usize,
+    pub size: u32,
     pub origin_path: String,
     pub is_dir: bool,
 }
