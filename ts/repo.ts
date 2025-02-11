@@ -1,4 +1,3 @@
-import { platform } from 'os'
 import { downloadJson } from './download'
 import {
   detectTargets,
@@ -18,7 +17,12 @@ export class Repo {
     public tag: string | undefined = undefined,
   ) {
   }
-
+  getReleasesUrl() {
+    if (this.tag === 'latest' || this.tag === undefined) {
+      return `https://github.com/${this.owner}/${this.name}/releases/latest`
+    }
+    return `https://github.com/${this.owner}/${this.name}/releases/tag/${this.tag}`
+  }
   static fromUrl(url: string): Repo | undefined {
     for (
       const re of [

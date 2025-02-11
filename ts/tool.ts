@@ -1,9 +1,11 @@
 import * as fs from 'fs'
 import { execSync } from 'child_process'
-import { tmpdir } from 'os'
+import { platform, tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
 import { decode, File, Files, guess } from '@easy-install/easy-archive'
+import { dirname, join } from 'path'
+import { Output } from './type'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -66,7 +68,7 @@ export function randomId() {
 }
 
 export function createFiles(dir: string): Files {
-  const files = Files.new()
+  const files = new Files()
   async function dfs(currentPath: string) {
     const entries = fs.readdirSync(currentPath)
     for (const entry of entries) {
@@ -78,7 +80,7 @@ export function createFiles(dir: string): Files {
       } else if (stat.isFile()) {
         const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/')
         const buffer = fs.readFileSync(fullPath)
-        const file = File.new(relativePath, buffer, stat.mode)
+        const file = new File(relativePath, buffer, stat.mode)
         files.insert(relativePath, file)
       }
     }
@@ -174,16 +176,14 @@ export function extractToByWasm(
     if (!file) {
       continue
     }
-    const filePath = file.get_path()
-    const mode = file.get_mode()
-    const buffer = file.get_buffer()
+    const { path, mode, buffer } = file
 
-    if (filePath.endsWith('/') || !buffer.length) {
+    if (path.endsWith('/') || !buffer.length) {
       continue
     }
 
-    const outputPath = path.join(outputDir, filePath)
-    const dir = path.dirname(outputPath)
+    const outputPath = join(outputDir, path)
+    const dir = dirname(outputPath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
@@ -370,7 +370,11 @@ export function isMsys() {
 
 export function addExecutePermission(filePath: string) {
   try {
-    fs.chmodSync(filePath, 0o755)
+    const meta = fs.statSync(filePath)
+    if (meta.isDirectory()) {
+      return
+    }
+    fs.chmodSync(filePath, meta.mode | 0o111)
   } catch (error) {
     console.error('Failed to add execute permission', error)
   }
@@ -407,4 +411,66 @@ export function cleanPath(path: string): string {
   }
 
   return (parts[0] === '' ? '/' : '') + stack.join('/')
+}
+
+function modeToString(mode: number, isDir: boolean): string {
+  // if (mode < 0 || mode > 0o777) {
+  //   throw new Error('Invalid mode: must be in range 0 to 0o777')
+  // }
+
+  const rwxMapping = [
+    '---',
+    '--x',
+    '-w-',
+    '-wx',
+    'r--',
+    'r-x',
+    'rw-',
+    'rwx',
+  ]
+
+  const owner = rwxMapping[(mode >> 6) & 0b111]
+  const group = rwxMapping[(mode >> 3) & 0b111]
+  const others = rwxMapping[mode & 0b111]
+  const d = isDir ? 'd' : '-'
+  return `${d}${owner}${group}${others}`
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 0) {
+    throw new Error('Size must be non-negative')
+  }
+
+  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
+  let index = 0
+  let size = bytes
+
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024
+    index++
+  }
+
+  return `${parseFloat(size.toPrecision(2))}${units[index]}`
+}
+
+export function displayOutput(output: Output) {
+  const s: string[] = []
+  for (const v of Object.values(output)) {
+    const maxSizeLen = v.reduce(
+      (pre, cur) => Math.max(pre, humanSize(cur.size).length),
+      0,
+    )
+    for (const i of v) {
+      s.push([
+        modeToString(i.mode, i.isDir),
+        humanSize(i.size).padStart(maxSizeLen, ' '),
+        [i.originPath, i.installPath].join(' -> '),
+      ].join(' '))
+    }
+  }
+  return s.join('\n')
+}
+
+export function showSuccess() {
+  console.log('Installation Successful')
 }

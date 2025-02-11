@@ -1,0 +1,96 @@
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
+
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+use std::path::Path;
+
+use crate::install::Output;
+
+pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, usize, bool) {
+    let mut mode = 0;
+    let mut size = 0;
+    let mut is_dir = false;
+    if let Ok(meta) = std::fs::metadata(s) {
+        mode = 0;
+        size = meta.file_size() as usize;
+
+        #[cfg(unix)]
+        {
+            mode = meta.mode();
+        }
+
+        is_dir = meta.is_dir()
+    }
+
+    (mode, size, is_dir)
+}
+
+fn mode_to_string(mode: u32, is_dir: bool) -> String {
+    let rwx_mapping = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"];
+
+    let owner = rwx_mapping[((mode >> 6) & 0b111) as usize]; // Owner permissions
+    let group = rwx_mapping[((mode >> 3) & 0b111) as usize]; // Group permissions
+    let others = rwx_mapping[(mode & 0b111) as usize]; // Others permissions
+    let d = if is_dir { "d" } else { "-" };
+    format!("{}{}{}{}", d, owner, group, others)
+}
+
+fn round(value: f64) -> String {
+    let mut s = format!("{:.1}", value);
+    if s.contains('.') {
+        while s.ends_with('0') {
+            s.pop();
+        }
+        if s.ends_with('.') {
+            s.pop();
+        }
+    }
+    s
+}
+
+pub fn human_size(bytes: usize) -> String {
+    if bytes == 0 {
+        return "0".to_string();
+    }
+    let units = ["", "K", "M", "G", "T", "P", "E", "Z", "Y"];
+    let b = bytes as f64;
+    let exponent = (b.log(1024.0)).floor() as usize;
+    let value = b / 1024f64.powi(exponent as i32);
+    let rounded = round(value);
+    format!("{}{}", rounded, units[exponent])
+}
+
+pub fn display_output(output: &Output) -> String {
+    let mut v = vec![];
+    for i in output.values() {
+        let max_size_len = i
+            .iter()
+            .fold(0, |pre, cur| pre.max(human_size(cur.size).len()));
+
+        for k in i {
+            let s = human_size(k.size);
+            v.push(
+                [
+                    mode_to_string(k.mode, k.is_dir),
+                    " ".repeat(max_size_len - s.len()) + &s,
+                    [k.origin_path.as_str(), k.install_path.as_str()].join(" -> "),
+                ]
+                .join(" "),
+            );
+        }
+    }
+    v.join("\n")
+}
+
+#[cfg(test)]
+mod test {
+    use crate::tool::round;
+
+    #[test]
+    fn test_round() {
+        for (a, b) in [(1., "1"), (1.0, "1"), (1.5, "1.5"), (1.23, "1.2")] {
+            assert_eq!(round(a), b);
+        }
+    }
+}

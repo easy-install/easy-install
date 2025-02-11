@@ -1,9 +1,20 @@
 import { join } from 'path'
 import { downloadBinary, downloadToFile } from '../download'
 import { getInstallDir } from '../env'
-import { addExecutePermission, getBinName } from '../tool'
+import {
+  addExecutePermission,
+  displayOutput,
+  getBinName,
+  showSuccess,
+} from '../tool'
 import { DistManifest, Output } from '../type'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'fs'
 
 export type FileInstall = {
   url: string
@@ -27,37 +38,59 @@ export async function fileInstall(
 
   const { url, name } = info
   const filename = name ?? downloadUrl.split('/').at(-1)!
-
+  const mode = 0o755
+  const originPath = downloadUrl.split('/').at(-1)!
+  const isDir = false
   if (!dist) {
-    const installPath = join(installDir, getBinName(filename))
+    const installPath = join(installDir, getBinName(filename)).replaceAll(
+      '\\',
+      '/',
+    )
+
+    console.log(`download ${downloadUrl}`)
     await downloadToFile(downloadUrl, installPath)
-    return {
+    chmodSync(installPath, mode)
+    const size = readFileSync(installPath).length
+    const output = {
       [downloadUrl]: [{
+        mode,
+        size,
+        isDir,
+        originPath,
         downloadUrl,
         installPath,
         installDir,
       }],
     }
+    showSuccess()
+    console.log(displayOutput(output))
+    return output
   }
   const artifact = dist?.['artifacts'][url]
   if (artifact) {
     const bin = await downloadBinary(downloadUrl)
     const name = artifact.name ?? filename
-    const installPath = join(installDir, getBinName(name))
+    const installPath = join(installDir, getBinName(name)).replaceAll('\\', '/')
     if (!existsSync(installDir)) {
       mkdirSync(installDir, { recursive: true })
     }
-    writeFileSync(installPath, new Uint8Array(bin))
+    writeFileSync(installPath, new Uint8Array(bin), { mode })
     addExecutePermission(installPath)
-    console.log('Installation Successful')
-    console.log([downloadUrl, installPath.replaceAll('\\', '/')].join(' -> '))
-    return {
+    const size = bin.byteLength
+    const output = {
       [downloadUrl]: [{
+        size,
+        mode,
         downloadUrl,
         installPath,
         installDir,
+        originPath,
+        isDir,
       }],
     }
+    showSuccess()
+    console.log(displayOutput(output))
+    return output
   } else {
     console.log(`not found/download artifact for ${url}`)
   }

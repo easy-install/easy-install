@@ -20,23 +20,23 @@ pub fn add_to_path(dir: &str) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-pub fn get_install_dir() -> PathBuf {
-    use std::str::FromStr;
-    let home = PathBuf::from_str(if is_admin::is_admin() {
-        "/usr/bin"
-    } else {
-        "/usr/local/bin"
-    })
-    .unwrap();
+// #[cfg(not(target_os = "windows"))]
+// pub fn get_install_dir() -> PathBuf {
+//     use std::str::FromStr;
+//     let home = PathBuf::from_str(if is_admin::is_admin() {
+//         "/usr/bin"
+//     } else {
+//         "/usr/local/bin"
+//     })
+//     .unwrap();
 
-    if !home.exists() {
-        std::fs::create_dir(&home).expect("Failed to create_dir home_dir");
-    }
-    home
-}
+//     if !home.exists() {
+//         std::fs::create_dir(&home).expect("Failed to create_dir home_dir");
+//     }
+//     home
+// }
 
-#[cfg(target_os = "windows")]
+// #[cfg(target_os = "windows")]
 pub fn get_install_dir() -> PathBuf {
     let mut home = dirs::home_dir().expect("Failed to get home_dir");
     home.push(".easy-install");

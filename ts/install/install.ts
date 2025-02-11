@@ -1,14 +1,7 @@
 import { readDistManfiest } from '../dist-manifest'
 import { downloadJson } from '../download'
-import { getInstallDir } from '../env'
 import { Repo } from '../repo'
-import {
-  download,
-  extractTo,
-  isArchiveFile,
-  isDistManfiest,
-  isUrl,
-} from '../tool'
+import { isArchiveFile, isDistManfiest, isUrl } from '../tool'
 import type { DistManifest, Input, Output } from '../type'
 import { artifactInstall } from './artifact'
 import { manifestInstall } from './manifest'

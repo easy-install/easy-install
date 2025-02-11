@@ -8,15 +8,15 @@ import {
 import { downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
-  addExecutePermission,
   atomiInstall,
   cleanPath,
   detectTargets,
+  displayOutput,
   extractTo,
   getBinName,
   isArchiveFile,
 } from '../tool'
-import { DistManifest, Output } from '../type'
+import { DistManifest, Output, OutputItem } from '../type'
 import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 
@@ -31,7 +31,7 @@ async function downloadAndInstall(
     ? (dist.artifacts[artUrl] || getArtifact(dist, targets))
     : undefined
   const asset = art ? getAssetsExecutableDir(art) : undefined
-
+  console.log(`download ${downloadUrl}`)
   const tmpPath = await downloadToFile(downloadUrl)
   const tmpDir = extractTo(tmpPath).outputDir
 
@@ -50,7 +50,7 @@ async function downloadAndInstall(
 
     const prefix = asset.path ?? '.'
     const q = [prefix]
-    const v: string[] = []
+    const v: OutputItem[] = []
     while (q.length) {
       const top = q.shift()!
       const entry = getEntry(top)
@@ -62,7 +62,7 @@ async function downloadAndInstall(
           top.replaceAll(
             '\\',
             '/',
-          ).replace(prefix + '/', ''),
+          ).replaceAll(prefix + '/', ''),
         )
         const dstDir = dirname(dst)
         if (!existsSync(dstDir)) {
@@ -70,8 +70,19 @@ async function downloadAndInstall(
         }
 
         atomiInstall(src, dst)
-        addExecutePermission(dst)
-        v.push([top, dst].join(' -> '))
+        // addExecutePermission(dst)
+
+        v.push({
+          mode: info.mode,
+          size: info.size,
+          installDir: asset.executable_dir
+            ? join(installDir, asset.executable_dir).replaceAll('\\', '/')
+            : installDir,
+          installPath: dst,
+          originPath: top,
+          downloadUrl,
+          isDir: info.isDirectory(),
+        })
       } else if (info.isDirectory()) {
         const curDir = join(tmpDir, top)
         for (const i of readdirSync(curDir)) {
@@ -83,75 +94,75 @@ async function downloadAndInstall(
 
     if (!v.length) {
       console.log('No files installed')
-    } else {
-      console.log('Installation Successful')
-      console.log(v.join('\n'))
-      if (asset.executable_dir) {
-        installDir = join(installDir, asset.executable_dir)
-      }
-      return {
-        [downloadUrl]: [{
-          downloadUrl,
-          installDir,
-        }],
-      }
+      return {}
     }
-  } else {
-    let installDir = getInstallDir()
-    if (dir) {
-      if (dir.includes('\\') || dir.includes('/')) {
-        installDir = dir
-      } else {
-        installDir = join(installDir, dir)
-      }
-    }
-    const v: string[] = []
-    const q = ['.']
-    const allow = (p: string) => !art || hasFile(art, p)
-    while (q.length) {
-      const top = q.shift()!
-      const entry = getEntry(top)
-      const info = statSync(entry)
-      if (info.isFile()) {
-        if (!allow(top)) {
-          continue
-        }
 
-        const filename = basename(top)
-        const asset = art?.assets?.find((i) => i.path === top)
-        let name = filename
-        if (asset) {
-          if (asset.executable_name) {
-            name = getBinName(asset.executable_name)
-          }
-        }
-        const src = join(tmpDir, asset?.path ?? top)
-        const dst = join(installDir, name)
-        atomiInstall(src, dst)
-        addExecutePermission(dst)
-        v.push([top, dst].join(' -> ').replaceAll('\\', '/'))
-      } else if (info.isDirectory()) {
-        const curDir = join(tmpDir, top)
-        for (const i of readdirSync(curDir)) {
-          const next = cleanPath(join(top, i).replaceAll('\\', '/'))
-          q.push(next)
+    const output = {
+      [downloadUrl]: v,
+    }
+    console.log(displayOutput(output))
+    return output
+  }
+
+  let installDir = getInstallDir()
+  if (dir) {
+    if (dir.includes('\\') || dir.includes('/')) {
+      installDir = dir
+    } else {
+      installDir = join(installDir, dir)
+    }
+  }
+  const v: OutputItem[] = []
+  const q = ['.']
+  const allow = (p: string) => !art || hasFile(art, p)
+  while (q.length) {
+    const top = q.shift()!
+    const entry = getEntry(top)
+    const info = statSync(entry)
+    if (info.isFile()) {
+      if (!allow(top)) {
+        continue
+      }
+
+      const filename = basename(top)
+      const asset = art?.assets?.find((i) => i.path === top)
+      let name = filename
+      if (asset) {
+        if (asset.executable_name) {
+          name = getBinName(asset.executable_name)
         }
       }
-    }
-    if (!v.length) {
-      console.log('No files installed')
-    } else {
-      console.log('Installation Successful')
-      console.log(v.join('\n'))
-      return {
-        [downloadUrl]: [{
-          downloadUrl,
-          installDir,
-        }],
+      const src = join(tmpDir, asset?.path ?? top)
+      const dst = join(installDir, name).replaceAll('\\', '/')
+      atomiInstall(src, dst)
+      // addExecutePermission(dst)
+      v.push({
+        mode: info.mode,
+        size: info.size,
+        installDir,
+        installPath: dst,
+        originPath: asset?.path ?? top,
+        downloadUrl,
+        isDir: info.isDirectory(),
+      })
+    } else if (info.isDirectory()) {
+      const curDir = join(tmpDir, top)
+      for (const i of readdirSync(curDir)) {
+        const next = cleanPath(join(top, i).replaceAll('\\', '/'))
+        q.push(next)
       }
     }
   }
-  return {}
+  if (!v.length) {
+    console.log('No files installed')
+    return {}
+  }
+
+  const output = {
+    [downloadUrl]: v,
+  }
+  console.log(displayOutput(output))
+  return output
 }
 export async function artifactInstall(
   artUrl: string,
@@ -164,10 +175,11 @@ export async function artifactInstall(
     return {}
   }
   for (const downloadUrl of v) {
-    console.log(`download ${downloadUrl}`)
-    return isArchiveFile(downloadUrl)
+    const output = isArchiveFile(downloadUrl)
       ? await downloadAndInstall(artUrl, downloadUrl, dist, dir)
       : await fileInstall({ url: artUrl }, downloadUrl, dist, dir)
+
+    return output
   }
 
   return {}

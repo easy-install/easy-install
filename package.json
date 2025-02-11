@@ -38,7 +38,7 @@
     "start": "npm run build && node dist/index.js"
   },
   "devDependencies": {
-    "@easy-install/easy-archive": "^0.1.1",
+    "@easy-install/easy-archive": "^0.1.2",
     "@types/node": "^22.10.7",
     "crud-path": "^0.1.0",
     "esbuild": "0.25.0",

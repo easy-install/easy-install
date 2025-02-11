@@ -1,9 +1,8 @@
 import { join } from 'path'
-import { getArtifactDownloadUrl } from '../dist-manifest'
 import { getInstallDir } from '../env'
 import { Repo } from '../repo'
-import { download, extractTo } from '../tool'
-import { Output } from '../type'
+import { displayOutput, download, extractTo, showSuccess } from '../tool'
+import { Output, OutputItem } from '../type'
 import { manifestInstall } from './manifest'
 
 export async function repoInstall(
@@ -31,33 +30,29 @@ export async function repoInstall(
     console.log(`download ${i}`)
     const downloadPath = await download(i)
     const files = extractTo(downloadPath, installDir).files
-    const v = []
-    if (files) {
-      for (const originPath of files.keys()) {
-        const installPath = join(installDir, originPath)
-        v.push({
-          installDir,
-          downloadUrl: i,
-          installPath,
-          originPath,
-        })
-      }
-    } else {
+
+    if (!files) {
+      console.log(`failed to install from ${repo.getReleasesUrl()}`)
+      return {}
+    }
+    const v: OutputItem[] = []
+    for (const originPath of files.keys()) {
+      const installPath = join(installDir, originPath).replaceAll('\\', '/')
+      const file = files.get(originPath)!
+      const { mode = 0, buffer } = file
       v.push({
+        mode,
+        size: buffer.length,
+        isDir: file.isDir(),
         installDir,
         downloadUrl: i,
+        installPath,
+        originPath,
       })
     }
-
     output[i] = v
   }
-
-  for (const v of Object.values(output)) {
-    console.log(
-      v.map((i) =>
-        `${i.originPath ?? i.downloadUrl} -> ${i.installPath ?? i.installDir}`
-      ).join('\n'),
-    )
-  }
+  showSuccess()
+  console.log(displayOutput(output))
   return output
 }

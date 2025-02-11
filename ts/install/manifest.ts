@@ -12,9 +12,10 @@ export async function manifestInstall(
     console.log('failed to install from manifest')
     return {}
   }
-  const outptu: Output = {}
+  const output: Output = {}
   for (const url of v) {
-    Object.assign(outptu, await artifactInstall(url, dist, dir))
+    const v = await artifactInstall(url, dist, dir)
+    Object.assign(output, v)
   }
-  return outptu
+  return output
 }

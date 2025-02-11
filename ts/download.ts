@@ -1,5 +1,5 @@
 import { tmpdir } from 'os'
-import path, { dirname } from 'path'
+import path from 'path'
 import fs from 'fs'
 import { DistManifest } from './type'
 import { getFetchOption, randomId } from './tool'

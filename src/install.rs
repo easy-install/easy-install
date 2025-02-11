@@ -1,28 +1,36 @@
 use crate::download::{create_client, download_binary, download_dist_manfiest, read_dist_manfiest};
-use crate::env::add_to_path;
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
+use crate::tool::{display_output, get_meta};
 use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
 use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
 use regex::Regex;
 use semver::VersionReq;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::{collections::VecDeque, fmt::Display, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
 
-pub struct Output {
-    // download_url: String,
+pub struct OutputItem {
+    pub download_url: String,
     pub install_dir: String,
+    pub install_path: String,
+    pub mode: u32,
+    pub size: usize,
+    pub origin_path: String,
+    pub is_dir: bool,
 }
+
+pub type Output = HashMap<String, Vec<OutputItem>>;
 
 pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
     std::fs::copy(src, dst)
 }
 
-pub async fn install(url: &str, dir: Option<String>) -> Vec<Output> {
+pub async fn install(url: &str, dir: Option<String>) -> Output {
     trace!("install {}", url);
     if is_dist_manfiest(url) {
         return install_from_manfiest(url, dir).await;
@@ -38,7 +46,7 @@ pub async fn install(url: &str, dir: Option<String>) -> Vec<Output> {
     install_from_crate_name(url, dir).await
 }
 
-async fn install_from_crate_name(crate_name: &str, dir: Option<String>) -> Vec<Output> {
+async fn install_from_crate_name(crate_name: &str, dir: Option<String>) -> Output {
     trace!("install_from_crate_name {}", crate_name);
     let client = create_client().await;
     let version_req = &VersionReq::STAR;
@@ -47,7 +55,7 @@ async fn install_from_crate_name(crate_name: &str, dir: Option<String>) -> Vec<O
         .fetch_crate_matched(client, crate_name, version_req)
         .await
         .unwrap();
-    let mut v = vec![];
+    let mut v = Output::new();
     if let Some(pkg) = manifest_from_sparse.package {
         if let Some(repository) = pkg.repository() {
             if let Ok(repo) = Repo::try_from(repository) {
@@ -71,10 +79,10 @@ async fn install_from_single_file(
     url: &str,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
-) -> Vec<Output> {
+) -> Output {
     // let targets = detect_targets().await;
     let mut install_dir = get_install_dir();
-    let mut output = vec![];
+    let mut output = Output::new();
     if let Some(target_dir) = dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
@@ -93,23 +101,27 @@ async fn install_from_single_file(
             .map(|i| i.to_string())
             .expect("can't get artifact name");
         let name = artifact.name.unwrap_or(art_name);
-        install_dir.push(&name);
+        let mut install_path = install_dir.clone();
+        install_path.push(&name);
 
-        if let Some(dir) = install_dir.parent() {
+        if let Some(dir) = install_path.parent() {
             std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
         }
-        std::fs::write(&install_dir, &bin).expect("write file failed");
-        #[cfg(not(target_os = "windows"))]
-        add_execute_permission(install_dir.as_path().to_str().unwrap())
-            .expect("Failed to add_execute_permission");
-
+        std::fs::write(&install_path, &bin).expect("write file failed");
+        let (mode, size, is_dir) = get_meta(&install_path);
+        let install_path = install_path.to_str().unwrap().replace("\\", "/");
         let install_dir = install_dir.to_str().unwrap().replace("\\", "/");
         println!("Installation Successful");
-        println!("{} -> {}", url, install_dir);
-        output.push(Output {
-            // download_url: url.to_owned(),
+        let item = vec![OutputItem {
+            download_url: url.to_string(),
             install_dir,
-        });
+            install_path,
+            mode,
+            size,
+            origin_path: name,
+            is_dir,
+        }];
+        output.insert(url.to_string(), item);
     } else {
         println!("not found/download artifact for {url}")
     }
@@ -120,23 +132,28 @@ async fn install_from_artifact_url(
     art_url: &str,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
-) -> Vec<Output> {
+) -> Output {
     trace!("install_from_artifact_url {}", art_url);
     let urls = get_artifact_download_url(art_url).await;
-    let mut v = vec![];
+    let mut v = Output::new();
     if urls.is_empty() {
         println!("not found download_url for {art_url}");
         return v;
     }
     if urls.len() == 1 && !is_archive_file(&urls[0]) {
         println!("download {}", urls[0]);
-        return install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
+        let output = install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
+        println!("{}", display_output(&output));
+        return output;
     }
     for url in urls {
         println!("download {}", url);
         let files = download_files(&url).await;
         let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
-        v.extend(install_from_download_file(fmt, files, manfiest.clone(), dir.clone()).await);
+        let output =
+            install_from_download_file(&url, fmt, files, manfiest.clone(), dir.clone()).await;
+        // println!("{}", display_output(&output));
+        v.extend(output);
     }
     v
 }
@@ -167,7 +184,7 @@ async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> V
     v
 }
 
-async fn install_from_manfiest(url: &str, dir: Option<String>) -> Vec<Output> {
+async fn install_from_manfiest(url: &str, dir: Option<String>) -> Output {
     trace!("install_from_manfiest {}", url);
     let manfiest = if is_url(url) {
         download_dist_manfiest(url).await
@@ -175,7 +192,7 @@ async fn install_from_manfiest(url: &str, dir: Option<String>) -> Vec<Output> {
         read_dist_manfiest(url)
     };
 
-    let mut v = vec![];
+    let mut v = Output::new();
     if let Some(manfiest) = manfiest {
         let art_url_list = get_artifact_url_from_manfiest(url, &manfiest).await;
         if art_url_list.is_empty() {
@@ -283,10 +300,13 @@ impl DistManifest {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
+#[cfg(unix)]
+pub(crate) fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let metadata = std::fs::metadata(file_path)?;
+    if metadata.is_dir() {
+        return Ok(());
+    }
 
     let mut permissions = metadata.permissions();
     let current_mode = permissions.mode();
@@ -300,11 +320,12 @@ fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
 }
 
 async fn install_from_download_file(
+    url: &str,
     fmt: PkgFmt,
     download: Download<'static>,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
-) -> Vec<Output> {
+) -> Output {
     trace!("install_from_download_file");
     let out_dir = tempdir().unwrap();
     let mut install_dir = get_install_dir();
@@ -313,7 +334,7 @@ async fn install_from_download_file(
     let mut q = VecDeque::new();
     let targets = detect_targets().await;
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
-    let mut output = vec![];
+    let mut output = Output::new();
     if let Some(asset) = artifact.clone().and_then(|a| a.get_assets_executable_dir()) {
         if let Some(target_dir) = dir.or(asset.name) {
             if target_dir.contains("/") || target_dir.contains("\\") {
@@ -348,8 +369,9 @@ async fn install_from_download_file(
 
                         if let Some(dst_dir) = dst.parent() {
                             if dst_dir.exists() && dst_dir.is_file() {
-                                std::fs::remove_file(dst_dir)
-                                    .unwrap_or_else(|_| panic!("failed to remove file : {:?}", dst_dir));
+                                std::fs::remove_file(dst_dir).unwrap_or_else(|_| {
+                                    panic!("failed to remove file : {:?}", dst_dir)
+                                });
                                 println!("remove {:?}", dst_dir);
                             }
                             if !dst_dir.exists() {
@@ -361,15 +383,20 @@ async fn install_from_download_file(
                         atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
                             panic!("failed to atomic_install from {:?} to {:?}", src, dst)
                         });
-                        #[cfg(not(target_os = "windows"))]
-                        add_execute_permission(dst.as_path().to_str().unwrap())
-                            .expect("Failed to add_execute_permission");
 
-                        v.push(format!(
-                            "{} -> {}",
-                            top,
-                            dst.to_str().unwrap().replace("\\", "/")
-                        ));
+                        let (mode, size, is_dir) = get_meta(&dst);
+                        v.push(OutputItem {
+                            download_url: url.to_string(),
+                            install_dir: install_dir
+                                .to_string_lossy()
+                                .to_string()
+                                .replace("\\", "/"),
+                            install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
+                            mode,
+                            size,
+                            origin_path: top,
+                            is_dir,
+                        });
                     }
                     None => {}
                 }
@@ -378,14 +405,8 @@ async fn install_from_download_file(
                 println!("No files installed");
             } else {
                 println!("Installation Successful");
-                println!("{}", v.join("\n"));
-                if let Some(d) = asset.executable_dir {
-                    install_dir.push(d);
-                }
-                output.push(Output {
-                    install_dir: install_dir.to_str().unwrap().to_string(),
-                });
-                add_to_path(install_dir.to_str().unwrap());
+                output.insert(url.to_string(), v);
+                println!("{}", display_output(&output));
             }
         } else {
             println!("Maybe you should use -d to set the folder");
@@ -441,22 +462,16 @@ async fn install_from_download_file(
                     src.push(&top);
                     dst.push(&name);
                     atomic_install(&src, dst.as_path()).unwrap();
-
-                    #[cfg(not(target_os = "windows"))]
-                    add_execute_permission(dst.as_path().to_str().unwrap())
-                        .expect("Failed to add_execute_permission");
-
-                    v.push(format!(
-                        "{} -> {}",
-                        p.to_str().unwrap(),
-                        dst.to_str().unwrap().replace("\\", "/")
-                    ));
-
-                    if let Some(d) = dst.parent() {
-                        output.push(Output {
-                            install_dir: d.to_str().unwrap().to_string(),
-                        });
-                    }
+                    let (mode, size, is_dir) = get_meta(&dst);
+                    v.push(OutputItem {
+                        download_url: url.to_string(),
+                        install_dir: install_dir.to_string_lossy().to_string().replace("\\", "/"),
+                        install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
+                        mode,
+                        size,
+                        origin_path: top,
+                        is_dir,
+                    });
                 }
                 None => {}
             }
@@ -465,7 +480,8 @@ async fn install_from_download_file(
             println!("No files installed");
         } else {
             println!("Installation Successful");
-            println!("{}", v.join("\n"));
+            output.insert(url.to_string(), v);
+            println!("{}", display_output(&output));
         }
     }
 
@@ -650,10 +666,10 @@ impl Display for Repo {
     }
 }
 
-async fn install_from_github(repo: &Repo, dir: Option<String>) -> Vec<Output> {
+async fn install_from_github(repo: &Repo, dir: Option<String>) -> Output {
     trace!("install_from_git {}", repo);
     let artifact_url = repo.get_artifact_url().await;
-    let mut v = vec![];
+    let mut v = Output::new();
     if !artifact_url.is_empty() {
         for i in artifact_url {
             trace!("install_from_git artifact_url {}", i);
