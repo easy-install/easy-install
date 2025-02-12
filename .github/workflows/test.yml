@@ -179,11 +179,13 @@ jobs:
           which xst
           which esbuild
 
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
           boa ./test.js
+          llrt ./test.js
+
 
       - name: test which on macos
         if: startsWith(matrix.os, 'macos')
@@ -214,13 +216,14 @@ jobs:
           which xst
           which esbuild
 
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
           # d8 ./test.js
           # js ./test.js
           # jsc ./test.js
           mujs test.js
           qjs test.js
           # boa test.js
+          llrt ./test.js
 
   js-test:
     strategy:
@@ -329,10 +332,11 @@ jobs:
           which esbuild
           which tjs
 
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
+          llrt ./test.js
 
       - name: test macos
         if: startsWith(matrix.os, 'macos')
