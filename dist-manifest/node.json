@@ -38,7 +38,7 @@
       "assets": [
         {
           "name": "node",
-          "path": "node-v22.14.0-win-x64",
+          "path": "node-v23.7.0-win-x64",
           "kind": "executable-dir"
         }
       ]
