@@ -45,7 +45,7 @@ jobs:
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           echo $PATH
-          # cargo run -- starship
+          cargo run -- starship
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
