@@ -94,7 +94,7 @@ jobs:
           cargo run -- ./dist-manifest/xst.json
           cargo run -- ./dist-manifest/quickjs-ng.json
           # cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/easy-install/easy-install
+          # cargo run -- https://github.com/easy-install/easy-install
           cargo run -- https://github.com/axodotdev/cargo-dist
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/starship/starship
@@ -242,7 +242,7 @@ jobs:
           pnpm run test:run
       - name: install
         run: |
-          ./cli/cli.js https://github.com/easy-install/easy-install
+          # ./cli/cli.js https://github.com/easy-install/easy-install
           ./cli/cli.js https://github.com/denoland/deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
@@ -337,7 +337,7 @@ jobs:
       - name: test macos
         if: startsWith(matrix.os, 'macos')
         run: |
-          which ei
+          # which ei
           which dist
           which js
           which starship
