@@ -87,6 +87,7 @@ jobs:
           cargo run -- ./dist-manifest/zig.json
           # cargo run -- ./dist-manifest/boa.json
           cargo run -- ./dist-manifest/llrt.json
+          cargo run -- ./dist-manifest/fnm.json
           cargo run -- ./dist-manifest/alist.json
           cargo run -- ./dist-manifest/pnpm.json
           cargo run -- ./dist-manifest/biome.json
@@ -199,8 +200,7 @@ jobs:
           which alist
           which mujs
           # which bun
-          # TODO: need fnm support x86_64 and arm64
-          # which fnm
+          which fnm
           # which 7z
           # which starship
           # which yt-dlp
@@ -214,6 +214,7 @@ jobs:
           which hermes
           which xst
           which esbuild
+          fnm --version
 
           echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
           # d8 ./test.js
