@@ -1,7 +1,7 @@
 {
   "artifacts": {
-    "https://github.com/awslabs/llrt/releases/download/v0.5.1-beta/llrt-darwin-x64-full-sdk.zip": {
-      "target_triples": ["aarch64-apple-darwin"],
+    "https://github.com/awslabs/llrt/releases/latest/download/llrt-darwin-x64-full-sdk.zip": {
+      "target_triples": ["x86_64-apple-darwin"],
       "assets": [
         {
           "name": "llrt",
@@ -10,8 +10,8 @@
         }
       ]
     },
-    "https://github.com/awslabs/llrt/releases/download/v0.5.1-beta/llrt-darwin-arm64-full-sdk.zip": {
-      "target_triples": ["x86_64-apple-darwin"],
+    "https://github.com/awslabs/llrt/releases/latest/download/llrt-darwin-arm64-full-sdk.zip": {
+      "target_triples": ["aarch64-apple-darwin"],
       "assets": [
         {
           "name": "llrt",
