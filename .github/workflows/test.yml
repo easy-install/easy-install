@@ -343,7 +343,7 @@ jobs:
           which starship
           which qjs
           which qjsc
-          which boa
+          # which boa
           which llrt
           which hermes
           which xst
