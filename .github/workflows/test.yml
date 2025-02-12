@@ -186,7 +186,6 @@ jobs:
           boa ./test.js
           llrt ./test.js
 
-
       - name: test which on macos
         if: startsWith(matrix.os, 'macos')
         run: |

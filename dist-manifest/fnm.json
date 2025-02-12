@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "https://github.com/Schniz/fnm/releases/latest/download/fnm-macos.zip": {
-      "target_triples": ["x86_64-apple-darwin"],
+      "target_triples": ["x86_64-apple-darwin", "aarch64-apple-darwin"],
       "assets": [
         {
           "name": "fnm",
