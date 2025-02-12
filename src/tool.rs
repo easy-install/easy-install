@@ -5,6 +5,8 @@ use std::os::windows::fs::MetadataExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
+use crud_path::{add_github_path, add_path, has_path, is_github};
+
 use crate::install::Output;
 
 pub fn get_bin_name(s: &str) -> String {
@@ -94,6 +96,24 @@ pub fn display_output(output: &Output) -> String {
     v.join("\n")
 }
 
+pub fn add_output_to_path(output: &Output) {
+    for v in output.values() {
+        for i in v {
+            if !has_path(&i.install_dir) {
+                add_path(&i.install_dir);
+                if is_github() {
+                    add_github_path(&i.install_dir);
+                }
+            }
+        }
+        #[cfg(unix)]
+        if v.len() == 1 {
+            let i = &v[0];
+            crate::install::add_execute_permission(&i.install_path)
+                .expect("failed to add_execute_permission");
+        }
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::tool::round;

@@ -85,7 +85,7 @@ jobs:
           # cargo run -- starship
           cargo run -- ./dist-manifest/esbuild.json
           cargo run -- ./dist-manifest/zig.json
-          cargo run -- ./dist-manifest/boa.json
+          # cargo run -- ./dist-manifest/boa.json
           cargo run -- ./dist-manifest/llrt.json
           cargo run -- ./dist-manifest/alist.json
           cargo run -- ./dist-manifest/pnpm.json
@@ -179,10 +179,11 @@ jobs:
           which xst
           which esbuild
 
-          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js
+          boa ./test.js
 
       - name: test which on macos
         if: startsWith(matrix.os, 'macos')
@@ -206,20 +207,20 @@ jobs:
           which biome
           which qjs
           which qjsc
-          which boa
+          # which boa
           # which graaljs
           # which js
           which hermes
           which xst
           which esbuild
 
-          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
           # d8 ./test.js
           # js ./test.js
           # jsc ./test.js
           mujs test.js
           qjs test.js
-          boa test.js
+          # boa test.js
 
   js-test:
     strategy:
@@ -328,7 +329,7 @@ jobs:
           which esbuild
           which tjs
 
-          echo "var o=Function("return this")(),n=o.print||o.console.log;n(2)" >> test.js
+          echo "var o=Function('return this')(),n=o.print||o.console.log;n(2)" >> test.js
           d8 ./test.js
           js ./test.js
           jsc ./test.js

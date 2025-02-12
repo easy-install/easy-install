@@ -6,6 +6,7 @@ import { readFileSync } from 'fs'
 import { decode, File, Files, guess } from '@easy-install/easy-archive'
 import { dirname, join } from 'path'
 import { Output } from './type'
+import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -499,4 +500,24 @@ export function displayOutput(output: Output) {
 
 export function showSuccess() {
   console.log('Installation Successful')
+}
+
+export function addOutputToPath(output: Output) {
+  for (const files of Object.values(output)) {
+    for (const item of files) {
+      const { installDir } = item
+      if (installDir && !hasPath(installDir)) {
+        addPath(installDir)
+        if (isGithub()) {
+          addGithubPath(installDir)
+        }
+      }
+    }
+    if (files.length === 1 && files[0].installPath) {
+      const first = files[0].installPath
+      if (first) {
+        addExecutePermission(first)
+      }
+    }
+  }
 }

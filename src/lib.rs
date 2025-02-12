@@ -16,25 +16,10 @@ pub struct Args {
 }
 
 use clap::Parser;
-use crud_path::{add_github_path, add_path, has_path, is_github};
+use tool::add_output_to_path;
 
 pub async fn run_main(args: Args) {
     let Args { name_or_url, dir } = args;
     let output = install::install(&name_or_url, dir).await;
-    for (_, v) in output {
-        for i in &v {
-            if !has_path(&i.install_dir) {
-                add_path(&i.install_dir);
-                if is_github() {
-                    add_github_path(&i.install_dir);
-                }
-            }
-        }
-
-        #[cfg(unix)]
-        if v.len() == 1 {
-            let i = &v[0];
-            install::add_execute_permission(&i.install_path).expect("failed to add_execute_permission");
-        }
-    }
+    add_output_to_path(&output);
 }
