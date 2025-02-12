@@ -8,7 +8,7 @@
       "name": "boa",
       "target_triples": ["x86_64-pc-windows-gnu"]
     },
-    "https://github.com/boa-dev/boa/releases/download/v0.20/boa-linux-amd64": {
+    "https://github.com/boa-dev/boa/releases/latest/download/boa-macos-amd64": {
       "name": "boa",
       "target_triples": ["x86_64-apple-darwin"]
     }
