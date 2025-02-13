@@ -16,7 +16,7 @@ pub fn add_to_path(dir: &str) {
     if let Some(sh) = crud_path::add_path(dir) {
         println!("Successfully added {dir} to {sh}'s $PATH");
     } else {
-        println!("You need to add {dir} to your PATH");
+        println!("You need to add {dir} to your $PATH");
     }
 }
 

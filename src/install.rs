@@ -15,18 +15,22 @@ use std::str::FromStr;
 use std::{collections::VecDeque, fmt::Display, path::Path};
 use tempfile::tempdir;
 use tracing::trace;
-
-pub struct OutputItem {
-    pub download_url: String,
-    pub install_dir: String,
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
+pub struct OutputFile {
     pub install_path: String,
     pub mode: u32,
     pub size: u32,
     pub origin_path: String,
     pub is_dir: bool,
 }
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OutputItem {
+    pub install_dir: String,
+    pub bin_dir: String,
+    pub files: Vec<OutputFile>,
+}
 
-pub type Output = HashMap<String, Vec<OutputItem>>;
+pub type Output = HashMap<String, OutputItem>;
 
 pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
     std::fs::copy(src, dst)
@@ -83,6 +87,11 @@ async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     }
     vec![]
 }
+
+fn path_to_str(p: &Path) -> String {
+    p.to_str().unwrap().replace("\\", "/")
+}
+
 async fn install_from_single_file(
     url: &str,
     manfiest: Option<DistManifest>,
@@ -117,18 +126,24 @@ async fn install_from_single_file(
         std::fs::write(&install_path, &bin).expect("write file failed");
         let (mode, size, is_dir) = get_meta(&install_path);
         let install_path = install_path.to_str().unwrap().replace("\\", "/");
-        let install_dir = install_dir.to_str().unwrap().replace("\\", "/");
         println!("Installation Successful");
         let origin_path = url.split("/").last().unwrap_or(name.as_str()).to_string();
-        let item = vec![OutputItem {
-            download_url: url.to_string(),
-            install_dir,
-            install_path,
+
+        let files = vec![OutputFile {
             mode,
             size,
             origin_path,
             is_dir,
+            install_path,
         }];
+
+        let bin_dir_str = path_to_str(&install_dir);
+        let item = OutputItem {
+            install_dir: bin_dir_str.clone(),
+            bin_dir: bin_dir_str.clone(),
+            files,
+        };
+
         output.insert(url.to_string(), item);
         println!("{}", display_output(&output));
     } else {
@@ -338,7 +353,8 @@ async fn install_from_download_file(
     let out_dir = tempdir().unwrap();
     let mut install_dir = get_install_dir();
     let src_dir = out_dir.path().to_path_buf();
-    let mut v = vec![];
+    let mut v: OutputItem = Default::default();
+    let mut files: Vec<OutputFile> = vec![];
     let mut q = VecDeque::new();
     let targets = detect_targets().await;
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
@@ -352,11 +368,106 @@ async fn install_from_download_file(
             }
 
             let prefix = asset.path.unwrap_or(".".to_string());
+
+            let install_dir_str = path_to_str(&install_dir);
+
+            let mut bin_dir = install_dir.clone();
+            if let Some(ref dir) = asset.executable_dir {
+                bin_dir.push(dir);
+            }
+            let bin_dir_str = path_to_str(&bin_dir);
+            v.bin_dir = bin_dir_str;
+            v.install_dir = install_dir_str;
+
             q.push_back(prefix.clone());
-            let files = download.and_extract(fmt, &out_dir).await.unwrap();
+            if let Ok(download_files) = download.and_extract(fmt, &out_dir).await {
+                while let Some(top) = q.pop_front() {
+                    let p = Path::new(&top);
+                    let entry = download_files.get_entry(p);
+                    match entry {
+                        Some(ExtractedFilesEntry::Dir(dir)) => {
+                            for i in dir.iter() {
+                                let p = p.join(i.to_str().unwrap());
+                                let next = path_clean::clean(p.to_str().unwrap())
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string()
+                                    .replace("\\", "/");
+                                q.push_back(next);
+                            }
+                        }
+                        Some(ExtractedFilesEntry::File) => {
+                            let mut src = src_dir.clone();
+                            let mut dst = install_dir.clone();
+                            src.push(&top);
+                            dst.push(top.replace(&(prefix.clone() + "/"), ""));
+
+                            if let Some(dst_dir) = dst.parent() {
+                                if dst_dir.exists() && dst_dir.is_file() {
+                                    std::fs::remove_file(dst_dir).unwrap_or_else(|_| {
+                                        panic!("failed to remove file : {:?}", dst_dir)
+                                    });
+                                    println!("remove {:?}", dst_dir);
+                                }
+                                if !dst_dir.exists() {
+                                    std::fs::create_dir_all(dst_dir)
+                                        .expect("Failed to create_dir install_dir");
+                                }
+                            }
+
+                            atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
+                                panic!("failed to atomic_install from {:?} to {:?}", src, dst)
+                            });
+
+                            let (mode, size, is_dir) = get_meta(&dst);
+
+                            files.push(OutputFile {
+                                install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
+                                mode,
+                                size,
+                                origin_path: top,
+                                is_dir,
+                            });
+                        }
+                        None => {}
+                    }
+                }
+                v.files = files;
+                if v.files.is_empty() {
+                    println!("No files installed");
+                } else {
+                    println!("Installation Successful");
+                    output.insert(url.to_string(), v);
+                    println!("{}", display_output(&output));
+                }
+            }
+        } else {
+            println!("Maybe you should use -d to set the folder");
+        }
+    } else {
+        if let Some(target_dir) = dir {
+            if target_dir.contains("/") || target_dir.contains("\\") {
+                install_dir = target_dir.into();
+            } else {
+                install_dir.push(target_dir);
+            }
+        }
+        let install_dir_str = install_dir.to_string_lossy().to_string().replace("\\", "/");
+
+        v.bin_dir = install_dir_str.clone();
+        v.install_dir = install_dir_str;
+
+        q.push_back(".".to_string());
+        let allow = |p: &str| -> bool {
+            match artifact.clone() {
+                None => true,
+                Some(art) => art.has_file(p),
+            }
+        };
+        if let Ok(download_files) = download.and_extract(fmt, &out_dir).await {
             while let Some(top) = q.pop_front() {
                 let p = Path::new(&top);
-                let entry = files.get_entry(p);
+                let entry = download_files.get_entry(p);
                 match entry {
                     Some(ExtractedFilesEntry::Dir(dir)) => {
                         for i in dir.iter() {
@@ -370,40 +481,26 @@ async fn install_from_download_file(
                         }
                     }
                     Some(ExtractedFilesEntry::File) => {
+                        if !allow(&top) {
+                            continue;
+                        }
                         let mut src = src_dir.clone();
                         let mut dst = install_dir.clone();
+
+                        let file_name = p.file_name().unwrap().to_str().unwrap().to_string();
+                        let name = artifact
+                            .clone()
+                            .and_then(|a| {
+                                a.get_asset(p.to_str().unwrap())
+                                    .and_then(|i| i.executable_name)
+                            })
+                            .unwrap_or(file_name.clone());
+
                         src.push(&top);
-                        dst.push(top.replace(&(prefix.clone() + "/"), ""));
-
-                        if let Some(dst_dir) = dst.parent() {
-                            if dst_dir.exists() && dst_dir.is_file() {
-                                std::fs::remove_file(dst_dir).unwrap_or_else(|_| {
-                                    panic!("failed to remove file : {:?}", dst_dir)
-                                });
-                                println!("remove {:?}", dst_dir);
-                            }
-                            if !dst_dir.exists() {
-                                std::fs::create_dir_all(dst_dir)
-                                    .expect("Failed to create_dir install_dir");
-                            }
-                        }
-
-                        atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
-                            panic!("failed to atomic_install from {:?} to {:?}", src, dst)
-                        });
-
+                        dst.push(get_bin_name(&name));
+                        atomic_install(&src, dst.as_path()).unwrap();
                         let (mode, size, is_dir) = get_meta(&dst);
-
-                        let mut install_dir = install_dir.clone();
-                        if let Some(ref dir) = asset.executable_dir {
-                            install_dir.push(dir);
-                        }
-                        v.push(OutputItem {
-                            download_url: url.to_string(),
-                            install_dir: install_dir
-                                .to_string_lossy()
-                                .to_string()
-                                .replace("\\", "/"),
+                        files.push(OutputFile {
                             install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
                             mode,
                             size,
@@ -414,87 +511,14 @@ async fn install_from_download_file(
                     None => {}
                 }
             }
-            if v.is_empty() {
+            v.files = files;
+            if v.files.is_empty() {
                 println!("No files installed");
             } else {
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
             }
-        } else {
-            println!("Maybe you should use -d to set the folder");
-        }
-    } else {
-        if let Some(target_dir) = dir {
-            if target_dir.contains("/") || target_dir.contains("\\") {
-                install_dir = target_dir.into();
-            } else {
-                install_dir.push(target_dir);
-            }
-        }
-
-        q.push_back(".".to_string());
-        let allow = |p: &str| -> bool {
-            match artifact.clone() {
-                None => true,
-                Some(art) => art.has_file(p),
-            }
-        };
-        let files = download.and_extract(fmt, &out_dir).await.unwrap();
-        while let Some(top) = q.pop_front() {
-            let p = Path::new(&top);
-            let entry = files.get_entry(p);
-            match entry {
-                Some(ExtractedFilesEntry::Dir(dir)) => {
-                    for i in dir.iter() {
-                        let p = p.join(i.to_str().unwrap());
-                        let next = path_clean::clean(p.to_str().unwrap())
-                            .to_str()
-                            .unwrap()
-                            .to_string()
-                            .replace("\\", "/");
-                        q.push_back(next);
-                    }
-                }
-                Some(ExtractedFilesEntry::File) => {
-                    if !allow(&top) {
-                        continue;
-                    }
-                    let mut src = src_dir.clone();
-                    let mut dst = install_dir.clone();
-
-                    let file_name = p.file_name().unwrap().to_str().unwrap().to_string();
-                    let name = artifact
-                        .clone()
-                        .and_then(|a| {
-                            a.get_asset(p.to_str().unwrap())
-                                .and_then(|i| i.executable_name)
-                        })
-                        .unwrap_or(file_name.clone());
-
-                    src.push(&top);
-                    dst.push(get_bin_name(&name));
-                    atomic_install(&src, dst.as_path()).unwrap();
-                    let (mode, size, is_dir) = get_meta(&dst);
-                    v.push(OutputItem {
-                        download_url: url.to_string(),
-                        install_dir: install_dir.to_string_lossy().to_string().replace("\\", "/"),
-                        install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
-                        mode,
-                        size,
-                        origin_path: top,
-                        is_dir,
-                    });
-                }
-                None => {}
-            }
-        }
-        if v.is_empty() {
-            println!("No files installed");
-        } else {
-            println!("Installation Successful");
-            output.insert(url.to_string(), v);
-            println!("{}", display_output(&output));
         }
     }
 

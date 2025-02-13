@@ -2,7 +2,7 @@ import { join } from 'path'
 import { getInstallDir } from '../env'
 import { Repo } from '../repo'
 import { displayOutput, download, extractTo, showSuccess } from '../tool'
-import { Output, OutputItem } from '../type'
+import { Output, OutputFile, OutputItem } from '../type'
 import { manifestInstall } from './manifest'
 
 export async function repoInstall(
@@ -35,22 +35,24 @@ export async function repoInstall(
       console.log(`failed to install from ${repo.getReleasesUrl()}`)
       return {}
     }
-    const v: OutputItem[] = []
+    const outputFiles: OutputFile[] = []
     for (const originPath of files.keys()) {
       const installPath = join(installDir, originPath).replaceAll('\\', '/')
       const file = files.get(originPath)!
       const { mode = 0, buffer } = file
-      v.push({
+      outputFiles.push({
         mode,
         size: buffer.length,
         isDir: file.isDir(),
-        installDir,
-        downloadUrl: i,
         installPath,
         originPath,
       })
     }
-    output[i] = v
+    output[i] = {
+      installDir,
+      binDir: installDir,
+      files: outputFiles,
+    }
   }
   showSuccess()
   console.log(displayOutput(output))

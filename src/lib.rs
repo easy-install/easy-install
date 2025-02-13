@@ -22,4 +22,7 @@ pub async fn run_main(args: Args) {
     let Args { name_or_url, dir } = args;
     let output = install::install(&name_or_url, dir).await;
     add_output_to_path(&output);
+    if output.is_empty() {
+        println!("No file installed from {}", name_or_url);
+    }
 }

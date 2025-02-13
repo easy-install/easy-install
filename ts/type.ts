@@ -4,16 +4,22 @@ export type Input = {
   name: string
 }
 
-export type OutputItem = {
+export type OutputFile = {
   mode: number
   size: number
-  installDir: string
   installPath: string
   originPath: string
-  downloadUrl: string
   isDir: boolean
 }
-export type Output = Record<string, OutputItem[]>
+
+export type OutputItem = {
+  // downloadUrl: string
+  installDir: string
+  binDir: string
+  files: OutputFile[]
+}
+
+export type Output = Record<string, OutputItem>
 
 export type Asset = {
   name: string

@@ -483,11 +483,11 @@ function humanSize(bytes: number): string {
 export function displayOutput(output: Output) {
   const s: string[] = []
   for (const v of Object.values(output)) {
-    const maxSizeLen = v.reduce(
+    const maxSizeLen = v.files.reduce(
       (pre, cur) => Math.max(pre, humanSize(cur.size).length),
       0,
     )
-    for (const i of v) {
+    for (const i of v.files) {
       s.push([
         modeToString(i.mode, i.isDir),
         humanSize(i.size).padStart(maxSizeLen, ' '),
@@ -503,18 +503,23 @@ export function showSuccess() {
 }
 
 export function addOutputToPath(output: Output) {
-  for (const files of Object.values(output)) {
-    for (const item of files) {
-      const { installDir } = item
-      if (installDir && !hasPath(installDir)) {
-        addPath(installDir)
+  for (const v of Object.values(output)) {
+    for (const p of [v.binDir, v.installDir]) {
+      if (p && !hasPath(p)) {
+        const sh = addPath(p)
+        if (sh) {
+          console.log(`Successfully added ${p} to ${sh}'s $PATH`)
+        } else {
+          console.log(`You need to add ${p} to your $PATH`)
+        }
         if (isGithub()) {
-          addGithubPath(installDir)
+          addGithubPath(p)
         }
       }
     }
-    if (files.length === 1 && files[0].installPath) {
-      const first = files[0].installPath
+
+    if (v.files.length === 1 && v.files[0].installPath) {
+      const first = v.files[0].installPath
       if (first) {
         addExecutePermission(first)
       }
