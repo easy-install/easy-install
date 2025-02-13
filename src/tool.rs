@@ -4,10 +4,7 @@ use std::os::windows::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
-
-use crud_path::{add_github_path, add_path, has_path, is_github};
-
-use crate::install::Output;
+use crate::{env::add_to_path, install::Output};
 
 pub fn get_bin_name(s: &str) -> String {
     if cfg!(windows) && !s.ends_with(".exe") && !s.contains(".") {
@@ -100,12 +97,7 @@ pub fn display_output(output: &Output) -> String {
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
         for p in [&v.install_dir, &v.bin_dir] {
-            if !has_path(p) {
-                add_path(p);
-                if is_github() {
-                    add_github_path(p);
-                }
-            }
+            add_to_path(p);
         }
 
         #[cfg(unix)]

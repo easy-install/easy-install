@@ -506,7 +506,12 @@ export function addOutputToPath(output: Output) {
   for (const v of Object.values(output)) {
     for (const p of [v.binDir, v.installDir]) {
       if (p && !hasPath(p)) {
-        addPath(p)
+        const sh = addPath(p)
+        if (sh) {
+          console.log(`Successfully added ${p} to ${sh}'s $PATH`)
+        } else {
+          console.log(`You need to add ${p} to your $PATH`)
+        }
         if (isGithub()) {
           addGithubPath(p)
         }

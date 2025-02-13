@@ -375,7 +375,7 @@ async fn install_from_download_file(
             if let Some(ref dir) = asset.executable_dir {
                 bin_dir.push(dir);
             }
-            let bin_dir_str = path_to_str(&install_dir);
+            let bin_dir_str = path_to_str(&bin_dir);
             v.bin_dir = bin_dir_str;
             v.install_dir = install_dir_str;
 
