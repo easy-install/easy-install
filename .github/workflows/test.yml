@@ -194,7 +194,13 @@ jobs:
           pnpm run test:run
       - name: install
         run: |
+          if [ ! -f ~/.bashrc ]; then
+              touch ~/.bashrc
+          fi
+
+          # skip when release
           # ./cli/cli.js https://github.com/easy-install/easy-install
+
           ./cli/cli.js https://github.com/denoland/deno
           ./cli/cli.js https://github.com/starship/starship
           ./cli/cli.js https://github.com/ahaoboy/mujs-build
