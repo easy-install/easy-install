@@ -51,16 +51,21 @@ export async function fileInstall(
     await downloadToFile(downloadUrl, installPath)
     chmodSync(installPath, mode)
     const size = readFileSync(installPath).length
-    const output = {
-      [downloadUrl]: [{
-        mode,
-        size,
-        isDir,
-        originPath,
-        downloadUrl,
-        installPath,
+    const files = [{
+      mode,
+      size,
+      isDir,
+      originPath,
+      downloadUrl,
+      installPath,
+      installDir,
+    }]
+    const output: Output = {
+      [downloadUrl]: {
         installDir,
-      }],
+        binDir: installDir,
+        files,
+      },
     }
     showSuccess()
     console.log(displayOutput(output))
@@ -77,16 +82,21 @@ export async function fileInstall(
     writeFileSync(installPath, new Uint8Array(bin), { mode })
     addExecutePermission(installPath)
     const size = bin.byteLength
-    const output = {
-      [downloadUrl]: [{
-        size,
-        mode,
-        downloadUrl,
-        installPath,
+    const files = [{
+      size,
+      mode,
+      downloadUrl,
+      installPath,
+      installDir,
+      originPath,
+      isDir,
+    }]
+    const output: Output = {
+      [downloadUrl]: {
         installDir,
-        originPath,
-        isDir,
-      }],
+        binDir: installDir,
+        files,
+      },
     }
     showSuccess()
     console.log(displayOutput(output))

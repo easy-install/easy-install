@@ -6,8 +6,6 @@ permissions:
 on: [push]
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-# env:
-#   CARGO_TERM_COLOR: always
 
 defaults:
   run:
@@ -15,8 +13,6 @@ defaults:
 
 jobs:
   rust-test:
-    # avoid github api limit
-    # needs: js-test
     strategy:
       matrix:
         os: [
@@ -37,81 +33,34 @@ jobs:
           toolchain: nightly
           override: true
       - name: cargo test
+        # FIXME: add macos test
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           cargo test
 
-      - name: cargo run
-        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
+      - name: install
+
         run: |
-          echo $PATH
+          if [ ! -f ~/.bashrc ]; then
+              touch ~/.bashrc
+          fi
+
           cargo run -- starship
+          cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch
           cargo run -- https://github.com/axodotdev/cargo-dist
-          cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
-          cargo run -- ./dist-manifest/zig.json
-          cargo run -- ./dist-manifest/FiraCode.json
-          cargo run -- ./dist-manifest/JetBrainsMono.json
-          cargo run -- ./dist-manifest/llrt.json
-          cargo run -- ./dist-manifest/alist.json
-          cargo run -- ./dist-manifest/bun.json
-          cargo run -- ./dist-manifest/fnm.json
-          cargo run -- ./dist-manifest/ryubing.json
-          cargo run -- ./dist-manifest/7zip.json
-          cargo run -- ./dist-manifest/yt-dlp.json
-          cargo run -- ./dist-manifest/pnpm.json
-          cargo run -- ./dist-manifest/biome.json
-          cargo run -- ./dist-manifest/quickjs-ng.json
-          cargo run -- ./dist-manifest/boa.json
-          cargo run -- ./dist-manifest/graaljs.json
-          cargo run -- ./dist-manifest/hermes.json
-          cargo run -- ./dist-manifest/xst.json
-          cargo run -- ./dist-manifest/esbuild.json
-
-          echo $PATH
-
-      - name: install on ubuntu
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
           cargo run -- https://github.com/ahaoboy/jsc-build
           cargo run -- https://github.com/ahaoboy/spidermonkey-build
           cargo run -- https://github.com/ahaoboy/v8-build
-          cargo run -- ./dist-manifest/ffmpeg.json
-      - name: install on macos
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          # cargo run -- starship
-          cargo run -- ./dist-manifest/esbuild.json
-          cargo run -- ./dist-manifest/zig.json
-          # cargo run -- ./dist-manifest/boa.json
-          cargo run -- ./dist-manifest/llrt.json
-          cargo run -- ./dist-manifest/fnm.json
-          cargo run -- ./dist-manifest/alist.json
-          cargo run -- ./dist-manifest/pnpm.json
-          cargo run -- ./dist-manifest/biome.json
-          cargo run -- ./dist-manifest/hermes.json
-          cargo run -- ./dist-manifest/xst.json
-          cargo run -- ./dist-manifest/quickjs-ng.json
-          # cargo run -- https://github.com/denoland/deno
-          # cargo run -- https://github.com/easy-install/easy-install
-          cargo run -- https://github.com/axodotdev/cargo-dist
-          cargo run -- https://github.com/ahaoboy/neofetch
-          cargo run -- https://github.com/starship/starship
-          cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/txiki.js-build
+          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
 
-      - name: install on windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          cargo run -- ./dist-manifest/ffmpeg.json
-          cargo run -- ./dist-manifest/screentogif.json
-          cargo run -- ./dist-manifest/wiztree.json
-          cargo run -- ./dist-manifest/mpv-easy.json
-          cargo run -- ./dist-manifest/mpv.json
-          cargo run -- ./dist-manifest/uevr.json
-          cargo run -- ./dist-manifest/rcedit.json
+          for file in ./dist-manifest/*.json; do
+            echo $file
+            cargo run -- $file
+            source ~/.bashrc
+          done
 
       - name: test which on windows
         if: matrix.os == 'windows-latest'
@@ -258,6 +207,7 @@ jobs:
           for file in ./dist-manifest/*.json; do
             echo $file
             ./cli/cli.js $file
+            source ~/.bashrc
           done
 
           ls -lhR ~/.easy-install

@@ -16,7 +16,7 @@ import {
   getBinName,
   isArchiveFile,
 } from '../tool'
-import { DistManifest, Output, OutputItem } from '../type'
+import { DistManifest, Output, OutputFile, OutputItem } from '../type'
 import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 
@@ -49,8 +49,11 @@ async function downloadAndInstall(
     }
 
     const prefix = asset.path ?? '.'
+    const binDir = asset.executable_dir
+      ? join(installDir, asset.executable_dir).replaceAll('\\', '/')
+      : installDir
     const q = [prefix]
-    const v: OutputItem[] = []
+    const outputFiles: OutputFile[] = []
     while (q.length) {
       const top = q.shift()!
       const entry = getEntry(top)
@@ -72,15 +75,11 @@ async function downloadAndInstall(
         atomiInstall(src, dst)
         // addExecutePermission(dst)
 
-        v.push({
+        outputFiles.push({
           mode: info.mode,
           size: info.size,
-          installDir: asset.executable_dir
-            ? join(installDir, asset.executable_dir).replaceAll('\\', '/')
-            : installDir,
           installPath: dst,
           originPath: top,
-          downloadUrl,
           isDir: info.isDirectory(),
         })
       } else if (info.isDirectory()) {
@@ -92,13 +91,17 @@ async function downloadAndInstall(
       }
     }
 
-    if (!v.length) {
+    if (!outputFiles.length) {
       console.log('No files installed')
       return {}
     }
 
     const output = {
-      [downloadUrl]: v,
+      [downloadUrl]: {
+        binDir,
+        installDir,
+        files: outputFiles,
+      },
     }
     console.log(displayOutput(output))
     return output
@@ -112,7 +115,7 @@ async function downloadAndInstall(
       installDir = join(installDir, dir)
     }
   }
-  const v: OutputItem[] = []
+  const v: OutputFile[] = []
   const q = ['.']
   const allow = (p: string) => !art || hasFile(art, p)
   while (q.length) {
@@ -139,10 +142,8 @@ async function downloadAndInstall(
       v.push({
         mode: info.mode,
         size: info.size,
-        installDir,
         installPath: dst,
         originPath: asset?.path ?? top,
-        downloadUrl,
         isDir: info.isDirectory(),
       })
     } else if (info.isDirectory()) {
@@ -159,7 +160,11 @@ async function downloadAndInstall(
   }
 
   const output = {
-    [downloadUrl]: v,
+    [downloadUrl]: {
+      binDir: installDir,
+      installDir,
+      files: v,
+    },
   }
   console.log(displayOutput(output))
   return output

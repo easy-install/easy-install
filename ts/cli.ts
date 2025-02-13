@@ -12,4 +12,9 @@ install({
   url,
   version,
   name,
-}).then(addOutputToPath)
+}).then((output) => {
+  addOutputToPath(output)
+  if (Object.keys(output).length === 0) {
+    console.log(`No file installed from ${url}`)
+  }
+})

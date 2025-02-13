@@ -78,10 +78,11 @@ pub fn display_output(output: &Output) -> String {
     let mut v = vec![];
     for i in output.values() {
         let max_size_len = i
+            .files
             .iter()
             .fold(0, |pre, cur| pre.max(human_size(cur.size).len()));
 
-        for k in i {
+        for k in &i.files {
             let s = human_size(k.size);
             v.push(
                 [
@@ -98,17 +99,18 @@ pub fn display_output(output: &Output) -> String {
 
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
-        for i in v {
-            if !has_path(&i.install_dir) {
-                add_path(&i.install_dir);
+        for p in [&v.install_dir, &v.bin_dir] {
+            if !has_path(p) {
+                add_path(p);
                 if is_github() {
-                    add_github_path(&i.install_dir);
+                    add_github_path(p);
                 }
             }
         }
+
         #[cfg(unix)]
-        if v.len() == 1 {
-            let i = &v[0];
+        if v.files.len() == 1 {
+            let i = &v.files[0];
             crate::install::add_execute_permission(&i.install_path)
                 .expect("failed to add_execute_permission");
         }
