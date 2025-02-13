@@ -1,6 +1,6 @@
 {
   "name": "@easy-install/easy-install",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "easy-install",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
