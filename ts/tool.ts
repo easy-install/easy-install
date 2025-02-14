@@ -315,7 +315,7 @@ export function showSuccess() {
 
 export function addOutputToPath(output: Output) {
   for (const v of Object.values(output)) {
-    for (const p of [v.binDir, v.installDir]) {
+    for (const p of new Set([v.binDir, v.installDir])) {
       if (p && !hasPath(p)) {
         const sh = addPath(p)
         if (sh) {

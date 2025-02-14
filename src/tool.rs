@@ -1,10 +1,10 @@
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
 
+use easy_archive::tool::{human_size, mode_to_string};
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
-use easy_archive::tool::{human_size, mode_to_string};
+use std::{collections::HashSet, path::Path};
 
 use crate::{env::add_to_path, install::Output};
 
@@ -63,7 +63,7 @@ pub fn display_output(output: &Output) -> String {
 
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
-        for p in [&v.install_dir, &v.bin_dir] {
+        for p in HashSet::from([&v.install_dir, &v.bin_dir]) {
             add_to_path(p);
         }
 
