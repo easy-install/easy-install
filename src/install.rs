@@ -825,7 +825,7 @@ mod test {
         let url = repo.get_artifact_url().await[0].clone();
         let files = download_extract(&url).await.unwrap();
         assert!(files
-            .get(if IS_WINDOWS { "./mujs.exe" } else { "./mujs" })
+            .get(if IS_WINDOWS { "mujs.exe" } else { "mujs" })
             .is_some());
     }
 
