@@ -298,7 +298,7 @@ export function displayOutput(output: Output) {
       const sumSize = v.files.reduce((pre, cur) => pre + cur.size, 0)
       s.push([
         humanSize(sumSize),
-        `(x${v.files.length})`,
+        `(total ${v.files.length})`,
         v.installDir,
       ].join(' '))
     } else {
