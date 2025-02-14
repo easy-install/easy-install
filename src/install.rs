@@ -49,7 +49,7 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: Option<u32>) {
 
     #[cfg(unix)]
     if let Some(mode) = mode {
-        std::fs::set_permissions(path, PermissionsExt::from_mode(mode)).expect("failed to set_permissions");
+        std::fs::set_permissions(src, PermissionsExt::from_mode(mode)).expect("failed to set_permissions");
     }
 
     #[cfg(windows)]

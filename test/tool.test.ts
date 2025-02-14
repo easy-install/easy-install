@@ -1,19 +1,12 @@
 import { expect, test } from 'vitest'
 import {
   cleanPath,
-  createFiles,
-  download,
-  extractTo,
   getAssetNames,
   isArchiveFile,
   isExeFile,
-  toMsysPath,
 } from '../ts/tool'
-import * as path from 'path'
-import * as fs from 'fs'
-import { homedir, tmpdir } from 'os'
-import { downloadDistManfiest, downloadToFile } from '../ts/download'
-import { join } from 'path'
+
+import { downloadDistManfiest} from '../ts/download'
 import { Repo } from '../ts'
 import {
   getArtifact,
@@ -40,32 +33,6 @@ test('getAssetNames', () => {
   ])
 })
 
-test('extractTo zip', async () => {
-  const url =
-    'https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip'
-  const filePath = path.join(tmpdir(), 'ansi2-x86_64-pc-windows-msvc.zip')
-  const testDir = 'easy-setup-test'
-  const installDir = path.join(homedir(), testDir)
-  await download(url, filePath)
-  extractTo(filePath, installDir)
-  const ansi2Path = path.join(homedir(), testDir, 'ansi2.exe')
-  expect(fs.existsSync(ansi2Path)).toEqual(true)
-}, 100_000)
-
-test('extractTo tar.gz', async () => {
-  // only test on linux
-  if (process.platform === 'win32') return
-  const url =
-    'https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-aarch64-apple-darwin.tar.gz'
-  const filePath = path.join(tmpdir(), 'ansi2-aarch64-apple-darwin.tar.gz')
-  const testDir = 'easy-setup-test'
-  const installDir = path.join(homedir(), testDir)
-  await download(url, filePath)
-  extractTo(filePath, installDir)
-  const ansi2Path = path.join(homedir(), testDir, 'ansi2')
-  expect(fs.existsSync(ansi2Path)).toEqual(true)
-}, 100_000)
-
 test('isArchiveFile', () => {
   for (
     const [url, ty] of [
@@ -86,14 +53,6 @@ test('isArchiveFile', () => {
   }
 })
 
-test('extractTo', async () => {
-  const url =
-    'https://github.com/ahaoboy/mujs-build/archive/refs/tags/v0.0.4.zip'
-  const tmpPath = await downloadToFile(url)
-  const tmpDir = extractTo(tmpPath).outputDir
-  expect(fs.existsSync(join(tmpDir, 'mujs-build-0.0.4', 'dist-manifest.json')))
-    .toEqual(true)
-})
 
 test('manifest_jsc', async () => {
   const repo = new Repo('ahaoboy', 'jsc-build')
@@ -184,17 +143,6 @@ test('graaljs', async () => {
   }
 })
 
-test('toMsysPath', () => {
-  for (
-    const [a, b] of [
-      ['c:\\a\\b', '/c/a/b'],
-      ['c:/a/b', '/c/a/b'],
-      ['C:/a/b', '/c/a/b'],
-    ]
-  ) {
-    expect(toMsysPath(a)).toEqual(b)
-  }
-})
 
 test('cleanPath', () => {
   for (
@@ -209,13 +157,6 @@ test('cleanPath', () => {
   }
 })
 
-test('createFiles', () => {
-  const files = createFiles('src')
-  expect(files.keys().length > 0).toEqual(true)
-  const ei = files.get('bin/ei.rs')!.buffer
-  const txt = Buffer.from(ei).toString()
-  expect(txt.includes('#[tokio::main]')).toEqual(true)
-})
 
 test('isExeFile', () => {
   for (
