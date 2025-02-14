@@ -12,7 +12,7 @@ authors = ["ahaoboy"]
 clap = { version = "^4.5", features = ["derive"] }
 binstalk = "^0.28"
 binstalk-registry = "^0.11"
-easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git" }
+easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.1.4"}
 semver = { version = "^1", features = ["serde"] }
 serde = { version = "^1", features = ["derive"] }
 serde_json = "^1"

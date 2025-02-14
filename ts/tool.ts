@@ -4,6 +4,7 @@ import * as path from 'path'
 import { readFileSync } from 'fs'
 import { Output } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
+import { humanSize, modeToString } from '@easy-install/easy-archive/tool'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -288,46 +289,6 @@ export function cleanPath(path: string): string {
   }
 
   return (parts[0] === '' ? '/' : '') + stack.join('/')
-}
-
-function modeToString(mode: number, isDir: boolean): string {
-  // if (mode < 0 || mode > 0o777) {
-  //   throw new Error('Invalid mode: must be in range 0 to 0o777')
-  // }
-
-  const rwxMapping = [
-    '---',
-    '--x',
-    '-w-',
-    '-wx',
-    'r--',
-    'r-x',
-    'rw-',
-    'rwx',
-  ]
-
-  const owner = rwxMapping[(mode >> 6) & 0b111]
-  const group = rwxMapping[(mode >> 3) & 0b111]
-  const others = rwxMapping[mode & 0b111]
-  const d = isDir ? 'd' : '-'
-  return `${d}${owner}${group}${others}`
-}
-
-function humanSize(bytes: number): string {
-  if (bytes < 0) {
-    throw new Error('Size must be non-negative')
-  }
-
-  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
-  let index = 0
-  let size = bytes
-
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024
-    index++
-  }
-
-  return `${parseFloat(size.toPrecision(2))}${units[index]}`
 }
 
 export function displayOutput(output: Output) {

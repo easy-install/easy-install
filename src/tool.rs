@@ -4,6 +4,8 @@ use std::os::windows::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use easy_archive::tool::{human_size, mode_to_string};
+
 use crate::{env::add_to_path, install::Output};
 
 pub fn get_bin_name(s: &str) -> String {
@@ -36,51 +38,16 @@ pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
     (mode, size, is_dir)
 }
 
-fn mode_to_string(mode: u32, is_dir: bool) -> String {
-    let rwx_mapping = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"];
-
-    let owner = rwx_mapping[((mode >> 6) & 0b111) as usize]; // Owner permissions
-    let group = rwx_mapping[((mode >> 3) & 0b111) as usize]; // Group permissions
-    let others = rwx_mapping[(mode & 0b111) as usize]; // Others permissions
-    let d = if is_dir { "d" } else { "-" };
-    format!("{}{}{}{}", d, owner, group, others)
-}
-
-fn round(value: f64) -> String {
-    let mut s = format!("{:.1}", value);
-    if s.contains('.') {
-        while s.ends_with('0') {
-            s.pop();
-        }
-        if s.ends_with('.') {
-            s.pop();
-        }
-    }
-    s
-}
-
-pub fn human_size(bytes: u32) -> String {
-    if bytes == 0 {
-        return "0".to_string();
-    }
-    let units = ["", "K", "M", "G", "T", "P", "E", "Z", "Y"];
-    let b = bytes as f64;
-    let exponent = (b.log(1024.0)).floor() as usize;
-    let value = b / 1024f64.powi(exponent as i32);
-    let rounded = round(value);
-    format!("{}{}", rounded, units[exponent])
-}
-
 pub fn display_output(output: &Output) -> String {
     let mut v = vec![];
     for i in output.values() {
         let max_size_len = i
             .files
             .iter()
-            .fold(0, |pre, cur| pre.max(human_size(cur.size).len()));
+            .fold(0, |pre, cur| pre.max(human_size(cur.size as usize).len()));
 
         for k in &i.files {
-            let s = human_size(k.size);
+            let s = human_size(k.size as usize);
             v.push(
                 [
                     mode_to_string(k.mode, k.is_dir),
@@ -111,16 +78,4 @@ pub fn add_output_to_path(output: &Output) {
 
 pub fn get_filename(s: &str) -> Option<String> {
     s.split("/").last().map(|i| i.to_string())
-}
-
-#[cfg(test)]
-mod test {
-    use crate::tool::round;
-
-    #[test]
-    fn test_round() {
-        for (a, b) in [(1., "1"), (1.0, "1"), (1.5, "1.5"), (1.23, "1.2")] {
-            assert_eq!(round(a), b);
-        }
-    }
 }
