@@ -46,7 +46,7 @@ pub fn display_output(output: &Output) -> String {
             v.push(
                 [
                     human_size(sum_size as usize).as_str(),
-                    format!("(total  {})", i.files.len()).as_str(),
+                    format!("(total {})", i.files.len()).as_str(),
                     i.install_dir.as_str(),
                 ]
                 .join(" "),

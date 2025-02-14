@@ -1,6 +1,6 @@
 {
   "name": "@easy-install/easy-install",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "easy-install",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
@@ -30,7 +30,7 @@
     "format": "deno fmt --ignore=node_modules,dist,bundle,target --indent-width=2 --no-semicolons --single-quote",
     "test": "vitest",
     "test:run": "vitest --run",
-    "bundle": "esbuild --outdir=bundle --bundle --minify --platform=node --format=cjs ts/cli.ts",
+    "bundle": "esbuild --outdir=bundle --bundle --charset=utf8 --minify --platform=node --format=cjs ts/cli.ts",
     "clear": "rm -rf node_modules dist bundle",
     "bump": "pnpm up --latest --force",
     "release": "pnpm publish -r --access public",
@@ -38,12 +38,13 @@
     "start": "npm run build && node dist/index.js"
   },
   "dependencies": {
-    "crud-path": "^0.1.4",
+    "path-clean": "^0.1.0",
+    "crud-path": "^0.1.7",
     "@easy-install/easy-archive": "^0.1.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
-    "esbuild": "0.25.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"
   },

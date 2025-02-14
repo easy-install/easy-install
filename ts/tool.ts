@@ -274,22 +274,6 @@ export function isDistManfiest(s: string) {
   return s.endsWith('.json')
 }
 
-export function cleanPath(path: string): string {
-  const parts = path.replaceAll('\\', '/').split('/')
-  const stack: string[] = []
-
-  for (const part of parts.filter((p) => p !== '' && p !== '.')) {
-    if (part === '..') {
-      if (stack.length > 0) {
-        stack.pop()
-      }
-    } else {
-      stack.push(part)
-    }
-  }
-
-  return (parts[0] === '' ? '/' : '') + stack.join('/')
-}
 const MAX_FILE_COUNT = 16
 export function displayOutput(output: Output) {
   const s: string[] = []

@@ -9,7 +9,6 @@ import { downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
   atomiInstall,
-  cleanPath,
   detectTargets,
   displayOutput,
   getBinName,
@@ -19,6 +18,7 @@ import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 import { extractTo } from '@easy-install/easy-archive/tool'
+import { clean } from 'path-clean'
 
 async function downloadAndInstall(
   artUrl: string,
@@ -85,7 +85,7 @@ async function downloadAndInstall(
       } else if (info.isDirectory()) {
         const curDir = join(tmpDir, top)
         for (const i of readdirSync(curDir)) {
-          const next = cleanPath(join(top, i).replaceAll('\\', '/'))
+          const next = clean(join(top, i))
           q.push(next)
         }
       }
@@ -148,7 +148,7 @@ async function downloadAndInstall(
     } else if (info.isDirectory()) {
       const curDir = join(tmpDir, top)
       for (const i of readdirSync(curDir)) {
-        const next = cleanPath(join(top, i).replaceAll('\\', '/'))
+        const next = clean(join(top, i))
         q.push(next)
       }
     }

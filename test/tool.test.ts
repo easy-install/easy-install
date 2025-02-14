@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { cleanPath, getAssetNames, isArchiveFile, isExeFile } from '../ts/tool'
+import { getAssetNames, isArchiveFile, isExeFile } from '../ts/tool'
 
 import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
@@ -134,19 +134,6 @@ test('graaljs', async () => {
   for (const i of v) {
     const url = await getArtifactDownloadUrl(i)
     expect(url.length).toEqual(1)
-  }
-})
-
-test('cleanPath', () => {
-  for (
-    const [a, b] of [
-      ['/a/b', '/a/b'],
-      ['./a/b', 'a/b'],
-      ['/a/b/../c', '/a/c'],
-      ['a/b', 'a/b'],
-    ]
-  ) {
-    expect(cleanPath(a)).toEqual(b)
   }
 })
 

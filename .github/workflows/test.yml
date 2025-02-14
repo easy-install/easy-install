@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v4
+        with:
+          node-version: 23
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -35,12 +37,12 @@ jobs:
           cargo test
 
       - name: install
-
         run: |
-          if [ ! -f ~/.bashrc ]; then
-              touch ~/.bashrc
-          fi
-
+          for file in ./dist-manifest/*.json; do
+            echo $file
+            cargo run -- $file
+            source ~/.bashrc
+          done
           cargo run -- starship
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/mujs-build
@@ -51,12 +53,6 @@ jobs:
           cargo run -- https://github.com/ahaoboy/v8-build
           cargo run -- https://github.com/ahaoboy/txiki.js-build
           cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
-
-          for file in ./dist-manifest/*.json; do
-            echo $file
-            cargo run -- $file
-            source ~/.bashrc
-          done
 
       - name: test which on windows
         if: matrix.os == 'windows-latest'
@@ -183,6 +179,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v4
+        with:
+          node-version: 23
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -193,27 +191,23 @@ jobs:
           pnpm run test:run
       - name: install
         run: |
-          if [ ! -f ~/.bashrc ]; then
-              touch ~/.bashrc
-          fi
-
-          # skip when release
-          # ./cli/cli.js https://github.com/easy-install/easy-install
-
-          ./cli/cli.js https://github.com/denoland/deno
-          ./cli/cli.js https://github.com/starship/starship
-          ./cli/cli.js https://github.com/ahaoboy/mujs-build
-          ./cli/cli.js https://github.com/ahaoboy/neofetch
-          ./cli/cli.js https://github.com/axodotdev/cargo-dist
-          ./cli/cli.js https://github.com/ahaoboy/jsc-build
-          ./cli/cli.js https://github.com/ahaoboy/spidermonkey-build
-          ./cli/cli.js https://github.com/ahaoboy/v8-build
-          ./cli/cli.js https://github.com/ahaoboy/txiki.js-build
           for file in ./dist-manifest/*.json; do
             echo $file
-            ./cli/cli.js $file
+            node cli/cli.js $file
             source ~/.bashrc
           done
+          # skip when release
+          # node cli/cli.js https://github.com/easy-install/easy-install
+
+          node cli/cli.js https://github.com/denoland/deno
+          node cli/cli.js https://github.com/starship/starship
+          node cli/cli.js https://github.com/ahaoboy/mujs-build
+          node cli/cli.js https://github.com/ahaoboy/neofetch
+          node cli/cli.js https://github.com/axodotdev/cargo-dist
+          node cli/cli.js https://github.com/ahaoboy/jsc-build
+          node cli/cli.js https://github.com/ahaoboy/spidermonkey-build
+          node cli/cli.js https://github.com/ahaoboy/v8-build
+          node cli/cli.js https://github.com/ahaoboy/txiki.js-build
 
           ls -lh ~/.easy-install
 
