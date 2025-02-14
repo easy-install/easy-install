@@ -12,7 +12,7 @@
         "x86_64-pc-windows-gnu"
       ]
     },
-    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos.exe": {
+    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos": {
       "name": "yt-dlp",
       "target_triples": [
         "aarch64-apple-darwin",
