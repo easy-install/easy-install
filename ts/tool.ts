@@ -290,20 +290,29 @@ export function cleanPath(path: string): string {
 
   return (parts[0] === '' ? '/' : '') + stack.join('/')
 }
-
+const MAX_FILE_COUNT = 16
 export function displayOutput(output: Output) {
   const s: string[] = []
   for (const v of Object.values(output)) {
-    const maxSizeLen = v.files.reduce(
-      (pre, cur) => Math.max(pre, humanSize(cur.size).length),
-      0,
-    )
-    for (const i of v.files) {
+    if (v.files.length > MAX_FILE_COUNT) {
+      const sumSize = v.files.reduce((pre, cur) => pre + cur.size, 0)
       s.push([
-        modeToString(i.mode, i.isDir),
-        humanSize(i.size).padStart(maxSizeLen, ' '),
-        [i.originPath, i.installPath].join(' -> '),
+        humanSize(sumSize),
+        `(x${v.files.length})`,
+        v.installDir,
       ].join(' '))
+    } else {
+      const maxSizeLen = v.files.reduce(
+        (pre, cur) => Math.max(pre, humanSize(cur.size).length),
+        0,
+      )
+      for (const i of v.files) {
+        s.push([
+          modeToString(i.mode, i.isDir),
+          humanSize(i.size).padStart(maxSizeLen, ' '),
+          [i.originPath, i.installPath].join(' -> '),
+        ].join(' '))
+      }
     }
   }
   return s.join('\n')
@@ -313,24 +322,27 @@ export function showSuccess() {
   console.log('Installation Successful')
 }
 
-export function addOutputToPath(output: Output) {
-  for (const v of Object.values(output)) {
-    for (const p of new Set([v.binDir, v.installDir])) {
-      if (p && !hasPath(p)) {
-        const sh = addPath(p)
-        if (sh) {
-          console.log(`Successfully added ${p} to ${sh}'s $PATH`)
-        } else {
-          console.log(`You need to add ${p} to your $PATH`)
-        }
-        if (isGithub()) {
-          addGithubPath(p)
-        }
-      }
+function addToPath(p: string) {
+  if (p && !hasPath(p)) {
+    const sh = addPath(p)
+    if (sh) {
+      console.log(`Successfully added ${p} to ${sh}'s $PATH`)
+    } else {
+      console.log(`You need to add ${p} to your $PATH`)
     }
-
-    if (v.files.length === 1 && v.files[0].installPath) {
-      const first = v.files[0].installPath
+    if (isGithub()) {
+      addGithubPath(p)
+    }
+  }
+}
+export function addOutputToPath(output: Output) {
+  for (const { installDir, binDir, files } of Object.values(output)) {
+    addToPath(installDir)
+    if (binDir !== installDir) {
+      addToPath(binDir)
+    }
+    if (files.length === 1 && files[0].installPath) {
+      const first = files[0].installPath
       if (first) {
         addExecutePermission(first)
       }

@@ -4,7 +4,7 @@ use std::os::windows::fs::MetadataExt;
 use easy_archive::tool::{human_size, mode_to_string};
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
-use std::{collections::HashSet, path::Path};
+use std::path::Path;
 
 use crate::{env::add_to_path, install::Output};
 
@@ -37,25 +37,37 @@ pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
 
     (mode, size, is_dir)
 }
-
+const MAX_FILE_COUNT: usize = 16;
 pub fn display_output(output: &Output) -> String {
     let mut v = vec![];
     for i in output.values() {
-        let max_size_len = i
-            .files
-            .iter()
-            .fold(0, |pre, cur| pre.max(human_size(cur.size as usize).len()));
-
-        for k in &i.files {
-            let s = human_size(k.size as usize);
+        if i.files.len() > MAX_FILE_COUNT {
+            let sum_size = i.files.iter().fold(0, |pre, cur| pre + cur.size);
             v.push(
                 [
-                    mode_to_string(k.mode, k.is_dir),
-                    " ".repeat(max_size_len - s.len()) + &s,
-                    [k.origin_path.as_str(), k.install_path.as_str()].join(" -> "),
+                    human_size(sum_size as usize).as_str(),
+                    format!("(x{})", i.files.len()).as_str(),
+                    i.install_dir.as_str(),
                 ]
                 .join(" "),
             );
+        } else {
+            let max_size_len = i
+                .files
+                .iter()
+                .fold(0, |pre, cur| pre.max(human_size(cur.size as usize).len()));
+
+            for k in &i.files {
+                let s = human_size(k.size as usize);
+                v.push(
+                    [
+                        mode_to_string(k.mode, k.is_dir),
+                        " ".repeat(max_size_len - s.len()) + &s,
+                        [k.origin_path.as_str(), k.install_path.as_str()].join(" -> "),
+                    ]
+                    .join(" "),
+                );
+            }
         }
     }
     v.join("\n")
@@ -63,8 +75,9 @@ pub fn display_output(output: &Output) -> String {
 
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
-        for p in HashSet::from([&v.install_dir, &v.bin_dir]) {
-            add_to_path(p);
+        add_to_path(&v.install_dir);
+        if v.install_dir != v.bin_dir {
+            add_to_path(&v.bin_dir);
         }
 
         #[cfg(unix)]
