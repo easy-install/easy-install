@@ -10,10 +10,9 @@ authors = ["ahaoboy"]
 
 [dependencies]
 clap = { version = "^4.5", features = ["derive"] }
-# cargo-binstall = "^1.10"
 binstalk = "^0.28"
 binstalk-registry = "^0.11"
-binstalk-downloader = "^0.13"
+easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git" }
 semver = { version = "^1", features = ["serde"] }
 serde = { version = "^1", features = ["derive"] }
 serde_json = "^1"
@@ -25,7 +24,6 @@ tokio = { version = "^1.43", features = [
 tracing = "^0.1"
 url = "^2.5"
 dirs = "^6.0"
-atomic-file-install = "^1.0"
 reqwest = { version = "^0.12", features = ["json"] }
 regex = "^1.11"
 binstalk-git-repo-api = "^0.5"
@@ -36,7 +34,7 @@ tracing-subscriber = "^0.3"
 cargo-dist-schema = "^0.28"
 path-clean = "^1.0"
 which-shell = "^0.1"
-crud-path = "^0.1"
+crud-path = { git = "https://github.com/ahaoboy/crud-path.git" }
 is-admin = "^0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libc = "^0.2"

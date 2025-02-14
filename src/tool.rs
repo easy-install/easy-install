@@ -108,6 +108,11 @@ pub fn add_output_to_path(output: &Output) {
         }
     }
 }
+
+pub fn get_filename(s: &str) -> Option<String> {
+    s.split("/").last().map(|i| i.to_string())
+}
+
 #[cfg(test)]
 mod test {
     use crate::tool::round;

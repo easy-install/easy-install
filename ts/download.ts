@@ -2,7 +2,11 @@ import { tmpdir } from 'os'
 import path from 'path'
 import fs from 'fs'
 import { DistManifest } from './type'
-import { getFetchOption, randomId } from './tool'
+import { getFetchOption } from './tool'
+
+export function randomId() {
+  return Math.random().toString(36).slice(2)
+}
 
 export async function downloadJson<T>(url: string): Promise<T | undefined> {
   const response = await fetch(url, getFetchOption())

@@ -1,13 +1,14 @@
+use std::num::NonZeroU16;
+
 use crate::manfiest::DistManifest;
-use binstalk_downloader::{bytes::Bytes, download::Download, remote::Client};
+use binstalk::helpers::remote::Client;
+use easy_archive::ty::{Files, Fmt};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     ClientBuilder,
 };
 use serde::de::DeserializeOwned;
-use std::num::NonZeroU16;
 use tracing::trace;
-use url::Url;
 
 fn get_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
@@ -38,10 +39,17 @@ pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
     response.json::<T>().await.ok()
 }
 
-pub async fn download_files(url: &str) -> Download<'static> {
-    trace!("download {}", url);
-    let client = create_client().await;
-    Download::new(client, Url::parse(url).unwrap())
+// pub async fn download_files(url: &str) -> Download<'static> {
+//     trace!("download {}", url);
+//     let client = create_client().await;
+//     Download::new(client, Url::parse(url).unwrap())
+// }
+
+pub async fn download_extract(url: &str) -> Option<Files> {
+    let fmt = Fmt::guess(url)?;
+    let buffer = download_binary(url).await?;
+    let files = fmt.decode(buffer)?;
+    Some(files)
 }
 
 pub async fn download(url: &str) -> Option<reqwest::Response> {
@@ -57,10 +65,11 @@ pub async fn download_dist_manfiest(url: &str) -> Option<DistManifest> {
     response.json().await.ok()
 }
 
-pub async fn download_binary(url: &str) -> Option<Bytes> {
+pub async fn download_binary(url: &str) -> Option<Vec<u8>> {
     trace!("download_dist_manfiest {}", url);
     let response = download(url).await?;
-    response.bytes().await.ok()
+    let bytes = response.bytes().await.ok()?;
+    Some(bytes.to_vec())
 }
 
 pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {
@@ -71,19 +80,13 @@ pub fn read_dist_manfiest(url: &str) -> Option<DistManifest> {
 
 #[cfg(test)]
 mod test {
-    use crate::download::download_files;
-    use binstalk_downloader::download::PkgFmt;
-    use std::path::Path;
-    use tempfile::tempdir;
+    use crate::download::download_extract;
     #[tokio::test]
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
-        let files = download_files(url).await;
-        let fmt = PkgFmt::guess_pkg_format(url).unwrap();
-        let out_dir = tempdir().unwrap();
-        let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new("mujs")));
-        assert!(files.has_file(Path::new("mujs-pp")));
-        assert!(files.has_file(Path::new("libmujs.a")));
+        let files = download_extract(url).await.unwrap();
+        assert!(files.get("mujs").is_some());
+        assert!(files.get("mujs-pp").is_some());
+        assert!(files.get("libmujs.a").is_some());
     }
 }
