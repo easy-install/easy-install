@@ -1,9 +1,10 @@
 import { join } from 'path'
 import { getInstallDir } from '../env'
 import { Repo } from '../repo'
-import { displayOutput, download, extractTo, showSuccess } from '../tool'
-import { Output, OutputFile, OutputItem } from '../type'
+import { displayOutput, download, showSuccess } from '../tool'
+import { Output, OutputFile } from '../type'
 import { manifestInstall } from './manifest'
+import { extractTo } from '@easy-install/easy-archive/tool'
 
 export async function repoInstall(
   repo: Repo,
@@ -29,7 +30,7 @@ export async function repoInstall(
   for (const i of downloadUrlList) {
     console.log(`download ${i}`)
     const downloadPath = await download(i)
-    const files = extractTo(downloadPath, installDir).files
+    const files = extractTo(downloadPath, installDir)!.files
 
     if (!files) {
       console.log(`failed to install from ${repo.getReleasesUrl()}`)
@@ -43,7 +44,7 @@ export async function repoInstall(
       outputFiles.push({
         mode,
         size: buffer.length,
-        isDir: file.isDir(),
+        isDir: file.isDir,
         installPath,
         originPath,
       })

@@ -1,12 +1,10 @@
 import * as fs from 'fs'
-import { execSync } from 'child_process'
-import { platform, tmpdir } from 'os'
+import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
-import { decode, File, Files, guess } from '@easy-install/easy-archive'
-import { dirname, join } from 'path'
 import { Output } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
+import { humanSize, modeToString } from '@easy-install/easy-archive/tool'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -82,153 +80,6 @@ export async function download(url: string, outputPath?: string) {
   const buf = await response.arrayBuffer()
   fs.writeFileSync(outputPath, Buffer.from(buf))
   return outputPath
-}
-
-export function toMsysPath(s: string): string {
-  s = s.replaceAll('\\', '/')
-  s = s.replace(/^([A-Za-z]):\//, (_, drive) => `/${drive.toLowerCase()}/`)
-  return s
-}
-
-export function randomId() {
-  return Math.random().toString(36).slice(2)
-}
-
-export function createFiles(dir: string): Files {
-  const files = new Files()
-  async function dfs(currentPath: string) {
-    const entries = fs.readdirSync(currentPath)
-    for (const entry of entries) {
-      const fullPath = path.join(currentPath, entry)
-      const stat = fs.statSync(fullPath)
-      if (stat.isDirectory()) {
-        // ignore empty dir
-        dfs(fullPath)
-      } else if (stat.isFile()) {
-        const relativePath = path.relative(dir, fullPath).replaceAll('\\', '/')
-        const buffer = fs.readFileSync(fullPath)
-        const file = new File(relativePath, buffer, stat.mode)
-        files.insert(relativePath, file)
-      }
-    }
-  }
-  dfs(dir)
-  return files
-}
-
-export function extractToByShell(
-  compressedFilePath: string,
-  outputDir?: string,
-): { outputDir: string; files?: Files } {
-  const tmpDir = path.join(tmpdir(), randomId())
-  let oriDir = outputDir ?? tmpDir
-  const needCopy = !!outputDir
-
-  outputDir = tmpDir
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true })
-  }
-
-  if (isMsys() && !compressedFilePath.endsWith('.zip')) {
-    compressedFilePath = toMsysPath(compressedFilePath)
-    outputDir = toMsysPath(outputDir)
-  }
-  if (!fs.existsSync(oriDir)) {
-    fs.mkdirSync(oriDir, { recursive: true })
-  }
-  const rules = [
-    {
-      ext: ['.zip'],
-      cmd: process.platform !== 'win32'
-        ? `unzip -o "${compressedFilePath}" -d "${outputDir}"`
-        : `powershell -c "Expand-Archive -Path ${compressedFilePath} -DestinationPath  ${outputDir} -Force"`,
-    },
-    {
-      ext: ['.tar', '.tar.xz'],
-      cmd: `tar -xf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    {
-      ext: ['.tar.gz', '.tgz'],
-      cmd: `tar -xzvf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    {
-      ext: ['.tar.bz2'],
-      cmd: `tar -xjf "${compressedFilePath}" -C "${outputDir}"`,
-    },
-    { ext: ['.7z'], cmd: `7z x "${compressedFilePath}" -o"${outputDir}"` },
-    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
-    { ext: ['.rar'], cmd: `unrar x "${compressedFilePath}" "${outputDir}"` },
-  ] as const
-
-  for (const { ext, cmd } of rules) {
-    for (const e of ext) {
-      if (compressedFilePath.endsWith(e)) {
-        execSync(cmd)
-      }
-    }
-  }
-  const files = createFiles(outputDir)
-  if (needCopy && tmpDir !== oriDir) {
-    fs.cpSync(tmpDir, oriDir, { recursive: true })
-  }
-  return { outputDir: oriDir, files }
-}
-
-export function extractToByWasm(
-  compressedFilePath: string,
-  outputDir?: string,
-): { outputDir: string; files?: Files } {
-  const fmt = guess(compressedFilePath)
-  if (!outputDir) {
-    outputDir = path.join(tmpdir(), randomId())
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true })
-    }
-  }
-  if (!fmt) {
-    console.log('extractTo not support this file type')
-    return { outputDir }
-  }
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true })
-  }
-  const buf = new Uint8Array(readFileSync(compressedFilePath))
-  const files = decode(fmt, buf)
-  if (!files) {
-    console.log('failed to decode')
-    return { outputDir }
-  }
-  for (const i of files.keys()) {
-    const file = files.get(i)
-    if (!file) {
-      continue
-    }
-    const { path, mode, buffer } = file
-
-    if (path.endsWith('/') || !buffer.length) {
-      continue
-    }
-
-    const outputPath = join(outputDir, path)
-    const dir = dirname(outputPath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    fs.writeFileSync(outputPath, buffer)
-
-    if (mode && process.platform !== 'win32') {
-      fs.chmodSync(outputPath, mode)
-    }
-  }
-  return { outputDir, files }
-}
-
-export function extractTo(compressedFilePath: string, outputDir?: string) {
-  try {
-    return extractToByWasm(compressedFilePath, outputDir)
-  } catch {
-    return extractToByShell(compressedFilePath, outputDir)
-  }
 }
 
 export function detectTargets(
@@ -438,46 +289,6 @@ export function cleanPath(path: string): string {
   }
 
   return (parts[0] === '' ? '/' : '') + stack.join('/')
-}
-
-function modeToString(mode: number, isDir: boolean): string {
-  // if (mode < 0 || mode > 0o777) {
-  //   throw new Error('Invalid mode: must be in range 0 to 0o777')
-  // }
-
-  const rwxMapping = [
-    '---',
-    '--x',
-    '-w-',
-    '-wx',
-    'r--',
-    'r-x',
-    'rw-',
-    'rwx',
-  ]
-
-  const owner = rwxMapping[(mode >> 6) & 0b111]
-  const group = rwxMapping[(mode >> 3) & 0b111]
-  const others = rwxMapping[mode & 0b111]
-  const d = isDir ? 'd' : '-'
-  return `${d}${owner}${group}${others}`
-}
-
-function humanSize(bytes: number): string {
-  if (bytes < 0) {
-    throw new Error('Size must be non-negative')
-  }
-
-  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
-  let index = 0
-  let size = bytes
-
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024
-    index++
-  }
-
-  return `${parseFloat(size.toPrecision(2))}${units[index]}`
 }
 
 export function displayOutput(output: Output) {

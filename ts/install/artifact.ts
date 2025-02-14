@@ -12,13 +12,13 @@ import {
   cleanPath,
   detectTargets,
   displayOutput,
-  extractTo,
   getBinName,
   isArchiveFile,
 } from '../tool'
-import { DistManifest, Output, OutputFile, OutputItem } from '../type'
+import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
+import { extractTo } from '@easy-install/easy-archive/tool'
 
 async function downloadAndInstall(
   artUrl: string,
@@ -33,7 +33,7 @@ async function downloadAndInstall(
   const asset = art ? getAssetsExecutableDir(art) : undefined
   console.log(`download ${downloadUrl}`)
   const tmpPath = await downloadToFile(downloadUrl)
-  const tmpDir = extractTo(tmpPath).outputDir
+  const tmpDir = extractTo(tmpPath)!.outputDir
 
   const getEntry = (p: string) => {
     return join(tmpDir, p)
@@ -92,7 +92,6 @@ async function downloadAndInstall(
     }
 
     if (!outputFiles.length) {
-      console.log('No files installed')
       return {}
     }
 
@@ -155,7 +154,6 @@ async function downloadAndInstall(
     }
   }
   if (!v.length) {
-    console.log('No files installed')
     return {}
   }
 

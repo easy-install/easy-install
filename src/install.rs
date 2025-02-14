@@ -1,20 +1,23 @@
 use crate::download::{
-    create_client, download_binary, download_dist_manfiest, download_json, read_dist_manfiest,
+    create_client, download_binary, download_dist_manfiest, download_extract, download_json,
+    read_dist_manfiest,
 };
 use crate::manfiest::{self, Artifact, Asset, DistManifest};
-use crate::tool::{display_output, get_bin_name, get_meta};
-use crate::{artifact::Artifacts, download::download_files, env::get_install_dir};
-use binstalk_downloader::download::{Download, ExtractedFilesEntry, PkgFmt};
+use crate::tool::{display_output, get_bin_name, get_filename, get_meta};
+use crate::{artifact::Artifacts, env::get_install_dir};
+use binstalk::manifests::cargo_toml_binstall::PkgFmt;
 use binstalk_registry::Registry;
 use detect_targets::detect_targets;
 use regex::Regex;
 use semver::VersionReq;
 use std::collections::HashMap;
+#[cfg(unix)]
+use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{collections::VecDeque, fmt::Display, path::Path};
-use tempfile::tempdir;
+use std::{fmt::Display, path::Path};
 use tracing::trace;
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub struct OutputFile {
     pub install_path: String,
@@ -34,6 +37,25 @@ pub type Output = HashMap<String, OutputItem>;
 
 pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
     std::fs::copy(src, dst)
+}
+
+pub fn write_to_file(src: &str, buffer: &[u8], mode: Option<u32>) {
+    let Ok(d) = std::path::PathBuf::from_str(src);
+    if let Some(p) = d.parent() {
+        std::fs::create_dir_all(p).expect("failed to create_dir_all");
+    }
+
+    std::fs::write(src, buffer).expect("failed to write file");
+
+    #[cfg(unix)]
+    if let Some(mode) = mode {
+        std::fs::set_permissions(src, PermissionsExt::from_mode(mode)).expect("failed to set_permissions");
+    }
+
+    #[cfg(windows)]
+    {
+        _ = mode;
+    }
 }
 
 pub async fn install(url: &str, dir: Option<String>) -> Output {
@@ -125,7 +147,7 @@ async fn install_from_single_file(
         }
         std::fs::write(&install_path, &bin).expect("write file failed");
         let (mode, size, is_dir) = get_meta(&install_path);
-        let install_path = install_path.to_str().unwrap().replace("\\", "/");
+        let install_path = path_to_str(&install_path);
         println!("Installation Successful");
         let origin_path = url.split("/").last().unwrap_or(name.as_str()).to_string();
 
@@ -171,10 +193,7 @@ async fn install_from_artifact_url(
     }
     for url in urls {
         println!("download {}", url);
-        let files = download_files(&url).await;
-        let fmt = PkgFmt::guess_pkg_format(art_url).unwrap();
-        let output =
-            install_from_download_file(&url, fmt, files, manfiest.clone(), dir.clone()).await;
+        let output = install_from_download_file(&url, manfiest.clone(), dir.clone()).await;
         // println!("{}", display_output(&output));
         v.extend(output);
     }
@@ -344,30 +363,25 @@ pub(crate) fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
 
 async fn install_from_download_file(
     url: &str,
-    fmt: PkgFmt,
-    download: Download<'static>,
     manfiest: Option<DistManifest>,
     dir: Option<String>,
 ) -> Output {
     trace!("install_from_download_file");
-    let out_dir = tempdir().unwrap();
     let mut install_dir = get_install_dir();
-    let src_dir = out_dir.path().to_path_buf();
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
-    let mut q = VecDeque::new();
     let targets = detect_targets().await;
     let artifact = manfiest.and_then(|i| i.get_artifact(&targets));
     let mut output = Output::new();
     if let Some(asset) = artifact.clone().and_then(|a| a.get_assets_executable_dir()) {
-        if let Some(target_dir) = dir.or(asset.name) {
+        if let Some(target_dir) = dir.clone().or(asset.name) {
             if target_dir.contains("/") || target_dir.contains("\\") {
                 install_dir = target_dir.into();
             } else {
                 install_dir.push(target_dir);
             }
 
-            let prefix = asset.path.unwrap_or(".".to_string());
+            let prefix = asset.path.unwrap_or("".to_string());
 
             let install_dir_str = path_to_str(&install_dir);
 
@@ -379,63 +393,47 @@ async fn install_from_download_file(
             v.bin_dir = bin_dir_str;
             v.install_dir = install_dir_str;
 
-            q.push_back(prefix.clone());
-            if let Ok(download_files) = download.and_extract(fmt, &out_dir).await {
-                while let Some(top) = q.pop_front() {
-                    let p = Path::new(&top);
-                    let entry = download_files.get_entry(p);
-                    match entry {
-                        Some(ExtractedFilesEntry::Dir(dir)) => {
-                            for i in dir.iter() {
-                                let p = p.join(i.to_str().unwrap());
-                                let next = path_clean::clean(p.to_str().unwrap())
-                                    .to_str()
-                                    .unwrap()
-                                    .to_string()
-                                    .replace("\\", "/");
-                                q.push_back(next);
-                            }
-                        }
-                        Some(ExtractedFilesEntry::File) => {
-                            let mut src = src_dir.clone();
-                            let mut dst = install_dir.clone();
-                            src.push(&top);
-                            dst.push(top.replace(&(prefix.clone() + "/"), ""));
-
-                            if let Some(dst_dir) = dst.parent() {
-                                if dst_dir.exists() && dst_dir.is_file() {
-                                    std::fs::remove_file(dst_dir).unwrap_or_else(|_| {
-                                        panic!("failed to remove file : {:?}", dst_dir)
-                                    });
-                                    println!("remove {:?}", dst_dir);
-                                }
-                                if !dst_dir.exists() {
-                                    std::fs::create_dir_all(dst_dir)
-                                        .expect("Failed to create_dir install_dir");
-                                }
-                            }
-
-                            atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
-                                panic!("failed to atomic_install from {:?} to {:?}", src, dst)
-                            });
-
-                            let (mode, size, is_dir) = get_meta(&dst);
-
-                            files.push(OutputFile {
-                                install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
-                                mode,
-                                size,
-                                origin_path: top,
-                                is_dir,
-                            });
-                        }
-                        None => {}
+            if let Some(download_files) = download_extract(url).await {
+                for (entry_path, entry) in download_files {
+                    let size = entry.buffer.len() as u32;
+                    let is_dir = entry.is_dir;
+                    if is_dir {
+                        continue;
                     }
+                    let mut dst = install_dir.clone();
+                    dst.push(entry_path.replace(&(prefix.clone() + "/"), ""));
+
+                    // FIXME: remove same name file
+                    // if let Some(dst_dir) = dst.parent() {
+                    //     if dst_dir.exists() && dst_dir.is_file() {
+                    //         std::fs::remove_file(dst_dir).unwrap_or_else(|_| {
+                    //             panic!("failed to remove file : {:?}", dst_dir)
+                    //         });
+                    //         println!("remove {:?}", dst_dir);
+                    //     }
+                    //     if !dst_dir.exists() {
+                    //         std::fs::create_dir_all(dst_dir)
+                    //             .expect("Failed to create_dir install_dir");
+                    //     }
+                    // }
+
+                    // atomic_install(&src, dst.as_path()).unwrap_or_else(|_| {
+                    //     panic!("failed to atomic_install from {:?} to {:?}", src, dst)
+                    // });
+                    write_to_file(dst.to_string_lossy().as_ref(), &entry.buffer, entry.mode);
+                    let mode = entry.mode.unwrap_or(get_meta(&dst).0);
+
+                    files.push(OutputFile {
+                        install_path: path_to_str(&dst),
+                        mode,
+                        size,
+                        origin_path: entry_path,
+                        is_dir,
+                    });
                 }
+
                 v.files = files;
-                if v.files.is_empty() {
-                    println!("No files installed");
-                } else {
+                if !v.files.is_empty() {
                     println!("Installation Successful");
                     output.insert(url.to_string(), v);
                     println!("{}", display_output(&output));
@@ -445,76 +443,53 @@ async fn install_from_download_file(
             println!("Maybe you should use -d to set the folder");
         }
     } else {
-        if let Some(target_dir) = dir {
+        if let Some(ref target_dir) = dir {
             if target_dir.contains("/") || target_dir.contains("\\") {
                 install_dir = target_dir.into();
             } else {
                 install_dir.push(target_dir);
             }
         }
-        let install_dir_str = install_dir.to_string_lossy().to_string().replace("\\", "/");
+        let install_dir_str = path_to_str(&install_dir);
 
         v.bin_dir = install_dir_str.clone();
         v.install_dir = install_dir_str;
 
-        q.push_back(".".to_string());
         let allow = |p: &str| -> bool {
             match artifact.clone() {
                 None => true,
                 Some(art) => art.has_file(p),
             }
         };
-        if let Ok(download_files) = download.and_extract(fmt, &out_dir).await {
-            while let Some(top) = q.pop_front() {
-                let p = Path::new(&top);
-                let entry = download_files.get_entry(p);
-                match entry {
-                    Some(ExtractedFilesEntry::Dir(dir)) => {
-                        for i in dir.iter() {
-                            let p = p.join(i.to_str().unwrap());
-                            let next = path_clean::clean(p.to_str().unwrap())
-                                .to_str()
-                                .unwrap()
-                                .to_string()
-                                .replace("\\", "/");
-                            q.push_back(next);
-                        }
-                    }
-                    Some(ExtractedFilesEntry::File) => {
-                        if !allow(&top) {
-                            continue;
-                        }
-                        let mut src = src_dir.clone();
-                        let mut dst = install_dir.clone();
-
-                        let file_name = p.file_name().unwrap().to_str().unwrap().to_string();
-                        let name = artifact
-                            .clone()
-                            .and_then(|a| {
-                                a.get_asset(p.to_str().unwrap())
-                                    .and_then(|i| i.executable_name)
-                            })
-                            .unwrap_or(file_name.clone());
-
-                        src.push(&top);
-                        dst.push(get_bin_name(&name));
-                        atomic_install(&src, dst.as_path()).unwrap();
-                        let (mode, size, is_dir) = get_meta(&dst);
-                        files.push(OutputFile {
-                            install_path: dst.to_string_lossy().to_string().replace("\\", "/"),
-                            mode,
-                            size,
-                            origin_path: top,
-                            is_dir,
-                        });
-                    }
-                    None => {}
+        if let Some(download_files) = download_extract(url).await {
+            for (entry_path, entry) in download_files {
+                let size = entry.buffer.len() as u32;
+                let is_dir = entry.is_dir;
+                if is_dir || !allow(&entry_path) {
+                    continue;
                 }
+
+                let mut dst = install_dir.clone();
+
+                let file_name = get_filename(&entry_path).expect("failed to get filename");
+                let name = artifact
+                    .clone()
+                    .and_then(|a| a.get_asset(&entry_path).and_then(|i| i.executable_name))
+                    .unwrap_or(file_name.clone());
+
+                dst.push(get_bin_name(&name));
+                write_to_file(dst.to_string_lossy().as_ref(), &entry.buffer, entry.mode);
+                let mode = entry.mode.unwrap_or(get_meta(&dst).0);
+                files.push(OutputFile {
+                    install_path: path_to_str(&dst),
+                    mode,
+                    size,
+                    origin_path: entry_path,
+                    is_dir,
+                });
             }
             v.files = files;
-            if v.files.is_empty() {
-                println!("No files installed");
-            } else {
+            if !v.files.is_empty() {
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
@@ -767,13 +742,8 @@ fn is_msi_file(s: &str) -> bool {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
-    use binstalk_downloader::download::PkgFmt;
-    use tempfile::tempdir;
-
     use crate::{
-        download::{download_dist_manfiest, download_files, read_dist_manfiest},
+        download::{download_dist_manfiest, download_extract, read_dist_manfiest},
         env::IS_WINDOWS,
         install::{
             get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file,
@@ -853,11 +823,10 @@ mod test {
     async fn test_get_artifact_url() {
         let repo = Repo::try_from("https://github.com/ahaoboy/mujs-build").unwrap();
         let url = repo.get_artifact_url().await[0].clone();
-        let fmt = PkgFmt::guess_pkg_format(&url).unwrap();
-        let files = download_files(&url).await;
-        let out_dir = tempdir().unwrap();
-        let files = files.and_extract(fmt, out_dir.path()).await.unwrap();
-        assert!(files.has_file(Path::new(if IS_WINDOWS { "mujs.exe" } else { "mujs" })));
+        let files = download_extract(&url).await.unwrap();
+        assert!(files
+            .get(if IS_WINDOWS { "mujs.exe" } else { "mujs" })
+            .is_some());
     }
 
     #[tokio::test]
