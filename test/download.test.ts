@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { downloadDistManfiest, } from '../ts/download'
+import { downloadDistManfiest } from '../ts/download'
 
 test('downloadDistManfiest', async () => {
   const json = await downloadDistManfiest(
@@ -9,4 +9,3 @@ test('downloadDistManfiest', async () => {
     'executable-zip',
   )
 })
-

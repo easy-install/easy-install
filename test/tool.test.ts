@@ -1,12 +1,7 @@
 import { expect, test } from 'vitest'
-import {
-  cleanPath,
-  getAssetNames,
-  isArchiveFile,
-  isExeFile,
-} from '../ts/tool'
+import { cleanPath, getAssetNames, isArchiveFile, isExeFile } from '../ts/tool'
 
-import { downloadDistManfiest} from '../ts/download'
+import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
 import {
   getArtifact,
@@ -52,7 +47,6 @@ test('isArchiveFile', () => {
     expect(isArchiveFile(url)).toEqual(ty)
   }
 })
-
 
 test('manifest_jsc', async () => {
   const repo = new Repo('ahaoboy', 'jsc-build')
@@ -143,7 +137,6 @@ test('graaljs', async () => {
   }
 })
 
-
 test('cleanPath', () => {
   for (
     const [a, b] of [
@@ -156,7 +149,6 @@ test('cleanPath', () => {
     expect(cleanPath(a)).toEqual(b)
   }
 })
-
 
 test('isExeFile', () => {
   for (

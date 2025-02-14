@@ -91,6 +91,7 @@ jobs:
           get-command mpv
           get-command esbuild
           get-command rcedit
+          get-command bun
 
       - name: test which on ubuntu
         if: matrix.os == 'ubuntu-24.04'
@@ -124,6 +125,7 @@ jobs:
           which hermes
           which xst
           which esbuild
+          which bun
 
           echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
           d8 ./test.js
@@ -144,11 +146,11 @@ jobs:
           which llrt
           which alist
           which mujs
-          # which bun
+          which bun
           which fnm
-          # which 7z
-          # which starship
-          # which yt-dlp
+          which 7z
+          which starship
+          which yt-dlp
           which pnpm
           which biome
           which qjs
