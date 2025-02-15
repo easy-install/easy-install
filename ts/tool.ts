@@ -316,6 +316,7 @@ function addToPath(p: string) {
     }
     if (isGithub()) {
       addGithubPath(p)
+      console.log(`Successfully added ${p} to github's $PATH`)
     }
   }
 }
