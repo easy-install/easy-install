@@ -118,7 +118,9 @@ fn which(name: &str) -> Option<String> {
         .arg(name)
         .output()
         .ok()?;
-    String::from_utf8(cmd.stdout).ok()
+    String::from_utf8(cmd.stdout)
+        .ok()
+        .map(|i| i.trim().to_string())
 }
 
 const EXEC_MASK: u32 = 0o111;
