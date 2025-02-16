@@ -45,7 +45,7 @@ async function downloadAndInstall(
     if (targetDir.includes('/') || targetDir.includes('\\')) {
       installDir = targetDir
     } else {
-      installDir = join(installDir, targetDir)
+      installDir = join(installDir, targetDir).replaceAll('\\', '/')
     }
 
     const prefix = asset.path ?? '.'
@@ -65,7 +65,10 @@ async function downloadAndInstall(
           top.replaceAll(
             '\\',
             '/',
-          ).replaceAll(prefix + '/', ''),
+          ).replace(prefix + '/', ''),
+        ).replaceAll(
+          '\\',
+          '/',
         )
         const dstDir = dirname(dst)
         if (!existsSync(dstDir)) {
@@ -111,7 +114,7 @@ async function downloadAndInstall(
     if (dir.includes('\\') || dir.includes('/')) {
       installDir = dir
     } else {
-      installDir = join(installDir, dir)
+      installDir = join(installDir, dir).replaceAll('\\', '/')
     }
   }
   const v: OutputFile[] = []

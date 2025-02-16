@@ -32,7 +32,7 @@ export async function fileInstall(
     if (dir.includes('/') || dir.includes('\\')) {
       installDir = dir
     } else {
-      installDir = join(installDir, dir)
+      installDir = join(installDir, dir).replaceAll('\\', '/')
     }
   }
 

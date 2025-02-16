@@ -2,9 +2,10 @@ import * as fs from 'fs'
 import { tmpdir } from 'os'
 import * as path from 'path'
 import { readFileSync } from 'fs'
-import { Output } from './type'
+import { Output, OutputFile } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 import { humanSize, modeToString } from '@easy-install/easy-archive/tool'
+import { spawnSync } from 'child_process'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -320,8 +321,52 @@ function addToPath(p: string) {
     }
   }
 }
+
+function which(s: string): string | undefined {
+  const [name, args] = process.platform === 'win32'
+    ? [
+      'powershell',
+      ['-c', `(get-command ${s}).Source`],
+    ]
+    : ['which', [s]]
+
+  const ret = spawnSync(name, args)
+  if (!!ret.status || !ret.stdout) {
+    return
+  }
+  return ret.stdout.toString().trim().replaceAll('\\', '/')
+}
+const EXEC_MASK = 0o111
+
+function executabe(file: OutputFile): boolean {
+  return file.installPath.endsWith('.exe') || (file.mode & EXEC_MASK) !== 0
+}
+
+function getFilename(s: string): string | undefined {
+  return s.split('/').at(-1)
+}
+function check(file: OutputFile, installDir: string, binDir: string): boolean {
+  const fp = file.installPath
+  if (
+    !fp.startsWith(installDir) ||
+    !fp.startsWith(binDir) ||
+    !executabe(file)
+  ) {
+    return false
+  }
+
+  const name = getFilename(fp)!
+  const whichPath = which(name)
+  return fp === whichPath
+}
+
 export function addOutputToPath(output: Output) {
   for (const { installDir, binDir, files } of Object.values(output)) {
+    for (const f of files) {
+      if (check(f, installDir, binDir)) {
+        console.log(`Warning: file exists at ${f.installPath}`)
+      }
+    }
     addToPath(installDir)
     if (binDir !== installDir) {
       addToPath(binDir)

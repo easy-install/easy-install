@@ -12,7 +12,7 @@ export async function run(
   installDir = CLI_DIR,
   args = process.argv.slice(2),
 ) {
-  const binPath = join(installDir, getBinName(input.name))
+  const binPath = join(installDir, getBinName(input.name)).replaceAll('\\', '/')
   if (!existsSync(binPath)) {
     await setup(input)
   }
@@ -34,7 +34,10 @@ export async function runManifest(
     console.log('not found artifact')
     return
   }
-  const binPath = join(installDir, getBinName(name ?? art.name))
+  const binPath = join(installDir, getBinName(name ?? art.name)).replaceAll(
+    '\\',
+    '/',
+  )
   if (!existsSync(binPath)) {
     await setupManifest(manifest, installDir)
   }

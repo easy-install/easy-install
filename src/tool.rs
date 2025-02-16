@@ -6,7 +6,10 @@ use easy_archive::tool::{human_size, mode_to_string};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
-use crate::{env::add_to_path, install::Output};
+use crate::{
+    env::add_to_path,
+    install::{Output, OutputFile},
+};
 
 pub fn get_bin_name(s: &str) -> String {
     if cfg!(windows) && !s.ends_with(".exe") && !s.contains(".") {
@@ -75,6 +78,11 @@ pub fn display_output(output: &Output) -> String {
 
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
+        for f in &v.files {
+            if check(f, &v.install_dir, &v.bin_dir) {
+                println!("Warning: file exists at {}", f.install_path);
+            }
+        }
         add_to_path(&v.install_dir);
         if v.install_dir != v.bin_dir {
             add_to_path(&v.bin_dir);
@@ -91,4 +99,47 @@ pub fn add_output_to_path(output: &Output) {
 
 pub fn get_filename(s: &str) -> Option<String> {
     s.split("/").last().map(|i| i.to_string())
+}
+
+#[cfg(windows)]
+fn which(name: &str) -> Option<String> {
+    let cmd = std::process::Command::new("powershell")
+        .args(["-c", &format!("(get-command {name}).Source")])
+        .output()
+        .ok()?;
+    String::from_utf8(cmd.stdout)
+        .ok()
+        .map(|i| i.trim().replace("\\", "/"))
+}
+
+#[cfg(unix)]
+fn which(name: &str) -> Option<String> {
+    let cmd = std::process::Command::new("which")
+        .arg(name)
+        .output()
+        .ok()?;
+    String::from_utf8(cmd.stdout).ok()
+}
+
+const EXEC_MASK: u32 = 0o111;
+fn executable(file: &OutputFile) -> bool {
+    file.install_path.ends_with(".exe") || file.mode & EXEC_MASK != 0
+}
+
+pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
+    let file_path = &file.install_path;
+    if !file_path.starts_with(install_dir)
+        || !file_path.starts_with(binstall_dir)
+        || !executable(file)
+    {
+        return false;
+    }
+
+    let name = get_filename(file_path).unwrap();
+    if let Some(p) = which(&name) {
+        if file_path == &p {
+            return true;
+        }
+    }
+    false
 }

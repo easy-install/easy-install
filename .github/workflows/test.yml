@@ -168,6 +168,15 @@ jobs:
           # boa test.js
           llrt ./test.js
 
+      - name: test check file exists
+        run: |
+          cargo run -- https://github.com/ahaoboy/mujs-build
+          cargo run -- https://github.com/denoland/deno
+          for file in ./dist-manifest/*.json; do
+            echo $file
+            cargo run -- $file
+            source ~/.bashrc
+          done
   js-test:
     strategy:
       fail-fast: false
@@ -302,3 +311,12 @@ jobs:
           which xst
           which tjs
           which pnpm
+      - name: test check file exists
+        run: |
+          node cli/cli.js https://github.com/ahaoboy/mujs-build
+          node cli/cli.js https://github.com/denoland/deno
+          for file in ./dist-manifest/*.json; do
+            echo $file
+            node cli/cli.js $file
+            source ~/.bashrc
+          done
