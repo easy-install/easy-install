@@ -33,10 +33,10 @@ async function downloadAndInstall(
   const asset = art ? getAssetsExecutableDir(art) : undefined
   console.log(`download ${downloadUrl}`)
   const tmpPath = await downloadToFile(downloadUrl)
-  const tmpDir = extractTo(tmpPath)!.outputDir
+  const { outputDir, files } = extractTo(tmpPath)!
 
   const getEntry = (p: string) => {
-    return join(tmpDir, p)
+    return join(outputDir, p)
   }
 
   if (asset && art) {
@@ -45,7 +45,7 @@ async function downloadAndInstall(
     if (targetDir.includes('/') || targetDir.includes('\\')) {
       installDir = targetDir
     } else {
-      installDir = join(installDir, targetDir)
+      installDir = join(installDir, targetDir).replaceAll('\\', '/')
     }
 
     const prefix = asset.path ?? '.'
@@ -59,13 +59,16 @@ async function downloadAndInstall(
       const entry = getEntry(top)
       const info = statSync(entry)
       if (info.isFile()) {
-        const src = join(tmpDir, top)
+        const src = join(outputDir, top)
         const dst = join(
           installDir,
           top.replaceAll(
             '\\',
             '/',
-          ).replaceAll(prefix + '/', ''),
+          ).replace(prefix + '/', ''),
+        ).replaceAll(
+          '\\',
+          '/',
         )
         const dstDir = dirname(dst)
         if (!existsSync(dstDir)) {
@@ -76,14 +79,14 @@ async function downloadAndInstall(
         // addExecutePermission(dst)
 
         outputFiles.push({
-          mode: info.mode,
+          mode: files.get(top)?.mode ?? info.mode,
           size: info.size,
           installPath: dst,
           originPath: top,
           isDir: info.isDirectory(),
         })
       } else if (info.isDirectory()) {
-        const curDir = join(tmpDir, top)
+        const curDir = join(outputDir, top)
         for (const i of readdirSync(curDir)) {
           const next = clean(join(top, i))
           q.push(next)
@@ -111,7 +114,7 @@ async function downloadAndInstall(
     if (dir.includes('\\') || dir.includes('/')) {
       installDir = dir
     } else {
-      installDir = join(installDir, dir)
+      installDir = join(installDir, dir).replaceAll('\\', '/')
     }
   }
   const v: OutputFile[] = []
@@ -134,19 +137,19 @@ async function downloadAndInstall(
           name = getBinName(asset.executable_name)
         }
       }
-      const src = join(tmpDir, asset?.path ?? top)
+      const src = join(outputDir, asset?.path ?? top)
       const dst = join(installDir, name).replaceAll('\\', '/')
       atomiInstall(src, dst)
       // addExecutePermission(dst)
       v.push({
-        mode: info.mode,
+        mode: files.get(top)?.mode ?? info.mode,
         size: info.size,
         installPath: dst,
         originPath: asset?.path ?? top,
         isDir: info.isDirectory(),
       })
     } else if (info.isDirectory()) {
-      const curDir = join(tmpDir, top)
+      const curDir = join(outputDir, top)
       for (const i of readdirSync(curDir)) {
         const next = clean(join(top, i))
         q.push(next)
