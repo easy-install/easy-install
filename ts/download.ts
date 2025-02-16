@@ -5,7 +5,7 @@ import { DistManifest } from './type'
 import { getFetchOption } from './tool'
 
 export function randomId() {
-  return Math.random().toString(36).slice(2)
+  return Math.random().toString(36).slice(1)
 }
 
 export async function downloadJson<T>(url: string): Promise<T | undefined> {

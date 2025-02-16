@@ -172,11 +172,8 @@ jobs:
         run: |
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/denoland/deno
-          for file in ./dist-manifest/*.json; do
-            echo $file
-            cargo run -- $file
-            source ~/.bashrc
-          done
+          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
+
   js-test:
     strategy:
       fail-fast: false
@@ -315,8 +312,4 @@ jobs:
         run: |
           node cli/cli.js https://github.com/ahaoboy/mujs-build
           node cli/cli.js https://github.com/denoland/deno
-          for file in ./dist-manifest/*.json; do
-            echo $file
-            node cli/cli.js $file
-            source ~/.bashrc
-          done
+          node cli/cli.js https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json

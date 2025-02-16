@@ -122,20 +122,19 @@ fn which(name: &str) -> Option<String> {
 }
 
 const EXEC_MASK: u32 = 0o111;
-fn executable(file: &OutputFile) -> bool {
-    file.install_path.ends_with(".exe") || file.mode & EXEC_MASK != 0
+fn executable(name: &str, mode: u32) -> bool {
+    name.ends_with(".exe") || (!name.contains(".") && mode & EXEC_MASK != 0)
 }
 
 pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
     let file_path = &file.install_path;
+    let name = get_filename(file_path).unwrap();
     if !file_path.starts_with(install_dir)
         || !file_path.starts_with(binstall_dir)
-        || !executable(file)
+        || !executable(&name, file.mode)
     {
         return false;
     }
-
-    let name = get_filename(file_path).unwrap();
     if let Some(p) = which(&name) {
         if file_path == &p {
             return true;

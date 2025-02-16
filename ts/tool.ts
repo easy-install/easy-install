@@ -338,8 +338,9 @@ function which(s: string): string | undefined {
 }
 const EXEC_MASK = 0o111
 
-function executabe(file: OutputFile): boolean {
-  return file.installPath.endsWith('.exe') || (file.mode & EXEC_MASK) !== 0
+function executabe(name: string, mode: number): boolean {
+  return name.endsWith('.exe') ||
+    (!name.includes('.') && (mode & EXEC_MASK) !== 0)
 }
 
 function getFilename(s: string): string | undefined {
@@ -347,15 +348,15 @@ function getFilename(s: string): string | undefined {
 }
 function check(file: OutputFile, installDir: string, binDir: string): boolean {
   const fp = file.installPath
+  const name = getFilename(fp)!
   if (
     !fp.startsWith(installDir) ||
     !fp.startsWith(binDir) ||
-    !executabe(file)
+    !executabe(name, file.mode)
   ) {
     return false
   }
 
-  const name = getFilename(fp)!
   const whichPath = which(name)
   return fp === whichPath
 }
