@@ -63,6 +63,7 @@ export function isExeFile(s: string): boolean {
 export function getFetchOption() {
   const headers: HeadersInit = {
     'User-Agent': 'GitHub Actions',
+    Connection: 'close',
   }
   if (process.env.GITHUB_TOKEN) {
     headers.Authorization = `token ${process.env.GITHUB_TOKEN}`
