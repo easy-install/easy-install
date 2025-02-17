@@ -28,7 +28,7 @@ pub fn get_install_dir() -> PathBuf {
     if !home.exists() {
         std::fs::create_dir_all(&home).expect("Failed to create_dir home_dir");
     }
-    let home_str = home.to_str().expect("Failed to get home_dir string");
-    add_to_path(home_str);
+    // let home_str = home.to_str().expect("Failed to get home_dir string");
+    // add_to_path(home_str);
     home
 }

@@ -368,6 +368,8 @@ export function addOutputToPath(output: Output) {
         console.log(`Warning: file exists at ${f.installPath}`)
       }
     }
+  }
+  for (const { installDir, binDir, files } of Object.values(output)) {
     addToPath(installDir)
     if (binDir !== installDir) {
       addToPath(binDir)

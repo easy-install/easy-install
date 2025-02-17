@@ -83,6 +83,8 @@ pub fn add_output_to_path(output: &Output) {
                 println!("Warning: file exists at {}", f.install_path);
             }
         }
+    }
+    for v in output.values() {
         add_to_path(&v.install_dir);
         if v.install_dir != v.bin_dir {
             add_to_path(&v.bin_dir);
