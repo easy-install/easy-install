@@ -1,12 +1,13 @@
 [package]
 name = "easy-install"
-version = "1.3.2"
+version = "1.3.3"
 edition = "2021"
 license = "MIT"
 description = "easy-install"
 repository = "https://github.com/easy-install/easy-install"
 homepage = "https://github.com/easy-install/easy-install"
 authors = ["ahaoboy"]
+include = ["src", "Cargo.toml", "README.md"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
