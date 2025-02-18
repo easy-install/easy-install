@@ -121,3 +121,25 @@ jobs:
         with:
           name: ei-${{ steps.artifact-target.outputs.artifact-target }}
           path: ei-${{ steps.artifact-target.outputs.artifact-target }}.*
+
+  test-release:
+    needs: ['create-release', 'upload-assets']
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-14, macos-13]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: easy-install/easy-setup@v1
+        with:
+          url: https://github.com/easy-install/easy-install
+      - name: test
+        run: |
+          ei https://github.com/pnpm/pnpm
+          pnpm --version
+          ei https://github.com/pnpm/pnpm/v9.15.3
+          pnpm --version
+          ei https://github.com/ahaoboy/easy-install/raw/refs/heads/main/dist-manifest/bun.json
+          bun --version
+          ei https://github.com/denoland/deno
+          deno --version
