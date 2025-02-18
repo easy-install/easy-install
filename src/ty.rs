@@ -1,18 +1,12 @@
-use crate::download::{
-    download_dist_manfiest, download_json,
-};
-use crate::manfiest::{self, Artifact, Asset, DistManifest};
-use crate::tool::{
-    is_archive_file, is_hash_file,
-    is_msi_file, remove_postfix,
-};
 use crate::artifact::Artifacts;
-use detect_targets::detect_targets;
+use crate::download::{download_dist_manfiest, download_json};
+use crate::manfiest::{self, Artifact, Asset, DistManifest};
+use crate::tool::{is_archive_file, is_hash_file, is_msi_file, remove_postfix};
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::fmt::Display;
 use tracing::trace;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
@@ -175,11 +169,11 @@ impl TryFrom<&str> for Repo {
 }
 
 impl Repo {
-  pub   fn get_gh_url(&self) -> String {
+    pub fn get_gh_url(&self) -> String {
         format!("https://github.com/{}/{}", self.owner, self.name)
     }
 
-    pub   fn get_artifact_api(&self) -> String {
+    pub fn get_artifact_api(&self) -> String {
         trace!("get_artifact_api {}/{}", self.owner, self.name);
         if let Some(tag) = &self.tag {
             return format!(
@@ -194,7 +188,7 @@ impl Repo {
         )
     }
 
-    pub  fn get_manfiest_url(&self) -> String {
+    pub fn get_manfiest_url(&self) -> String {
         match &self.tag {
             Some(t) => format!(
                 "https://github.com/{}/{}/releases/download/{}/dist-manifest.json",
@@ -207,16 +201,15 @@ impl Repo {
         }
     }
 
-    pub  async fn get_manfiest(&self) -> Option<DistManifest> {
+    pub async fn get_manfiest(&self) -> Option<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub    async fn get_artifact_url(&self) -> Vec<String> {
+    pub async fn get_artifact_url(&self, targets: Vec<String>) -> Vec<String> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
         let mut v = vec![];
         if let Some(artifacts) = download_json::<Artifacts>(&api).await {
-            let targets = detect_targets().await;
             let mut filter = vec![];
             for i in artifacts.assets {
                 for pat in &targets {
@@ -265,5 +258,22 @@ impl Display for Repo {
             Some(t) => f.write_str(&format!("{}/{}@{}", self.owner, self.name, t)),
             None => f.write_str(&format!("{}/{}", self.owner, self.name)),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ty::Repo;
+
+    #[tokio::test]
+    async fn test_api() {
+        let repo = Repo::try_from("https://github.com/ahaoboy/jsc-build").unwrap();
+        let artifact_url = repo
+            .get_artifact_url(vec![
+                "x86_64-unknown-linux-gnu".to_string(),
+                "x86_64-unknown-linux-musl".to_string(),
+            ])
+            .await;
+        assert_eq!(artifact_url.len(), 1);
     }
 }

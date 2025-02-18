@@ -321,6 +321,7 @@ mod test {
         },
         ty::Repo,
     };
+    use detect_targets::detect_targets;
 
     #[test]
     fn test_is_file() {
@@ -393,7 +394,7 @@ mod test {
     #[tokio::test]
     async fn test_get_artifact_url() {
         let repo = Repo::try_from("https://github.com/ahaoboy/mujs-build").unwrap();
-        let url = repo.get_artifact_url().await[0].clone();
+        let url = repo.get_artifact_url(detect_targets().await).await[0].clone();
         let files = download_extract(&url).await.unwrap();
         assert!(files
             .get(if IS_WINDOWS { "mujs.exe" } else { "mujs" })
@@ -507,7 +508,7 @@ mod test {
     async fn test_deno() {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
-        let artifact_url = repo.get_artifact_url().await;
+        let artifact_url = repo.get_artifact_url(detect_targets().await).await;
         assert_eq!(artifact_url.len(), 2);
     }
 
@@ -530,7 +531,7 @@ mod test {
     #[tokio::test]
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
-        let artifact_url = repo.get_artifact_url().await;
+        let artifact_url = repo.get_artifact_url(detect_targets().await).await;
         assert_eq!(artifact_url.len(), 1);
     }
 
