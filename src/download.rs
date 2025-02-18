@@ -1,4 +1,3 @@
-use std::num::NonZeroU16;
 use crate::manfiest::DistManifest;
 use binstalk::helpers::remote::Client;
 use easy_archive::ty::{Files, Fmt};
@@ -7,6 +6,7 @@ use reqwest::{
     ClientBuilder,
 };
 use serde::de::DeserializeOwned;
+use std::num::NonZeroU16;
 use tracing::trace;
 
 fn get_headers() -> HeaderMap {
@@ -37,12 +37,11 @@ pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
     let response = client.get(url).headers(get_headers()).send().await.ok()?;
     response.json::<T>().await.ok()
 }
-
-// pub async fn download_files(url: &str) -> Download<'static> {
-//     trace!("download {}", url);
-//     let client = create_client().await;
-//     Download::new(client, Url::parse(url).unwrap())
-// }
+pub async fn download_text(url: &str) -> Option<String> {
+    let client = reqwest::Client::new();
+    let response = client.get(url).headers(get_headers()).send().await.ok()?;
+    response.text().await.ok()
+}
 
 pub async fn download_extract(url: &str) -> Option<Files> {
     let fmt = Fmt::guess(url)?;

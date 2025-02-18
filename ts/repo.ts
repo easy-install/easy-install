@@ -65,7 +65,9 @@ export class Repo {
         return names.some((i) => asset.name.startsWith(i))
       })
       if (!asset) {
-        console.log(`No asset found for ${bin} ${tag} ${os} ${arch}`)
+        console.log(
+          `No asset found for bin:${bin} tag:${tag} os:${os} arch:${arch}`,
+        )
         return []
       }
       return [asset.browser_download_url]
@@ -92,7 +94,9 @@ export class Repo {
       }
     }
     if (!v.length) {
-      console.log(`No asset found for ${bin} ${tag} ${os} ${arch}`)
+      console.log(
+        `No asset found for bin:${bin} tag:${tag} os:${os} arch:${arch}`,
+      )
       return []
     }
     return v

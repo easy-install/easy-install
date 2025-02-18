@@ -4,6 +4,7 @@ pub mod env;
 pub mod install;
 pub mod manfiest;
 pub mod tool;
+pub mod ty;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]

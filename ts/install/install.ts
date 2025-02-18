@@ -7,12 +7,21 @@ import { artifactInstall } from './artifact'
 import { fileInstall } from './file'
 import { manifestInstall } from './manifest'
 import { repoInstall } from './repo'
+import { builtinInstall, getBuiltinName } from './builtin'
 
 export async function install(
   input: Input,
   installDir?: string,
 ): Promise<Output> {
   const { url, version, name } = input
+  const repo = Repo.fromUrl(url)
+  if (repo) {
+    const name = await getBuiltinName(repo)
+    if (name) {
+      return builtinInstall(repo, name, installDir)
+    }
+  }
+
   if (isDistManfiest(url)) {
     const dist: DistManifest | undefined = isUrl(url)
       ? await downloadJson(url)
@@ -33,7 +42,6 @@ export async function install(
       return fileInstall({ url, name }, url, undefined, installDir)
     }
   }
-  const repo = Repo.fromUrl(url)
 
   if (repo) {
     return repoInstall(repo, name, version, installDir)

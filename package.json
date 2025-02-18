@@ -34,8 +34,7 @@
     "clear": "rm -rf node_modules dist bundle",
     "bump": "pnpm up --latest --force",
     "release": "pnpm publish -r --access public",
-    "release-alpha": "pnpm publish -r --access public --tag alpha",
-    "start": "npm run build && node dist/index.js"
+    "release-alpha": "pnpm publish -r --access public --tag alpha"
   },
   "dependencies": {
     "path-clean": "^0.1.0",

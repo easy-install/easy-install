@@ -55,7 +55,9 @@ export async function repoInstall(
       files: outputFiles,
     }
   }
-  showSuccess()
-  console.log(displayOutput(output))
+  if (Object.keys(output).length) {
+    showSuccess()
+    console.log(displayOutput(output))
+  }
   return output
 }
