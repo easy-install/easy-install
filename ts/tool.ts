@@ -347,7 +347,11 @@ function executabe(name: string, mode: number): boolean {
 function getFilename(s: string): string | undefined {
   return s.split('/').at(-1)
 }
-function check(file: OutputFile, installDir: string, binDir: string): boolean {
+function check(
+  file: OutputFile,
+  installDir: string,
+  binDir: string,
+): string | undefined {
   const fp = file.installPath
   const name = getFilename(fp)!
   if (
@@ -355,18 +359,19 @@ function check(file: OutputFile, installDir: string, binDir: string): boolean {
     !fp.startsWith(binDir) ||
     !executabe(name, file.mode)
   ) {
-    return false
+    return
   }
 
   const whichPath = which(name)
-  return fp !== whichPath
+  return whichPath
 }
 
 export function addOutputToPath(output: Output) {
   for (const { installDir, binDir, files } of Object.values(output)) {
     for (const f of files) {
-      if (check(f, installDir, binDir)) {
-        console.log(`Warning: file exists at ${f.installPath}`)
+      const wp = check(f, installDir, binDir)
+      if (wp) {
+        console.log(`Warning: file exists at ${wp}`)
       }
     }
   }

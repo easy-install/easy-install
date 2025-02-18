@@ -85,8 +85,8 @@ pub fn display_output(output: &Output) -> String {
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
         for f in &v.files {
-            if check(f, &v.install_dir, &v.bin_dir) {
-                println!("Warning: file exists at {}", f.install_path);
+            if let Some(p) = check(f, &v.install_dir, &v.bin_dir) {
+                println!("Warning: file exists at {}", p);
             }
         }
     }
@@ -136,21 +136,21 @@ pub fn executable(name: &str, mode: u32) -> bool {
     name.ends_with(".exe") || (!name.contains(".") && mode & EXEC_MASK != 0)
 }
 
-pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
+pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> Option<String> {
     let file_path = &file.install_path;
     let name = get_filename(file_path).unwrap();
     if !file_path.starts_with(install_dir)
         || !file_path.starts_with(binstall_dir)
         || !executable(&name, file.mode)
     {
-        return false;
+        return None;
     }
     if let Some(p) = which(&name) {
         if file_path != &p {
-            return true;
+            return Some(p);
         }
     }
-    false
+    None
 }
 
 pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
