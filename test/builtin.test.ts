@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { getBinName, getBuiltinName, getDist, getDistUrl, Repo } from '../ts'
+import { getBuiltinName, getDist, getDistUrl, Repo } from '../ts'
 
 test('getBuiltinName', async () => {
   for (
@@ -15,7 +15,7 @@ test('getBuiltinName', async () => {
       ],
     ]
   ) {
-    expect(getBuiltinName(Repo.fromUrl(a)!)).toEqual(b)
+    expect(await getBuiltinName(Repo.fromUrl(a)!)).toEqual(b)
   }
 })
 

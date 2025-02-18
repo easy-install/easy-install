@@ -359,7 +359,7 @@ function check(file: OutputFile, installDir: string, binDir: string): boolean {
   }
 
   const whichPath = which(name)
-  return fp === whichPath
+  return fp !== whichPath
 }
 
 export function addOutputToPath(output: Output) {

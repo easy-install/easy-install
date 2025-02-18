@@ -99,7 +99,7 @@ pub fn add_output_to_path(output: &Output) {
         #[cfg(unix)]
         if v.files.len() == 1 {
             let i = &v.files[0];
-            crate::install::add_execute_permission(&i.install_path)
+            crate::tool::add_execute_permission(&i.install_path)
                 .expect("failed to add_execute_permission");
         }
     }
@@ -146,7 +146,7 @@ pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
         return false;
     }
     if let Some(p) = which(&name) {
-        if file_path == &p {
+        if file_path != &p {
             return true;
         }
     }

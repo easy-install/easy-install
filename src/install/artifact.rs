@@ -1,5 +1,6 @@
 use crate::download::download_extract;
 use crate::env::get_install_dir;
+use crate::install::file::install_from_single_file;
 use crate::manfiest::DistManifest;
 use crate::tool::{
     display_output, get_artifact_download_url, get_bin_name, get_filename, get_meta,
@@ -162,7 +163,7 @@ pub async fn install_from_artifact_url(
     }
     if urls.len() == 1 && !is_archive_file(&urls[0]) {
         println!("download {}", urls[0]);
-        let output = install_from_download_file(&urls[0], manfiest.clone(), dir.clone()).await;
+        let output = install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
         return output;
     }
     for url in urls {
