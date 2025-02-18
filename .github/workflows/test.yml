@@ -175,6 +175,12 @@ jobs:
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
+      - name: test builtin
+        run: |
+          cargo run -- https://github.com/pnpm/pnpm
+          pnpm --version
+          cargo run -- https://github.com/pnpm/pnpm/releases/tag/v9.15.3
+          pnpm --version
 
   js-test:
     strategy:
@@ -315,3 +321,9 @@ jobs:
           cli/cli.js https://github.com/ahaoboy/mujs-build
           cli/cli.js https://github.com/denoland/deno
           cli/cli.js https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
+      - name: test builtin
+        run: |
+          cli/cli.js https://github.com/pnpm/pnpm
+          pnpm --version
+          cli/cli.js https://github.com/pnpm/pnpm/releases/tag/v9.15.3
+          pnpm --version
