@@ -37,6 +37,7 @@ const ARCH_LIST: NodeJS.Architecture[] = [
   'x64',
   'arm64',
   'ia32',
+  'arm',
 ]
 // TODO: support musl
 // const MUSL_LIST: NodeJS.Architecture[] = []
@@ -77,29 +78,34 @@ function targetToRules(target: Target, bin?: string): Rule[] {
 
 export function getRules(bin?: string): Rule[] {
   const v: Rule[] = []
-  const musl = false
   for (const os of OS_LIST) {
     for (const arch of ARCH_LIST) {
-      for (const { target, rank } of getCommonTargets(os, arch, musl)) {
+      const MUSL_LIST = [false]
+      if (os === 'linux') {
+        MUSL_LIST.push(true)
+      }
+
+      for (const musl of MUSL_LIST) {
+        for (const target of detectTargets(os, arch, musl)) {
+          const t: Target = {
+            rank: 10,
+            target,
+            os,
+            arch,
+            musl,
+          }
+          for (const r of targetToRules(t, bin)) {
+            v.push(r)
+          }
+        }
+      }
+      for (const { target, rank } of getCommonTargets(os, arch, false)) {
         const t: Target = {
           rank,
           target,
           os,
           arch,
-          musl,
-        }
-        for (const r of targetToRules(t, bin)) {
-          v.push(r)
-        }
-      }
-
-      for (const target of detectTargets(os, arch, musl)) {
-        const t: Target = {
-          rank: 10,
-          target,
-          os,
-          arch,
-          musl,
+          musl: false,
         }
         for (const r of targetToRules(t, bin)) {
           v.push(r)

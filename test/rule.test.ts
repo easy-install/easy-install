@@ -4,7 +4,7 @@ import { getRules, matchRules, Rule } from '../ts/rule'
 test('rule', () => {
   const rules = getRules()
   for (
-    const [a, b, c, d] of [
+    const [a, b, c, d, e] of [
       ['mujs-x86_64-unknown-linux-gnu.tar.xz', 'mujs', 'linux', 'x64'],
       ['mise-v2025.2.6-linux-x64', 'mise', 'linux', 'x64'],
       ['zig-linux-x86_64-0.13.0.tar.xz', 'zig', 'linux', 'x64'],
@@ -28,12 +28,35 @@ test('rule', () => {
       ['starship-i686-pc-windows-msvc.zip', 'starship', 'win32', 'ia32'],
       ['starship-x86_64-pc-windows-msvc.zip', 'starship', 'win32', 'x64'],
       ['starship-x86_64-unknown-freebsd.tar.gz', 'starship', 'freebsd', 'x64'],
+      [
+        'starship-arm-unknown-linux-musleabihf.tar.gz',
+        'starship',
+        'linux',
+        'arm',
+        'true',
+      ],
+      [
+        'starship-i686-unknown-linux-musl.tar.gz',
+        'starship',
+        'linux',
+        'ia32',
+        'true',
+      ],
+      ['starship-x86_64-unknown-linux-gnu.tar.gz', 'starship', 'linux', 'x64'],
+      [
+        'starship-x86_64-unknown-linux-musl.tar.gz',
+        'starship',
+        'linux',
+        'x64',
+        'true',
+      ],
     ]
   ) {
     const { name, rule } = matchRules(a, rules)!
-    const { target: { os, arch } } = rule
+    const { target: { os, arch, musl } } = rule
     expect(name).toEqual(b)
     expect(os).toEqual(c)
     expect(arch).toEqual(d)
+    expect(!!musl).toEqual(!!e)
   }
 })

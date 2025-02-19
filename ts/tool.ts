@@ -105,17 +105,33 @@ export function detectTargets(
     }
     case 'linux': {
       switch (arch) {
+        case 'ia32': {
+          if (musl) {
+            return ['i686-unknown-linux-musl']
+          }
+          return ['i686-unknown-linux-gnu']
+        }
+        case 'arm': {
+          if (musl) {
+            return ['arm-unknown-linux-musleabihf']
+          }
+          return ['arm-unknown-linux-gnu']
+        }
         case 'arm64': {
           if (musl) {
-            return ['aarch64-unknown-linux-musl', 'aarch64-unknown-linux-gnu']
+            return ['aarch64-unknown-linux-musl' // 'aarch64-unknown-linux-gnu'
+            ]
           }
-          return ['aarch64-unknown-linux-gnu', 'aarch64-unknown-linux-musl']
+          return ['aarch64-unknown-linux-gnu' // 'aarch64-unknown-linux-musl'
+          ]
         }
         case 'x64': {
           if (musl) {
-            return ['x86_64-unknown-linux-musl', 'x86_64-unknown-linux-gnu']
+            return ['x86_64-unknown-linux-musl' // 'x86_64-unknown-linux-gnu'
+            ]
           }
-          return ['x86_64-unknown-linux-gnu', 'x86_64-unknown-linux-musl']
+          return ['x86_64-unknown-linux-gnu' //  'x86_64-unknown-linux-musl'
+          ]
         }
         default: {
           return []

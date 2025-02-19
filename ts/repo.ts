@@ -66,7 +66,11 @@ export class Repo {
     if (bin) {
       for (const a of releases.assets) {
         const ret = matchRules(a.name, rules)
-        if (ret && ret.rule.target.os === os && ret.rule.target.arch === arch) {
+        if (
+          ret && ret.rule.target.os === os &&
+          ret.rule.target.arch === arch &&
+          ret.rule.target.musl === musl
+        ) {
           return [a.browser_download_url]
         }
       }
@@ -81,7 +85,9 @@ export class Repo {
       }
       const ret = matchRules(name, rules)
       if (
-        ret && ret.rule.target.arch === arch && ret.rule.target.os === os &&
+        ret && ret.rule.target.arch === arch &&
+        ret.rule.target.os === os &&
+        ret.rule.target.musl === musl &&
         !v.includes(browser_download_url)
       ) {
         v.push(browser_download_url)
