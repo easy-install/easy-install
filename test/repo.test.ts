@@ -22,6 +22,13 @@ test('getAssetUrl', async () => {
   expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
     ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip'],
   )
+  expect(await repo.getAssetUrlList(undefined, 'v2.1.6', 'darwin', 'x64'))
+    .toEqual(
+      [
+        'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip',
+        'https://github.com/denoland/deno/releases/download/v2.1.6/denort-x86_64-apple-darwin.zip',
+      ],
+    )
 })
 
 test('fromUrl', async () => {

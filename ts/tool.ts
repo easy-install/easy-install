@@ -239,10 +239,10 @@ export function replaceFilename(baseUrl: string, name: string): string {
 }
 
 export function isHashFile(s: string): boolean {
-  return s.endsWith('.sha256')
+  return ['.sha256sum', '.sha256'].some((i) => s.endsWith(i))
 }
 export function isMsiFile(s: string): boolean {
-  return s.endsWith('.msi')
+  return ['.msi'].some((i) => s.endsWith(i))
 }
 export function isMsys() {
   return !!process.env['MSYSTEM']
@@ -382,4 +382,16 @@ export function addOutputToPath(output: Output) {
       }
     }
   }
+}
+
+export function getCommonPrefix(list: string[]): string | undefined {
+  const n = list.reduce((pre, cur) => Math.max(pre, cur.length), 0)
+  let p = 0
+  for (; p < n; p++) {
+    const head = list.map((k) => k[p])
+    if (head.some((i) => i !== head[0])) {
+      break
+    }
+  }
+  return p === 0 ? undefined : list[0].slice(0, p)
 }

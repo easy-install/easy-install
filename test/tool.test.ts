@@ -1,5 +1,10 @@
 import { expect, test } from 'vitest'
-import { getAssetNames, isArchiveFile, isExeFile } from '../ts/tool'
+import {
+  getAssetNames,
+  getCommonPrefix,
+  isArchiveFile,
+  isExeFile,
+} from '../ts/tool'
 
 import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
@@ -165,4 +170,13 @@ test('isExeFile', () => {
   ) {
     expect(isExeFile(a)).toEqual(b)
   }
+})
+
+test('getCommonPrefix', () => {
+  const v = getCommonPrefix([
+    '/a/b/c',
+    '/a/d',
+    '/a/b/d',
+  ])
+  expect(v).toEqual('/a/')
 })

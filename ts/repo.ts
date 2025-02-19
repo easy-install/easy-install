@@ -1,11 +1,12 @@
 import { downloadJson } from './download'
+import { getRules, matchRules, Rule } from './rule'
 import {
   detectTargets,
-  getAssetNames,
   getFetchOption,
   isArchiveFile,
   isHashFile,
   isMsiFile,
+  isMusl,
 } from './tool'
 import { Artifacts } from './type'
 import { DistManifest } from './type'
@@ -57,40 +58,33 @@ export class Repo {
     tag = 'latest',
     os = process.platform,
     arch = process.arch,
+    musl = isMusl(),
   ): Promise<string[]> {
     const releases = await this.getRelease(tag)
+    const rules = getRules(bin)
+    // const rule = new Rule(bin, os, arch, musl)
     if (bin) {
-      const names = getAssetNames(bin, os, arch)
-      const asset = releases.assets.find((asset) => {
-        return names.some((i) => asset.name.startsWith(i))
-      })
-      if (!asset) {
-        console.log(
-          `No asset found for bin:${bin} tag:${tag} os:${os} arch:${arch}`,
-        )
-        return []
+      for (const a of releases.assets) {
+        const ret = matchRules(a.name, rules)
+        if (ret && ret.rule.target.os === os && ret.rule.target.arch === arch) {
+          return [a.browser_download_url]
+        }
       }
-      return [asset.browser_download_url]
     }
-    const targets = detectTargets(os, arch)
-    const filter = new Set<string>()
     const v: string[] = []
     for (const { name, url, browser_download_url } of releases.assets) {
-      if (isHashFile(url)) {
+      if (
+        isHashFile(url) || isHashFile(name) ||
+        isMsiFile(browser_download_url) || isMsiFile(name)
+      ) {
         continue
       }
-      for (const i of targets) {
-        const index = name.indexOf(i)
-        if (
-          index !== -1 && !isHashFile(browser_download_url) &&
-          !isMsiFile(browser_download_url)
-        ) {
-          const bin = name.slice(0, index)
-          if (!filter.has(bin)) {
-            v.push(browser_download_url)
-          }
-          filter.add(bin)
-        }
+      const ret = matchRules(name, rules)
+      if (
+        ret && ret.rule.target.arch === arch && ret.rule.target.os === os &&
+        !v.includes(browser_download_url)
+      ) {
+        v.push(browser_download_url)
       }
     }
     if (!v.length) {
