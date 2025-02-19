@@ -98,6 +98,9 @@ export function detectTargets(
         case 'x64': {
           return ['x86_64-apple-darwin']
         }
+        default: {
+          return []
+        }
       }
     }
     case 'linux': {
@@ -114,18 +117,41 @@ export function detectTargets(
           }
           return ['x86_64-unknown-linux-gnu', 'x86_64-unknown-linux-musl']
         }
+        default: {
+          return []
+        }
       }
     }
-
     case 'win32': {
       switch (arch) {
         case 'x64': {
           return ['x86_64-pc-windows-msvc', 'x86_64-pc-windows-gnu']
         }
+        case 'arm64': {
+          return [
+            'aarch64-pc-windows-msvc',
+          ]
+        }
+        case 'ia32': {
+          return [
+            'i686-pc-windows-msvc',
+          ]
+        }
+        default: {
+          return []
+        }
+      }
+    }
+    case 'freebsd': {
+      switch (arch) {
+        case 'x64': {
+          return [
+            'x86_64-unknown-freebsd',
+          ]
+        }
       }
     }
   }
-
   return []
 }
 

@@ -31,10 +31,12 @@ const OS_LIST: NodeJS.Platform[] = [
   'darwin',
   'linux',
   'win32',
+  'freebsd',
 ]
 const ARCH_LIST: NodeJS.Architecture[] = [
   'x64',
   'arm64',
+  'ia32',
 ]
 // TODO: support musl
 // const MUSL_LIST: NodeJS.Architecture[] = []
@@ -105,14 +107,19 @@ export function getRules(bin?: string): Rule[] {
       }
     }
   }
+
+  // windows
   const binRe = bin?.length ? `(${bin})` : `([^\/]+)`
   for (
-    const i of [
-      `^${binRe}.exe$`,
-      `^${binRe}${seqRe}${versionRe}.exe$`,
+    const { target, rank } of [
+      ...getCommonTargets('win32', 'x64').map((i) => ({
+        target: `^${binRe}${seqRe}${i.target}.exe$`,
+        rank: 10,
+      })),
+      { target: `^${binRe}.exe$`, rank: 5 },
+      { target: `^${binRe}${seqRe}${versionRe}.exe$`, rank: 5 },
     ]
   ) {
-    // windows
     v.push({
       target: {
         rank: 20,
@@ -120,8 +127,8 @@ export function getRules(bin?: string): Rule[] {
         arch: 'x64',
         target: '',
       },
-      rank: 20,
-      rule: new RegExp(i),
+      rank: 20 + rank,
+      rule: new RegExp(target),
     })
   }
 
@@ -131,11 +138,10 @@ export function getRules(bin?: string): Rule[] {
 export function matchRules(
   s: string,
   rules: Rule[],
-  bin?: string,
+  // bin?: string,
 ): { name: string; rule: Rule } | undefined {
   for (const rule of rules) {
     const name = s.match(rule.rule)?.[1]
-    console.log(rule, s, name)
     if (name) {
       return { name, rule }
     }
@@ -156,9 +162,9 @@ function getCommonTargets(
             { target: 'macos-arm64', rank: 10 },
             { target: 'darwin-arm64', rank: 10 },
             { target: 'mac64arm', rank: 10 },
-            { target: 'macos', rank: 5 },
-            { target: 'darwin', rank: 5 },
-            { target: 'mac', rank: 5 },
+            { target: 'macos', rank: 1 },
+            { target: 'darwin', rank: 1 },
+            { target: 'mac', rank: 1 },
           ]
         }
         case 'x64': {
@@ -168,9 +174,9 @@ function getCommonTargets(
             { target: 'darwin-amd64', rank: 10 },
             { target: 'macos_legacy', rank: 10 },
             { target: 'mac64', rank: 10 },
-            { target: 'macos', rank: 5 },
-            { target: 'darwin', rank: 5 },
-            { target: 'mac', rank: 5 },
+            { target: 'macos', rank: 1 },
+            { target: 'darwin', rank: 1 },
+            { target: 'mac', rank: 1 },
           ]
         }
       }
@@ -184,11 +190,12 @@ function getCommonTargets(
               { target: 'linux_aarch64', rank: 10 },
               { target: 'linux-aarch64', rank: 10 },
               { target: 'linux-riscv64', rank: 10 },
-              { target: 'linux', rank: 5 },
+              { target: 'linux', rank: 1 },
             ]
           }
           return [
             { target: 'linux_armv7', rank: 10 },
+            { target: 'linux_arm64', rank: 10 },
             { target: 'linux', rank: 1 },
           ]
         }
@@ -200,7 +207,9 @@ function getCommonTargets(
               { target: 'linux-amd64', rank: 10 },
               { target: 'linux-x86_64', rank: 10 },
               { target: 'linux-x64', rank: 5 },
+              { target: 'linux_x64', rank: 5 },
               { target: 'linux-x86', rank: 5 },
+              { target: 'linux_x86', rank: 5 },
               { target: 'linux', rank: 1 },
             ]
           }
@@ -221,12 +230,14 @@ function getCommonTargets(
         case 'x64': {
           return [
             { target: 'win32-x64', rank: 10 },
+            { target: 'win32_x64', rank: 10 },
+            { target: 'win_x64', rank: 10 },
             { target: 'win64', rank: 10 },
             { target: 'windows-amd64', rank: 10 },
             { target: 'windows-x86', rank: 10 },
             { target: 'windows-x86_64', rank: 10 },
-            { target: 'x86', rank: 1 },
             { target: 'win', rank: 10 },
+            { target: 'x86', rank: 1 },
             { target: 'x64', rank: 1 },
           ]
         }
