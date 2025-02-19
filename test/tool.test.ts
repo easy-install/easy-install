@@ -23,6 +23,8 @@ test('getAssetNames', () => {
   ])
   expect(getAssetNames('deno', 'linux', 'x64')).toEqual([
     'deno-x86_64-unknown-linux-gnu',
+  ])
+  expect(getAssetNames('deno', 'linux', 'x64', true)).toEqual([
     'deno-x86_64-unknown-linux-musl',
   ])
   expect(getAssetNames('deno', 'darwin', 'x64')).toEqual([
