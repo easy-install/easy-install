@@ -61,7 +61,6 @@ export class Repo {
     musl = isMusl(),
   ): Promise<string[]> {
     const releases = await this.getRelease(tag)
-    const rules = getRules(bin)
     // const rule = new Rule(bin, os, arch, musl)
     if (bin) {
       for (const a of releases.assets) {
@@ -73,6 +72,7 @@ export class Repo {
       }
     }
     const v: string[] = []
+    const filter = new Set()
     for (const { name, url, browser_download_url } of releases.assets) {
       if (
         isHashFile(url) || isHashFile(name) ||
@@ -82,10 +82,12 @@ export class Repo {
       }
 
       const ret = canInstall(name, undefined, os, arch, musl)
+      const id = [ret, os, arch, musl].join('-')
       if (
-        ret && !v.includes(browser_download_url)
+        ret && !v.includes(browser_download_url) && !filter.has(id)
       ) {
         v.push(browser_download_url)
+        filter.add(id)
       }
     }
     if (!v.length) {

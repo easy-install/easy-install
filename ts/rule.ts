@@ -142,8 +142,9 @@ export function getRules(bin?: string): Rule[] {
         }.exe$`,
         rank: 10,
       })),
-      { target: `^${binRe}.exe$`, rank: 5 },
       { target: `^${binRe}${seqRe}${versionRe}.exe$`, rank: 5 },
+      { target: `^${binRe}${seqRe}(x86|x64).exe$`, rank: 5 },
+      { target: `^${binRe}.exe$`, rank: 1 },
     ]
   ) {
     v.push({
@@ -292,14 +293,15 @@ function getCommonTargets(
             { target: 'win64', rank: 10 },
             { target: 'windows-amd64', rank: 10 },
             { target: 'windows-x86', rank: 10 },
+            { target: 'windows-x64', rank: 10 },
             { target: 'windows-x86_64', rank: 10 },
             { target: 'win', rank: 10 },
-            { target: 'x86', rank: 1 },
-            { target: 'x64', rank: 1 },
+            { target: 'x86_64', rank: 5 },
           ]
         }
         case 'arm64': {
           return [
+            { target: 'windows-arm64', rank: 10 },
             { target: 'win32-arm64', rank: 10 },
           ]
         }
