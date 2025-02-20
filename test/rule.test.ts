@@ -1,8 +1,7 @@
 import { expect, test } from 'vitest'
-import { getRules, matchRules, Rule } from '../ts/rule'
+import { canInstall } from '../ts/rule'
 
 test('rule', () => {
-  const rules = getRules()
   for (
     const [a, b, c, d, e] of [
       ['mujs-x86_64-unknown-linux-gnu.tar.xz', 'mujs', 'linux', 'x64'],
@@ -15,6 +14,7 @@ test('rule', () => {
         'x64',
       ],
       ['boa-linux-amd64', 'boa', 'linux', 'x64'],
+      ['boa-macos-amd64', 'boa', 'darwin', 'x64'],
       ['yt-dlp.exe', 'yt-dlp', 'win32', 'x64'],
       ['xst-mac64.zip', 'xst', 'darwin', 'x64'],
       ['xst-mac64arm.zip', 'xst', 'darwin', 'arm64'],
@@ -50,13 +50,31 @@ test('rule', () => {
         'x64',
         'true',
       ],
-    ]
+
+      ['qjs-windows-x86_64.exe', 'qjs', 'win32', 'x64'],
+      ['qjs-linux-x86_64', 'qjs', 'linux', 'x64'],
+      ['qjs-darwin', 'qjs', 'darwin', 'x64'],
+      ['llrt-windows-x64-full-sdk.zip', 'llrt', 'win32', 'x64'],
+    ] as const
   ) {
-    const { name, rule } = matchRules(a, rules)!
-    const { target: { os, arch, musl } } = rule
-    expect(name).toEqual(b)
-    expect(os).toEqual(c)
-    expect(arch).toEqual(d)
-    expect(!!musl).toEqual(!!e)
+    expect(canInstall(a, undefined, c, d, !!e)).toBe(b)
+  }
+})
+
+test('canInstall', () => {
+  for (
+    const [a, b, c] of [
+      ['ryujinx-1.2.82-macos_universal.app.tar.gz', 'darwin', 'x64'],
+      ['ryujinx-1.2.82-macos_universal.app.tar.gz', 'darwin', 'arm64'],
+      ['ffmpeg-n7.1-latest-win64-gpl-7.1.zip', 'win32', 'x64'],
+      ['7z2409-linux-x64.tar.xz', 'linux', 'x64'],
+      ['mpy-easy-windows-full.zip', 'win32', 'x64'],
+      ['mpy-easy-windows-full.zip', 'win32', 'x64'],
+      ['ffmpeg-x86_64-v3-git-5470d024e.zip', 'win32', 'x64'],
+      ['mpv-x86_64-v3-20250220-git-f9271fb.zip', 'win32', 'x64'],
+    ] as const
+  ) {
+    const name = canInstall(a, undefined, b, c, false)
+    expect(!!name).toBe(true)
   }
 })

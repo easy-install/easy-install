@@ -1,5 +1,5 @@
 import { downloadJson } from './download'
-import { getRules, matchRules, Rule } from './rule'
+import { canInstall, getRules, matchRules, Rule } from './rule'
 import {
   detectTargets,
   getFetchOption,
@@ -65,11 +65,8 @@ export class Repo {
     // const rule = new Rule(bin, os, arch, musl)
     if (bin) {
       for (const a of releases.assets) {
-        const ret = matchRules(a.name, rules)
         if (
-          ret && ret.rule.target.os === os &&
-          ret.rule.target.arch === arch &&
-          ret.rule.target.musl === musl
+          canInstall(a.name, bin, os, arch, musl)
         ) {
           return [a.browser_download_url]
         }
@@ -83,12 +80,10 @@ export class Repo {
       ) {
         continue
       }
-      const ret = matchRules(name, rules)
+
+      const ret = canInstall(name, undefined, os, arch, musl)
       if (
-        ret && ret.rule.target.arch === arch &&
-        ret.rule.target.os === os &&
-        ret.rule.target.musl === musl &&
-        !v.includes(browser_download_url)
+        ret && !v.includes(browser_download_url)
       ) {
         v.push(browser_download_url)
       }
