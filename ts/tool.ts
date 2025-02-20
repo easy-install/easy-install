@@ -391,7 +391,7 @@ function getFilename(s: string): string | undefined {
   return s.split('/').at(-1)
 }
 function check(file: OutputFile, installDir: string, binDir: string): boolean {
-  const fp = file.installPath
+  const fp = file.installPath.toLowerCase()
   const name = getFilename(fp)!
   if (
     !fp.startsWith(installDir) ||
@@ -401,8 +401,8 @@ function check(file: OutputFile, installDir: string, binDir: string): boolean {
     return false
   }
 
-  const whichPath = which(name)
-  return fp !== whichPath
+  const whichPath = which(name)?.toLowerCase()
+  return !!whichPath?.length && fp !== whichPath
 }
 
 export function addOutputToPath(output: Output) {

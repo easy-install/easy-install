@@ -146,7 +146,7 @@ pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
         return false;
     }
     if let Some(p) = which(&name) {
-        if file_path != &p {
+        if !p.is_empty() && file_path != &p  {
             return true;
         }
     }

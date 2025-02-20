@@ -41,7 +41,7 @@ const ARCH_LIST: NodeJS.Architecture[] = [
 ]
 // TODO: support musl
 // const MUSL_LIST: NodeJS.Architecture[] = []
-const seqRe = '[_-]'
+const seqRe = '[_-\\s]'
 const versionRe = `v\?(\\d+\\.\\d+\\.\\d+)`
 function targetToRules(target: Target, bin?: string): Rule[] {
   const reList: { rule: string; rank: number }[] = []
@@ -69,7 +69,7 @@ function targetToRules(target: Target, bin?: string): Rule[] {
 
   const v: Rule[] = [...reExtList, ...reList].map(({ rank, rule }) => {
     return {
-      rule: new RegExp(rule),
+      rule: new RegExp(rule, 'i'),
       target,
       rank,
     }
@@ -155,7 +155,7 @@ export function getRules(bin?: string): Rule[] {
         target,
       },
       rank: 20 + rank,
-      rule: new RegExp(target),
+      rule: new RegExp(target, 'i'),
     })
   }
 

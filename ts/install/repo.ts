@@ -6,7 +6,7 @@ import { Output, OutputFile } from '../type'
 import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
 import { canInstall } from '../rule'
-import { existsSync, mkdirSync } from 'fs'
+import { cpSync, existsSync, mkdirSync,   } from 'fs'
 import { fileInstall } from './file'
 
 export async function repoInstall(
@@ -38,7 +38,7 @@ export async function repoInstall(
       console.log(`download ${i}`)
       const downloadPath = await download(i)
       const filename = downloadPath.split('/').at(-1)
-      const { files } = extractTo(downloadPath) || {}
+      const { files, outputDir } = extractTo(downloadPath) || {}
       if (
         filename && files &&
         files.keys().filter((i) => !files.get(i)?.isDir).length > 1
@@ -51,7 +51,9 @@ export async function repoInstall(
       if (!existsSync(installDir)) {
         mkdirSync(installDir, { recursive: true })
       }
-      extractTo(downloadPath, installDir)
+      if (outputDir) {
+        cpSync(outputDir, installDir, { recursive: true })
+      }
       if (!files) {
         console.log(`failed to install from ${repo.getReleasesUrl()}`)
         return {}
