@@ -6,6 +6,7 @@ import { Output, OutputFile } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 import { humanSize, modeToString } from '@easy-install/easy-archive/tool'
 import { spawnSync } from 'child_process'
+import { randomId } from './download'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -75,13 +76,13 @@ export function getFetchOption() {
 
 export async function download(url: string, outputPath?: string) {
   if (!outputPath) {
-    const name = url.split('/').at(-1)!
+    const name = url.split('/').at(-1) || randomId()
     outputPath = path.join(tmpdir(), name)
   }
   const response = await fetch(url, getFetchOption())
   const buf = await response.arrayBuffer()
   fs.writeFileSync(outputPath, Buffer.from(buf))
-  return outputPath
+  return outputPath.replaceAll('\\', '/')
 }
 
 export function detectTargets(

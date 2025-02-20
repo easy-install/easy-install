@@ -19,6 +19,7 @@ import { fileInstall } from './file'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 import { extractTo } from '@easy-install/easy-archive/tool'
 import { clean } from 'path-clean'
+import { canInstall } from '../rule'
 
 async function downloadAndInstall(
   artUrl: string,
@@ -115,6 +116,12 @@ async function downloadAndInstall(
       installDir = dir
     } else {
       installDir = join(installDir, dir).replaceAll('\\', '/')
+    }
+  }
+  if (files.keys().filter((i) => !files.get(i)?.isDir).length > 1) {
+    const name = canInstall(downloadUrl)
+    if (name) {
+      installDir = join(installDir, name).replaceAll('\\', '/')
     }
   }
   const v: OutputFile[] = []

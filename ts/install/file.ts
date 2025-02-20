@@ -15,6 +15,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'fs'
+import { canInstall } from '../rule'
 
 export type FileInstall = {
   url: string
@@ -38,11 +39,12 @@ export async function fileInstall(
 
   const { url, name } = info
   const filename = name ?? downloadUrl.split('/').at(-1)!
+  const matchName = canInstall(filename) ?? filename
   const mode = 0o755
   const originPath = downloadUrl.split('/').at(-1)!
   const isDir = false
   if (!dist) {
-    const installPath = join(installDir, getBinName(filename)).replaceAll(
+    const installPath = join(installDir, getBinName(matchName)).replaceAll(
       '\\',
       '/',
     )
@@ -74,7 +76,7 @@ export async function fileInstall(
   const artifact = dist?.['artifacts'][url]
   if (artifact) {
     const bin = await downloadBinary(downloadUrl)
-    const name = artifact.name ?? filename
+    const name = artifact.name ?? matchName
     const installPath = join(installDir, getBinName(name)).replaceAll('\\', '/')
     if (!existsSync(installDir)) {
       mkdirSync(installDir, { recursive: true })
