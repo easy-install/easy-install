@@ -44,7 +44,7 @@ export async function repoInstall(
       console.log(`download ${i}`)
       const downloadPath = await download(i)
       const filename = downloadPath.split('/').at(-1) ?? downloadPath
-      const { files, outputDir } = extractTo(downloadPath) || {}
+      const { files } = extractTo(downloadPath) || {}
       if (!files) {
         return {}
       }

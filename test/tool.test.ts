@@ -176,9 +176,9 @@ test('isExeFile', () => {
 
 test('getCommonPrefix', () => {
   const v = getCommonPrefix([
-    '/a/b/c',
-    '/a/d',
-    '/a/b/d',
+    '/a/ab/c',
+    '/a/ad',
+    '/a/ab/d',
   ])
   expect(v).toEqual('/a/')
 })

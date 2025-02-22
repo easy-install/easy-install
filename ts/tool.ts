@@ -430,15 +430,19 @@ export function addOutputToPath(output: Output) {
 }
 
 export function getCommonPrefix(list: string[]): string | undefined {
-  const n = list.reduce((pre, cur) => Math.max(pre, cur.length), 0)
+  if (list.length <= 1) {
+    return undefined
+  }
+  const parts = list.map((i) => i.split('/'))
+  const n = parts.reduce((pre, cur) => Math.max(pre, cur.length), 0)
   let p = 0
   for (; p < n; p++) {
-    const head = list.map((k) => k[p])
+    const head = parts.map((k) => k[p])
     if (head.some((i) => i !== head[0])) {
       break
     }
   }
-  return p === 0 ? undefined : list[0].slice(0, p)
+  return p === 0 ? undefined : parts[0].slice(0, p).join('/') + '/'
 }
 
 export function installFiles(files: OutputFile[]) {
