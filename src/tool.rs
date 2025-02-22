@@ -146,7 +146,7 @@ pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
         return false;
     }
     if let Some(p) = which(&name) {
-        if !p.is_empty() && file_path != &p  {
+        if !p.is_empty() && file_path != &p {
             return true;
         }
     }
@@ -397,7 +397,8 @@ mod test {
         let url = repo.get_artifact_url(detect_targets().await).await[0].clone();
         let files = download_extract(&url).await.unwrap();
         assert!(files
-            .get(if IS_WINDOWS { "mujs.exe" } else { "mujs" })
+            .iter()
+            .find(|i| i.path == if IS_WINDOWS { "mujs.exe" } else { "mujs" })
             .is_some());
     }
 

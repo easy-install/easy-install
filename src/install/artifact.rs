@@ -43,14 +43,14 @@ pub async fn install_from_download_file(
             v.install_dir = install_dir_str;
 
             if let Some(download_files) = download_extract(url).await {
-                for (entry_path, entry) in download_files {
+                for entry in download_files {
                     let size = entry.buffer.len() as u32;
                     let is_dir = entry.is_dir;
                     if is_dir {
                         continue;
                     }
                     let mut dst = install_dir.clone();
-                    dst.push(entry_path.replace(&(prefix.clone() + "/"), ""));
+                    dst.push(entry.path.replace(&(prefix.clone() + "/"), ""));
 
                     // FIXME: remove same name file
                     // if let Some(dst_dir) = dst.parent() {
@@ -76,7 +76,7 @@ pub async fn install_from_download_file(
                         install_path: path_to_str(&dst),
                         mode,
                         size,
-                        origin_path: entry_path,
+                        origin_path: entry.path,
                         is_dir,
                     });
                 }
@@ -111,19 +111,19 @@ pub async fn install_from_download_file(
             }
         };
         if let Some(download_files) = download_extract(url).await {
-            for (entry_path, entry) in download_files {
+            for entry in download_files {
                 let size = entry.buffer.len() as u32;
                 let is_dir = entry.is_dir;
-                if is_dir || !allow(&entry_path) {
+                if is_dir || !allow(&entry.path) {
                     continue;
                 }
 
                 let mut dst = install_dir.clone();
 
-                let file_name = get_filename(&entry_path).expect("failed to get filename");
+                let file_name = get_filename(&entry.path).expect("failed to get filename");
                 let name = artifact
                     .clone()
-                    .and_then(|a| a.get_asset(&entry_path).and_then(|i| i.executable_name))
+                    .and_then(|a| a.get_asset(&entry.path).and_then(|i| i.executable_name))
                     .unwrap_or(file_name.clone());
 
                 dst.push(get_bin_name(&name));
@@ -133,7 +133,7 @@ pub async fn install_from_download_file(
                     install_path: path_to_str(&dst),
                     mode,
                     size,
-                    origin_path: entry_path,
+                    origin_path: entry.path,
                     is_dir,
                 });
             }

@@ -20,17 +20,17 @@ async function downloadAndInstall(
   console.log(`download ${downloadUrl}`)
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
-  const filename = downloadUrl.split('/').at(-1) ?? downloadUrl
-  const name = canInstall(filename)
+  const filename = downloadUrl.split('/').at(-1)!
+  const subDirName = canInstall(filename) ?? filename
   const list = files.filter((i) => !i.isDir)
 
-  if (list.length > 1 && name) {
-    installDir = join(installDir, name).replaceAll('\\', '/')
+  if (list.length > 1) {
+    installDir = join(installDir, subDirName).replaceAll('\\', '/')
   }
   const outputFiles: OutputFile[] = []
   const prefixLen = getCommonPrefix(list.map((i) => i.path))?.length ?? 0
 
-  for (const { isDir, mode=0, buffer, path } of list) {
+  for (const { isDir, mode = 0, buffer, path } of list) {
     const installPath = join(installDir, path.slice(prefixLen))
     outputFiles.push({
       mode: mode,

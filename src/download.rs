@@ -1,6 +1,6 @@
 use crate::manfiest::DistManifest;
 use binstalk::helpers::remote::Client;
-use easy_archive::ty::{Files, Fmt};
+use easy_archive::ty::{File, Fmt};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     ClientBuilder,
@@ -43,7 +43,7 @@ pub async fn download_text(url: &str) -> Option<String> {
     response.text().await.ok()
 }
 
-pub async fn download_extract(url: &str) -> Option<Files> {
+pub async fn download_extract(url: &str) -> Option<Vec<File>> {
     let fmt = Fmt::guess(url)?;
     let buffer = download_binary(url).await?;
     let files = fmt.decode(buffer)?;
@@ -83,8 +83,8 @@ mod test {
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
         let files = download_extract(url).await.unwrap();
-        assert!(files.get("mujs").is_some());
-        assert!(files.get("mujs-pp").is_some());
-        assert!(files.get("libmujs.a").is_some());
+        assert!(files.iter().find(|i| i.path == "mujs").is_some());
+        assert!(files.iter().find(|i| i.path == "mujs-pp").is_some());
+        assert!(files.iter().find(|i| i.path == "libmujs.a").is_some());
     }
 }

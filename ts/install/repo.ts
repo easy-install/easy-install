@@ -5,6 +5,7 @@ import {
   displayOutput,
   download,
   getCommonPrefix,
+  installFiles,
   isExeFile,
   showSuccess,
 } from '../tool'
@@ -43,19 +44,15 @@ export async function repoInstall(
     } else {
       console.log(`download ${i}`)
       const downloadPath = await download(i)
-      const filename = downloadPath.split('/').at(-1) ?? downloadPath
+      const filename = downloadPath.split('/').at(-1)!
       const { files } = extractTo(downloadPath) || {}
       if (!files) {
         return {}
       }
       const list = files.filter((i) => !i.isDir)
-      if (
-        list.length > 1
-      ) {
-        const name = canInstall(filename)
-        if (name) {
-          installDir = join(installDir, name).replaceAll('\\', '/')
-        }
+      const subDirName = canInstall(filename) ?? filename
+      if (list.length > 1) {
+        installDir = join(installDir, subDirName).replaceAll('\\', '/')
       }
       const prefixLen = getCommonPrefix(list.map((i) => i.path))?.length ?? 0
       if (!existsSync(installDir)) {
@@ -77,6 +74,7 @@ export async function repoInstall(
           buffer,
         })
       }
+      installFiles(outputFiles)
       output[i] = {
         installDir,
         files: outputFiles,

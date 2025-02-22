@@ -182,7 +182,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -414,7 +414,9 @@ export function addOutputToPath(output: Output) {
     addToPath(installDir)
 
     for (const f of files) {
-      if (f.mode && (f.mode & 0o111) !== 0) {
+      const deep = f.originPath.split('/').length
+      // FIXME: ignore node_modules
+      if (deep <= 3 && f.mode && (f.mode & 0o111) !== 0) {
         const dir = dirname(f.installPath)
         addToPath(dir)
       }
