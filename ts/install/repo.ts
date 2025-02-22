@@ -60,7 +60,7 @@ export async function repoInstall(
       }
 
       const outputFiles: OutputFile[] = []
-      for (const { path, mode = 0, isDir, buffer } of files) {
+      for (const { path, mode = 0, isDir, buffer } of list) {
         const installPath = join(installDir, path.slice(prefixLen)).replaceAll(
           '\\',
           '/',
