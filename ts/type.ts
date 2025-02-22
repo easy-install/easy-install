@@ -10,12 +10,12 @@ export type OutputFile = {
   installPath: string
   originPath: string
   isDir: boolean
+  buffer: Uint8Array
 }
 
 export type OutputItem = {
   // downloadUrl: string
   installDir: string
-  binDir: string
   files: OutputFile[]
 }
 

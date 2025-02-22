@@ -1,29 +1,28 @@
 import * as fs from 'fs'
 import { tmpdir } from 'os'
 import * as path from 'path'
-import { readFileSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { Output, OutputFile } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
-import { humanSize, modeToString } from '@easy-install/easy-archive/tool'
+import { File, humanSize, modeToString } from '@easy-install/easy-archive'
 import { spawnSync } from 'child_process'
 import { randomId } from './download'
+import { extensions, Fmt } from '@easy-install/easy-archive'
+import { dirname } from 'path'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
 }
-export const ArchiveFmtList = [
-  '.tar',
-  '.tbz2',
-  '.tar.bz2',
-  '.tgz',
-  '.tar.gz',
-  '.txz',
-  '.tar.xz',
-  '.tzstd',
-  '.tzst',
-  '.tar.zst',
-  '.zip',
-]
+
+const ArchiveFmtList = [
+  Fmt.Tar,
+  Fmt.TarBz,
+  Fmt.TarGz,
+  Fmt.TarXz,
+  Fmt.TarZstd,
+  Fmt.Zip,
+].map((i) => extensions(i)).flat()
+
 export function isArchiveFile(s: string): boolean {
   for (
     const i of ArchiveFmtList
@@ -390,12 +389,10 @@ function executabe(name: string, mode: number): boolean {
 function getFilename(s: string): string | undefined {
   return s.split('/').at(-1)
 }
-function check(file: OutputFile, installDir: string, binDir: string): boolean {
+function check(file: OutputFile): boolean {
   const fp = file.installPath.toLowerCase()
   const name = getFilename(fp)!
   if (
-    !fp.startsWith(installDir) ||
-    !fp.startsWith(binDir) ||
     !executabe(name, file.mode)
   ) {
     return false
@@ -406,18 +403,23 @@ function check(file: OutputFile, installDir: string, binDir: string): boolean {
 }
 
 export function addOutputToPath(output: Output) {
-  for (const { installDir, binDir, files } of Object.values(output)) {
+  for (const { installDir, files } of Object.values(output)) {
     for (const f of files) {
-      if (check(f, installDir, binDir)) {
+      if (check(f)) {
         console.log(`Warning: file exists at ${f.installPath}`)
       }
     }
   }
-  for (const { installDir, binDir, files } of Object.values(output)) {
+  for (const { installDir, files } of Object.values(output)) {
     addToPath(installDir)
-    if (binDir !== installDir) {
-      addToPath(binDir)
+
+    for (const f of files) {
+      if (f.mode && (f.mode & 0o111) !== 0) {
+        const dir = dirname(f.installPath)
+        addToPath(dir)
+      }
     }
+
     if (files.length === 1 && files[0].installPath) {
       const first = files[0].installPath
       if (first) {
@@ -437,4 +439,17 @@ export function getCommonPrefix(list: string[]): string | undefined {
     }
   }
   return p === 0 ? undefined : list[0].slice(0, p)
+}
+
+export function installFiles(files: OutputFile[]) {
+  for (const { installPath, buffer, mode } of files) {
+    const dstDir = dirname(installPath)
+    if (!existsSync(dstDir)) {
+      mkdirSync(dstDir, { recursive: true })
+    }
+    fs.writeFileSync(installPath, buffer)
+    if (mode) {
+      chmodSync(installPath, mode)
+    }
+  }
 }

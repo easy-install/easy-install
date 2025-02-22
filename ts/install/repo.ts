@@ -1,12 +1,18 @@
 import { join } from 'path'
 import { getInstallDir } from '../env'
 import { Repo } from '../repo'
-import { displayOutput, download, isExeFile, showSuccess } from '../tool'
+import {
+  displayOutput,
+  download,
+  getCommonPrefix,
+  isExeFile,
+  showSuccess,
+} from '../tool'
 import { Output, OutputFile } from '../type'
 import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
 import { canInstall } from '../rule'
-import { cpSync, existsSync, mkdirSync,   } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 import { fileInstall } from './file'
 
 export async function repoInstall(
@@ -37,43 +43,42 @@ export async function repoInstall(
     } else {
       console.log(`download ${i}`)
       const downloadPath = await download(i)
-      const filename = downloadPath.split('/').at(-1)
+      const filename = downloadPath.split('/').at(-1) ?? downloadPath
       const { files, outputDir } = extractTo(downloadPath) || {}
+      if (!files) {
+        return {}
+      }
+      const list = files.filter((i) => !i.isDir)
       if (
-        filename && files &&
-        files.keys().filter((i) => !files.get(i)?.isDir).length > 1
+        list.length > 1
       ) {
         const name = canInstall(filename)
         if (name) {
           installDir = join(installDir, name).replaceAll('\\', '/')
         }
       }
+      const prefixLen = getCommonPrefix(list.map((i) => i.path))?.length ?? 0
       if (!existsSync(installDir)) {
         mkdirSync(installDir, { recursive: true })
       }
-      if (outputDir) {
-        cpSync(outputDir, installDir, { recursive: true })
-      }
-      if (!files) {
-        console.log(`failed to install from ${repo.getReleasesUrl()}`)
-        return {}
-      }
+
       const outputFiles: OutputFile[] = []
-      for (const originPath of files.keys()) {
-        const installPath = join(installDir, originPath).replaceAll('\\', '/')
-        const file = files.get(originPath)!
-        const { mode = 0, buffer } = file
+      for (const { path, mode = 0, isDir, buffer } of files) {
+        const installPath = join(installDir, path.slice(prefixLen)).replaceAll(
+          '\\',
+          '/',
+        )
         outputFiles.push({
           mode,
           size: buffer.length,
-          isDir: file.isDir,
+          isDir: isDir,
           installPath,
-          originPath,
+          originPath: path,
+          buffer,
         })
       }
       output[i] = {
         installDir,
-        binDir: installDir,
         files: outputFiles,
       }
 

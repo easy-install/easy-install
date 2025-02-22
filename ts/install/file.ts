@@ -52,20 +52,20 @@ export async function fileInstall(
     console.log(`download ${downloadUrl}`)
     await downloadToFile(downloadUrl, installPath)
     chmodSync(installPath, mode)
-    const size = readFileSync(installPath).length
+    const buffer = readFileSync(installPath)
     const files = [{
       mode,
-      size,
+      size: buffer.length,
       isDir,
       originPath,
       downloadUrl,
       installPath,
       installDir,
+      buffer,
     }]
     const output: Output = {
       [downloadUrl]: {
         installDir,
-        binDir: installDir,
         files,
       },
     }
@@ -75,15 +75,15 @@ export async function fileInstall(
   }
   const artifact = dist?.['artifacts'][url]
   if (artifact) {
-    const bin = await downloadBinary(downloadUrl)
+    const buffer = new Uint8Array(await downloadBinary(downloadUrl))
     const name = artifact.name ?? matchName
     const installPath = join(installDir, getBinName(name)).replaceAll('\\', '/')
     if (!existsSync(installDir)) {
       mkdirSync(installDir, { recursive: true })
     }
-    writeFileSync(installPath, new Uint8Array(bin), { mode })
+    writeFileSync(installPath, buffer, { mode })
     addExecutePermission(installPath)
-    const size = bin.byteLength
+    const size = buffer.byteLength
     const files = [{
       size,
       mode,
@@ -92,11 +92,11 @@ export async function fileInstall(
       installDir,
       originPath,
       isDir,
+      buffer,
     }]
     const output: Output = {
       [downloadUrl]: {
         installDir,
-        binDir: installDir,
         files,
       },
     }
