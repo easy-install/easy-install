@@ -55,6 +55,7 @@ test('rule', () => {
       ['qjs-linux-x86_64', 'qjs', 'linux', 'x64'],
       ['qjs-darwin', 'qjs', 'darwin', 'x64'],
       ['llrt-windows-x64-full-sdk.zip', 'llrt', 'win32', 'x64'],
+      ['bun-linux-x64-baseline.zip', 'bun', 'linux', 'x64'],
     ] as const
   ) {
     expect(canInstall(a, undefined, c, d, !!e)).toBe(b)

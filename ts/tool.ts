@@ -182,7 +182,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -403,9 +403,10 @@ function check(file: OutputFile): boolean {
 }
 
 export function addOutputToPath(output: Output) {
-  for (const { installDir, files } of Object.values(output)) {
+  for (const { files } of Object.values(output)) {
     for (const f of files) {
-      if (check(f)) {
+      const deep = f.originPath.split('/').length
+      if (deep <= 3 && check(f)) {
         console.log(`Warning: file exists at ${f.installPath}`)
       }
     }
@@ -416,7 +417,10 @@ export function addOutputToPath(output: Output) {
     for (const f of files) {
       const deep = f.originPath.split('/').length
       // FIXME: ignore node_modules
-      if (deep <= 3 && f.mode && (f.mode & 0o111) !== 0) {
+      if (
+        deep <= 3 && isExeFile(f.originPath) ||
+        (f.mode && (f.mode & 0o111) !== 0)
+      ) {
         const dir = dirname(f.installPath)
         addToPath(dir)
       }
@@ -431,9 +435,13 @@ export function addOutputToPath(output: Output) {
   }
 }
 
-export function getCommonPrefix(list: string[]): string | undefined {
-  if (list.length <= 1) {
+export function getCommonPrefix(list: readonly string[]): string | undefined {
+  if (list.length === 0) {
     return undefined
+  }
+  if (list.length === 1) {
+    const v = list[0].split('/')
+    return v.length > 1 ? v.slice(0, -1).join('/') + '/' : undefined
   }
   const parts = list.map((i) => i.split('/'))
   const n = parts.reduce((pre, cur) => Math.max(pre, cur.length), 0)
