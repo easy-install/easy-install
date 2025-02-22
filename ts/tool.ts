@@ -418,8 +418,8 @@ export function addOutputToPath(output: Output) {
       const deep = f.originPath.split('/').length
       // FIXME: ignore node_modules
       if (
-        deep <= 3 && isExeFile(f.originPath) ||
-        (f.mode && (f.mode & 0o111) !== 0)
+        deep <= 3 && (WINDOWS_EXE_EXTS.some((i) => f.originPath.endsWith(i)) ||
+          (f.mode && (f.mode & 0o111) !== 0))
       ) {
         const dir = dirname(f.installPath)
         addToPath(dir)
@@ -467,3 +467,9 @@ export function installFiles(files: OutputFile[]) {
     }
   }
 }
+
+export function nameNoExt(s: string) {
+  return s.split('.')[0]
+}
+
+export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']

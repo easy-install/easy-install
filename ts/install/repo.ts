@@ -7,6 +7,7 @@ import {
   getCommonPrefix,
   installFiles,
   isExeFile,
+  nameNoExt,
   showSuccess,
 } from '../tool'
 import { Output, OutputFile } from '../type'
@@ -50,7 +51,7 @@ export async function repoInstall(
         return {}
       }
       const list = files.filter((i) => !i.isDir)
-      const subDirName = canInstall(filename) ?? filename
+      const subDirName = canInstall(filename) ?? nameNoExt(filename)
       if (list.length > 1) {
         installDir = join(installDir, subDirName).replaceAll('\\', '/')
       }

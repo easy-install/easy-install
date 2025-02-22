@@ -7,6 +7,7 @@ import {
   getCommonPrefix,
   installFiles,
   isArchiveFile,
+  nameNoExt,
 } from '../tool'
 import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
@@ -21,7 +22,7 @@ async function downloadAndInstall(
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
   const filename = downloadUrl.split('/').at(-1)!
-  const subDirName = canInstall(filename) ?? filename
+  const subDirName = canInstall(filename) ?? nameNoExt(filename)
   const list = files.filter((i) => !i.isDir)
 
   if (list.length > 1) {

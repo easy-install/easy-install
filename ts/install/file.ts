@@ -5,6 +5,7 @@ import {
   addExecutePermission,
   displayOutput,
   getBinName,
+  nameNoExt,
   showSuccess,
 } from '../tool'
 import { DistManifest, Output } from '../type'
@@ -39,7 +40,7 @@ export async function fileInstall(
 
   const { url, name } = info
   const filename = name ?? downloadUrl.split('/').at(-1)!
-  const matchName = canInstall(filename) ?? filename
+  const matchName = canInstall(filename) ?? nameNoExt(filename)
   const mode = 0o755
   const originPath = downloadUrl.split('/').at(-1)!
   const isDir = false
