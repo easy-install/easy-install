@@ -202,6 +202,9 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
     let musl = is_musl::is_musl();
     let mut filter = vec![];
     for (key, _) in manfiest.artifacts.iter() {
+        if is_hash_file(key) || is_msi_file(key) {
+            continue;
+        }
         if let Some(name) = match_name(key, None, os, arch, musl) {
             if filter.contains(&name) {
                 continue;
@@ -342,9 +345,10 @@ pub fn is_dist_manfiest(s: &str) -> bool {
 pub fn is_hash_file(s: &str) -> bool {
     s.ends_with(".sha256")
 }
+const INSTALLER_EXTS: [&str; 2] = [".msi", ".app"];
 
 pub fn is_msi_file(s: &str) -> bool {
-    s.ends_with(".msi")
+    INSTALLER_EXTS.iter().any(|i| s.ends_with(i))
 }
 
 pub async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
@@ -380,7 +384,6 @@ mod test {
         },
         ty::Repo,
     };
-    
 
     use super::{get_bin_name, get_common_prefix_len};
 
@@ -571,6 +574,7 @@ mod test {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
         let artifact_url = repo.get_artifact_url().await;
+        println!("artifact_url{:?}", artifact_url);
         assert_eq!(artifact_url.len(), 2);
     }
 
@@ -594,6 +598,7 @@ mod test {
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
         let artifact_url = repo.get_artifact_url().await;
+        println!("{:?}",artifact_url);
         assert_eq!(artifact_url.len(), 1);
     }
 

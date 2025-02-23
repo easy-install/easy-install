@@ -153,6 +153,9 @@ impl Repo {
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
+                if is_hash_file(&i.name) || is_msi_file(&i.name) {
+                    continue;
+                }
                 if let Some(name) = match_name(&i.name, None, os, arch, musl) {
                     if !filter.contains(&name) {
                         v.push(i.browser_download_url.clone());
