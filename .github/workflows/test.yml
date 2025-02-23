@@ -53,14 +53,22 @@ jobs:
           done
 
       - name: test which
+        if: matrix.os != 'windows-latest'
         run: |
           ls -lh ~/.easy-install
-
           cat assets/${{ matrix.os }}.txt | while read line
           do
               echo $line
               which $line
           done
+      - name: test which on windows
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          Get-Content "assets/${{ matrix.os }}.txt" | ForEach-Object {
+              Write-Output $_
+              Get-Command $_
+          }
 
   js-test:
     strategy:
@@ -100,6 +108,7 @@ jobs:
           done
 
       - name: test which
+        if: matrix.os != 'windows-latest'
         run: |
           ls -lh ~/.easy-install
 
@@ -108,3 +117,11 @@ jobs:
               echo $line
               which $line
           done
+      - name: test which on windows
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          Get-Content "assets/${{ matrix.os }}.txt" | ForEach-Object {
+              Write-Output $_
+              Get-Command $_
+          }
