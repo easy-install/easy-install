@@ -1,5 +1,5 @@
 import { downloadJson } from './download'
-import { canInstall, getRules, matchRules, Rule } from './rule'
+import { getRules, matchName, matchRules, Rule } from './rule'
 import {
   detectTargets,
   getFetchOption,
@@ -65,7 +65,7 @@ export class Repo {
     if (bin) {
       for (const a of releases.assets) {
         if (
-          canInstall(a.name, bin, os, arch, musl)
+          matchName(a.name, bin, os, arch, musl)
         ) {
           return [a.browser_download_url]
         }
@@ -81,7 +81,7 @@ export class Repo {
         continue
       }
 
-      const ret = canInstall(name, undefined, os, arch, musl)
+      const ret = matchName(name, undefined, os, arch, musl)
       const id = [ret, os, arch, musl].join('-')
       if (
         ret && !v.includes(browser_download_url) && !filter.has(id)

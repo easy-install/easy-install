@@ -16,7 +16,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'fs'
-import { canInstall } from '../rule'
+import { matchName } from '../rule'
 
 export type FileInstall = {
   url: string
@@ -40,12 +40,12 @@ export async function fileInstall(
 
   const { url, name } = info
   const filename = name ?? downloadUrl.split('/').at(-1)!
-  const matchName = canInstall(filename) ?? nameNoExt(filename)
+  const binName = matchName(filename) ?? nameNoExt(filename)
   const mode = 0o755
   const originPath = downloadUrl.split('/').at(-1)!
   const isDir = false
   if (!dist) {
-    const installPath = join(installDir, getBinName(matchName)).replaceAll(
+    const installPath = join(installDir, getBinName(binName)).replaceAll(
       '\\',
       '/',
     )

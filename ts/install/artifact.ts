@@ -12,7 +12,7 @@ import {
 import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { canInstall } from '../rule'
+import { matchName } from '../rule'
 
 async function downloadAndInstall(
   downloadUrl: string,
@@ -22,7 +22,7 @@ async function downloadAndInstall(
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
   const filename = downloadUrl.split('/').at(-1)!
-  const subDirName = canInstall(filename) ?? nameNoExt(filename)
+  const subDirName = matchName(filename) ?? nameNoExt(filename)
   const list = files.filter((i) => !i.isDir)
 
   if (list.length > 1) {

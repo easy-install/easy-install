@@ -9,7 +9,7 @@ export type Target = {
   musl?: boolean
 }
 
-function getExtRegex(): string {
+function getExtRe(): string {
   const v = [
     Fmt.Tar,
     Fmt.TarBz,
@@ -61,7 +61,7 @@ function targetToRules(target: Target, bin?: string): Rule[] {
   ) {
     reList.push({ rule: rule, rank: rank + target.rank })
   }
-  const ext = getExtRegex()
+  const ext = getExtRe()
   const reExtList = reList.map((i) => ({
     rule: i.rule + ext + '$',
     rank: i.rank + 5,
@@ -170,7 +170,7 @@ export function matchRules(
   const v: { name: string; rule: Rule }[] = []
   for (const rule of rules) {
     if (v.length && v[0].rule.rank !== rule.rank) {
-      continue
+      return v
     }
     const name = s.match(rule.rule)?.[1]
     if (name) {
@@ -180,7 +180,7 @@ export function matchRules(
   return v
 }
 
-export function canInstall(
+export function matchName(
   s: string,
   bin?: string,
   os = process.platform,
@@ -220,11 +220,11 @@ function getCommonTargets(
             { target: 'macos-arm64', rank: 10 },
             { target: 'darwin-arm64', rank: 10 },
             { target: 'mac64arm', rank: 10 },
+            { target: 'universal', rank: 10 },
+            { target: 'macos-universal', rank: 10 },
             { target: 'macos', rank: 1 },
             { target: 'darwin', rank: 1 },
             { target: 'mac', rank: 1 },
-            { target: 'universal', rank: 5 },
-            { target: 'macos-universal', rank: 10 },
           ]
         }
         case 'x64': {
@@ -234,11 +234,11 @@ function getCommonTargets(
             { target: 'darwin-amd64', rank: 10 },
             { target: 'macos-legacy', rank: 10 },
             { target: 'mac64', rank: 10 },
+            { target: 'universal', rank: 10 },
+            { target: 'macos-universal', rank: 10 },
             { target: 'macos', rank: 1 },
             { target: 'darwin', rank: 1 },
             { target: 'mac', rank: 1 },
-            { target: 'universal', rank: 5 },
-            { target: 'macos-universal', rank: 10 },
           ]
         }
       }
@@ -296,7 +296,7 @@ function getCommonTargets(
             { target: 'windows-x64', rank: 10 },
             { target: 'windows-x86_64', rank: 10 },
             { target: 'win', rank: 10 },
-            { target: 'x86_64', rank: 5 },
+            { target: 'x86_64', rank: 1 },
           ]
         }
         case 'arm64': {

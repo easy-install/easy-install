@@ -13,7 +13,7 @@ import {
 import { Output, OutputFile } from '../type'
 import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { canInstall } from '../rule'
+import { matchName } from '../rule'
 import { existsSync, mkdirSync } from 'fs'
 import { fileInstall } from './file'
 
@@ -51,7 +51,7 @@ export async function repoInstall(
         return {}
       }
       const list = files.filter((i) => !i.isDir)
-      const subDirName = canInstall(filename) ?? nameNoExt(filename)
+      const subDirName = matchName(filename) ?? nameNoExt(filename)
       if (list.length > 1) {
         installDir = join(installDir, subDirName).replaceAll('\\', '/')
       }

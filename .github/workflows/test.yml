@@ -32,7 +32,7 @@ jobs:
           override: true
       - name: cargo test
         # FIXME: add macos test
-        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
+        # if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           cargo test
       - name: cargo run
@@ -45,7 +45,6 @@ jobs:
             cargo run -- $file
             source ~/.bashrc
           done
-          cargo run -- starship
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch

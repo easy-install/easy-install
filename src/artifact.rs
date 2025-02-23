@@ -1,13 +1,10 @@
-use compact_str::CompactString;
 use serde::Deserialize;
 use std::hash::Hash;
 use std::{borrow::Borrow, collections::HashSet, hash::Hasher};
-use url::Url;
-
 #[derive(Eq, Deserialize, Debug)]
 pub struct Artifact {
-    pub name: CompactString,
-    pub url: Url,
+    pub name: String,
+    pub url: String,
     pub browser_download_url: String,
 }
 

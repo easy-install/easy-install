@@ -1,12 +1,7 @@
 use crate::manfiest::DistManifest;
-use binstalk::helpers::remote::Client;
 use easy_archive::ty::{File, Fmt};
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    ClientBuilder,
-};
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
-use std::num::NonZeroU16;
 use tracing::trace;
 
 fn get_headers() -> HeaderMap {
@@ -19,17 +14,6 @@ fn get_headers() -> HeaderMap {
         );
     };
     headers
-}
-
-pub async fn create_client() -> Client {
-    trace!("create_client");
-    let headers = get_headers();
-    Client::from_builder(
-        ClientBuilder::new().default_headers(headers),
-        NonZeroU16::new(10).unwrap(),
-        1.try_into().unwrap(),
-    )
-    .expect("failed to create_client")
 }
 
 pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
@@ -83,8 +67,8 @@ mod test {
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
         let files = download_extract(url).await.unwrap();
-        assert!(files.iter().find(|i| i.path == "mujs").is_some());
-        assert!(files.iter().find(|i| i.path == "mujs-pp").is_some());
-        assert!(files.iter().find(|i| i.path == "libmujs.a").is_some());
+        assert!(files.iter().any(|i| i.path == "mujs"));
+        assert!(files.iter().any(|i| i.path == "mujs-pp"));
+        assert!(files.iter().any(|i| i.path == "libmujs.a"));
     }
 }

@@ -9,7 +9,6 @@ pub async fn install_from_single_file(
     manfiest: Option<DistManifest>,
     dir: Option<String>,
 ) -> Output {
-    // let targets = detect_targets().await;
     let mut install_dir = get_install_dir();
     let mut output = Output::new();
     if let Some(target_dir) = dir {

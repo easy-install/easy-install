@@ -7,7 +7,6 @@ import { artifactInstall } from './artifact'
 import { fileInstall } from './file'
 import { manifestInstall } from './manifest'
 import { repoInstall } from './repo'
-import { builtinInstall, getBuiltinName } from './builtin'
 
 export async function install(
   input: Input,
@@ -15,12 +14,6 @@ export async function install(
 ): Promise<Output> {
   const { url, version, name } = input
   const repo = Repo.fromUrl(url)
-  if (repo) {
-    const name = await getBuiltinName(repo)
-    if (name) {
-      return builtinInstall(repo, name, installDir)
-    }
-  }
 
   if (isDistManfiest(url)) {
     const dist: DistManifest | undefined = isUrl(url)

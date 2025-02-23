@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { canInstall } from '../ts/rule'
+import { matchName } from '../ts/rule'
 
 test('rule', () => {
   for (
@@ -58,11 +58,11 @@ test('rule', () => {
       ['bun-linux-x64-baseline.zip', 'bun', 'linux', 'x64'],
     ] as const
   ) {
-    expect(canInstall(a, undefined, c, d, !!e)).toBe(b)
+    expect(matchName(a, undefined, c, d, !!e)).toBe(b)
   }
 })
 
-test('canInstall', () => {
+test('matchName', () => {
   for (
     const [a, b, c] of [
       ['ryujinx-1.2.82-macos_universal.app.tar.gz', 'darwin', 'x64'],
@@ -76,7 +76,7 @@ test('canInstall', () => {
       ['mise-v2025.2.7-macos-x64.tar.gz', 'darwin', 'x64'],
     ] as const
   ) {
-    const name = canInstall(a, undefined, b, c, false)
+    const name = matchName(a, undefined, b, c, false)
     expect(!!name).toBe(true)
   }
 })
