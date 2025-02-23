@@ -39,8 +39,9 @@ jobs:
       - name: install
         run: |
           for file in dist-manifest/*.json; do
-            echo $file
-            cargo run -- $file
+            cleaned="${line//[[:space:]]/}"
+            echo $cleaned
+            cargo run -- $cleaned
             source ~/.bashrc
           done
 
@@ -48,8 +49,10 @@ jobs:
         run: |
           cat assets/url-list.txt | while read line
           do
-              echo $line
-              cargo run -- $line
+              cleaned="${line//[[:space:]]/}"
+              echo $cleaned
+              cargo run $cleaned
+              source ~/.bashrc
           done
 
       - name: test which
@@ -86,8 +89,9 @@ jobs:
       - name: install
         run: |
           for file in dist-manifest/*.json; do
-            echo $file
-            node cli/cli.js $file
+            cleaned="${line//[[:space:]]/}"
+            echo $cleaned
+            node cli/cli.js $cleaned
             source ~/.bashrc
           done
 
@@ -95,8 +99,10 @@ jobs:
         run: |
           cat assets/url-list.txt | while read line
           do
-              echo $line
-              node cli/cli.js "$line"
+            cleaned="${line//[[:space:]]/}"
+            echo $cleaned
+            node cli/cli.js $cleaned
+            source ~/.bashrc
           done
 
       - name: test which

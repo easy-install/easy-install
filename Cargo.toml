@@ -17,19 +17,14 @@ is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }
 crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }
 which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "0.1" }
 easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.1" }
-
-semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tempfile = "3.15"
 tokio = { version = "1", features = ["full"], default-features = false }
 tracing = "0.1"
 url = "2.5"
 dirs = "6.0"
 reqwest = { version = "0.12", features = ["json"] }
 regex = "1.11"
-zeroize = "1.8"
-compact_str = "0.8"
 tracing-subscriber = "0.3"
 cargo-dist-schema = "0.28"
 path-clean = "1.0"
