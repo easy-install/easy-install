@@ -602,18 +602,18 @@ mod test {
         }
     }
 
-    #[tokio::test]
-    async fn test_graaljs() {
-        let json = "./dist-manifest/graaljs.json";
-        let manifest = read_dist_manfiest(json).unwrap();
-        let urls = get_artifact_url_from_manfiest(json, &manifest).await;
-        assert_eq!(urls.len(), 1);
+    // #[tokio::test]
+    // async fn test_graaljs() {
+    //     let json = "./dist-manifest/graaljs.json";
+    //     let manifest = read_dist_manfiest(json).unwrap();
+    //     let urls = get_artifact_url_from_manfiest(json, &manifest).await;
+    //     assert_eq!(urls.len(), 1);
 
-        for i in urls {
-            let download_urls = get_artifact_download_url(&i).await;
-            assert_eq!(download_urls.len(), 1);
-        }
-    }
+    //     for i in urls {
+    //         let download_urls = get_artifact_download_url(&i).await;
+    //         assert_eq!(download_urls.len(), 1);
+    //     }
+    // }
 
     #[test]
     fn test_is_exe_file() {

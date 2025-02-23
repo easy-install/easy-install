@@ -43,6 +43,8 @@ jobs:
             cargo run -- $file
             source ~/.bashrc
           done
+
+          cargo run -- https://github.com/starship/starship
           cargo run -- https://github.com/denoland/deno
           cargo run -- https://github.com/ahaoboy/mujs-build
           cargo run -- https://github.com/ahaoboy/neofetch

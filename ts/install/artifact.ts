@@ -1,10 +1,11 @@
 import { join } from 'path'
-import { getArtifactDownloadUrl } from '../dist-manifest'
+// import { getArtifactDownloadUrl } from '../dist-manifest'
 import { downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
   displayOutput,
   getCommonPrefixLen,
+  getFilename,
   installOutputFiles,
   isArchiveFile,
   nameNoExt,
@@ -21,8 +22,9 @@ async function downloadAndInstall(
   console.log(`download ${downloadUrl}`)
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
-  const filename = downloadUrl.split('/').at(-1)!
+  const filename = getFilename(downloadUrl)
   const subDirName = matchName(filename) ?? nameNoExt(filename)
+  console.log(subDirName,filename)
   const list = files.filter((i) => !i.isDir)
 
   if (list.length > 1) {
@@ -60,18 +62,9 @@ export async function artifactInstall(
   dist?: DistManifest,
   dir?: string,
 ): Promise<Output> {
-  const v = await getArtifactDownloadUrl(artUrl)
-  if (v.length === 0) {
-    console.log(`not found download_url for ${artUrl}`)
-    return {}
-  }
-  for (const downloadUrl of v) {
-    const output = isArchiveFile(downloadUrl)
-      ? await downloadAndInstall(downloadUrl, dir)
-      : await fileInstall({ url: artUrl }, downloadUrl, dist, dir)
+  const output = isArchiveFile(artUrl)
+    ? await downloadAndInstall(artUrl, dir)
+    : await fileInstall({ url: artUrl }, artUrl, dist, dir)
 
-    return output
-  }
-
-  return {}
+  return output
 }

@@ -139,22 +139,22 @@ export class Repo {
     return v
   }
 
-  async matchArtifactUrl(pattern: string): Promise<string[]> {
-    const v: string[] = []
-    const api = this.getArtifactApi()
-    const art = await downloadJson<Artifacts>(api)
-    const re = new RegExp(pattern)
-    const patternName = pattern.split('/').at(-1)
-    const nameRe = patternName && new RegExp(patternName)
-    for (const asset of art?.assets || []) {
-      if (
-        !isHashFile(asset.browser_download_url) &&
-        (re.test(asset.browser_download_url) ||
-          (nameRe && nameRe.test(asset.name)))
-      ) {
-        v.push(asset.browser_download_url)
-      }
-    }
-    return v
-  }
+  // async matchArtifactUrl(pattern: string): Promise<string[]> {
+  //   const v: string[] = []
+  //   const api = this.getArtifactApi()
+  //   const art = await downloadJson<Artifacts>(api)
+  //   const re = new RegExp(pattern)
+  //   const patternName = pattern.split('/').at(-1)
+  //   const nameRe = patternName && new RegExp(patternName)
+  //   for (const asset of art?.assets || []) {
+  //     if (
+  //       !isHashFile(asset.browser_download_url) &&
+  //       (re.test(asset.browser_download_url) ||
+  //         (nameRe && nameRe.test(asset.name)))
+  //     ) {
+  //       v.push(asset.browser_download_url)
+  //     }
+  //   }
+  //   return v
+  // }
 }

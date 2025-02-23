@@ -90,23 +90,16 @@ export function hasFile(art: Artifact, path: string) {
   return false
 }
 
-export function isRegex(s: string): boolean {
-  return s.includes('*')
-}
-
-export async function getArtifactDownloadUrl(
-  artUrl: string,
-): Promise<string[]> {
-  const v: string[] = []
-  if (!isRegex(artUrl)) {
-    return [artUrl]
-  }
-  const repo = Repo.fromUrl(artUrl)
-  if (repo) {
-    return await repo.matchArtifactUrl(artUrl)
-  }
-  return v
-}
+// export async function getArtifactDownloadUrl(
+//   artUrl: string,
+// ): Promise<string[]> {
+//   const v: string[] = []
+//   const repo = Repo.fromUrl(artUrl)
+//   if (repo) {
+//     return await repo.matchArtifactUrl(artUrl)
+//   }
+//   return v
+// }
 
 export function readDistManfiest(path: string): DistManifest | undefined {
   if (!existsSync(path)) {

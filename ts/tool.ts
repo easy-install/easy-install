@@ -182,7 +182,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -386,8 +386,9 @@ function executabe(name: string, mode: number): boolean {
     (!name.includes('.') && (mode & EXEC_MASK) !== 0)
 }
 
-function getFilename(s: string): string | undefined {
-  return s.split('/').at(-1)
+export function getFilename(url: string): string {
+  const i = url.lastIndexOf('/')
+  return i === -1 ? url : url.slice(i + 1)
 }
 function check(file: OutputFile): boolean {
   const fp = file.installPath.toLowerCase()
@@ -473,3 +474,4 @@ export function nameNoExt(s: string) {
 }
 
 export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
+

@@ -172,7 +172,7 @@ fn match_rules(s: &str, rules: &Vec<Rule>) -> Vec<(String, Rule)> {
     let mut v: Vec<(String, Rule)> = vec![];
 
     for rule in rules {
-        println!("rule {}", rule.rule);
+        // println!("rule {}", rule.rule);
         if let Some(item) = v.first() {
             if item.1.rank != rule.rank {
                 return v;

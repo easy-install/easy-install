@@ -10,7 +10,7 @@ import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
 import {
   getArtifact,
-  getArtifactDownloadUrl,
+  // getArtifactDownloadUrl,
   getArtifactUrlFromManfiest,
   hasFile,
   readDistManfiest,
@@ -115,34 +115,34 @@ test('deno', async () => {
   expect(v.length > 0).toEqual(true)
 })
 
-test('get_artifact_download_url', async () => {
-  for (
-    const url of [
-      'https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip',
-      'https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip',
-      'https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip',
-      'https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?',
-      'https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip',
-      'https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz',
-      'https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip',
-      'https://github.com/starship/starship',
-    ]
-  ) {
-    const v = await getArtifactDownloadUrl(url)
-    expect(v.length).toEqual(1)
-  }
-})
+// test('get_artifact_download_url', async () => {
+//   for (
+//     const url of [
+//       'https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip',
+//       'https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip',
+//       'https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip',
+//       'https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?',
+//       'https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip',
+//       'https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz',
+//       'https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip',
+//       'https://github.com/starship/starship',
+//     ]
+//   ) {
+//     const v = await getArtifactDownloadUrl(url)
+//     expect(v.length).toEqual(1)
+//   }
+// })
 
-test('graaljs', async () => {
-  const path = './dist-manifest/graaljs.json'
-  const dist = readDistManfiest(path)!
-  const v = getArtifactUrlFromManfiest(dist, path)
-  expect(v.length).toEqual(1)
-  for (const i of v) {
-    const url = await getArtifactDownloadUrl(i)
-    expect(url.length).toEqual(1)
-  }
-})
+// test('graaljs', async () => {
+//   const path = './dist-manifest/graaljs.json'
+//   const dist = readDistManfiest(path)!
+//   const v = getArtifactUrlFromManfiest(dist, path)
+//   expect(v.length).toEqual(1)
+//   for (const i of v) {
+//     const url = await getArtifactDownloadUrl(i)
+//     expect(url.length).toEqual(1)
+//   }
+// })
 
 test('isExeFile', () => {
   for (

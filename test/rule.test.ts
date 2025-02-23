@@ -4,6 +4,9 @@ import { matchName } from '../ts/rule'
 test('rule', () => {
   for (
     const [a, b, c, d, e] of [
+      [
+        'mujs-x86_64-unknown-linux-gnu.tar.gz', 'mujs', 'linux', 'x64'
+      ],
       ['mujs-x86_64-unknown-linux-gnu.tar.xz', 'mujs', 'linux', 'x64'],
       ['mise-v2025.2.6-linux-x64', 'mise', 'linux', 'x64'],
       ['zig-linux-x86_64-0.13.0.tar.xz', 'zig', 'linux', 'x64'],
