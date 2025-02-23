@@ -287,7 +287,7 @@ export function isHashFile(s: string): boolean {
   return ['.sha256sum', '.sha256'].some((i) => s.endsWith(i))
 }
 export function isMsiFile(s: string): boolean {
-  return ['.msi'].some((i) => s.endsWith(i))
+  return ['.msi', '.app'].some((i) => s.endsWith(i))
 }
 export function isMsys() {
   return !!process.env['MSYSTEM']

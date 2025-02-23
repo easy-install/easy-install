@@ -12,7 +12,6 @@ https://github.com/quickjs-ng/quickjs
 https://github.com/electron/rcedit
 https://github.com/NickeManarin/ScreenToGif
 https://github.com/praydog/UEVR
-https://github.com/yt-dlp/yt-dlp
 https://github.com/starship/starship
 https://github.com/denoland/deno
 https://github.com/ahaoboy/mujs-build

@@ -12,7 +12,7 @@ use std::os::unix::prelude::PermissionsExt;
 
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
-use crate::rule::match_name;
+use crate::rule::{detect_targets, match_name};
 use crate::ty::{Output, OutputFile, Repo};
 use regex::Regex;
 use std::str::FromStr;
@@ -194,14 +194,24 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
         _ = mode;
     }
 }
-
+fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
+    for s1 in arr1 {
+        for s2 in arr2 {
+            if s1 == s2 {
+                return true;
+            }
+        }
+    }
+    false
+}
 pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
     let mut v = vec![];
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
     let musl = is_musl::is_musl();
     let mut filter = vec![];
-    for (key, _) in manfiest.artifacts.iter() {
+    let targets = detect_targets(os, arch, musl);
+    for (key, art) in manfiest.artifacts.iter() {
         let filename = get_filename(key);
         if is_hash_file(&filename) || is_msi_file(&filename) {
             continue;
@@ -216,6 +226,16 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                 v.push(key.clone());
             }
             filter.push(name);
+            continue;
+        }
+
+        if has_common_elements(&art.target_triples, &targets) {
+            if !is_url(key) {
+                v.push(replace_filename(url, key));
+            } else {
+                v.push(key.to_string());
+            }
+            continue;
         }
     }
     v

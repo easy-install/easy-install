@@ -9,11 +9,7 @@ import {
 
 import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
-import {
-  getArtifact,
-  getArtifactUrlFromManfiest,
-  hasFile,
-} from '../ts/dist-manifest'
+import { getArtifact, getArtifactUrlFromManfiest } from '../ts/dist-manifest'
 
 test('getAssetNames', () => {
   expect(getAssetNames('deno', 'win32', 'x64')).toEqual([
@@ -51,44 +47,6 @@ test('isArchiveFile', () => {
     ] as const
   ) {
     expect(isArchiveFile(url)).toEqual(ty)
-  }
-})
-
-test('manifest_jsc', async () => {
-  const repo = new Repo('ahaoboy', 'jsc-build')
-  const dist = (await repo.getManfiest())!
-  const art = getArtifact(dist, ['x86_64-unknown-linux-gnu'])!
-  for (
-    const [k, v] of [
-      ['bin/jsc', true],
-      ['lib/libJavaScriptCore.a', true],
-      ['lib/jsc', false],
-    ] as const
-  ) {
-    expect(hasFile(art, k)).toEqual(v)
-  }
-})
-
-test('manifest_mujs', async () => {
-  const repo = new Repo('ahaoboy', 'mujs-build')
-  const dist = (await repo.getManfiest())!
-  const art = getArtifact(dist, ['x86_64-unknown-linux-gnu'])!
-  for (
-    const [k, v] of [
-      ['mujs', true],
-      ['mujs.exe', false],
-    ] as const
-  ) {
-    expect(hasFile(art, k)).toEqual(v)
-  }
-  const artWin = getArtifact(dist, ['x86_64-pc-windows-gnu'])!
-  for (
-    const [k, v] of [
-      ['mujs', false],
-      ['mujs.exe', true],
-    ] as const
-  ) {
-    expect(hasFile(artWin, k)).toEqual(v)
   }
 })
 

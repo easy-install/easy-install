@@ -9,7 +9,6 @@ alist
 bun
 fnm
 starship
-ScreenToGif
 yt-dlp
 pnpm
 biome

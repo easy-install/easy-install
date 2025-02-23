@@ -254,6 +254,7 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
                 ("macos-universal".to_string(), 10),
                 ("mac64".to_string(), 1),
                 ("darwin".to_string(), 1),
+                ("macos".to_string(), 1),
                 ("mac".to_string(), 1),
             ]
         }

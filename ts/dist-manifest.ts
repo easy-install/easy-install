@@ -2,12 +2,16 @@ import { existsSync, readFileSync } from 'fs'
 import { Repo } from './repo'
 import {
   detectTargets,
+  getFilename,
+  isHashFile,
+  isMsiFile,
   isUrl,
   matchTargets,
   removePostfix,
   replaceFilename,
 } from './tool'
 import { Artifact, DistManifest } from './type'
+import { matchName } from './rule'
 
 export function getAssetsExecutableDir(art: Artifact) {
   return art.assets?.find((i) => i.kind === 'executable-dir')
@@ -37,69 +41,37 @@ export function getArtifactUrlFromManfiest(
 ): string[] {
   const targets = detectTargets()
   const v: string[] = []
-
-  for (const name in dist.artifacts) {
-    const art = dist.artifacts[name]
-    if (
-      matchTargets(art.target_triples ?? [], targets) &&
-      ((art.kind ?? 'executable-zip') === 'executable-zip')
-    ) {
-      if (!isUrl(name) && url) {
-        v.push(replaceFilename(url, name))
+  const filter: string[] = []
+  for (const key in dist.artifacts) {
+    const filename = getFilename(key)
+    if (isHashFile(filename) || isMsiFile(filename)) {
+      continue
+    }
+    const art = dist.artifacts[key]
+    const name = matchName(filename)
+    if (name && !filter.includes(name)) {
+      if (!isUrl(key) && url) {
+        v.push(replaceFilename(url, key))
       } else {
-        v.push(name)
+        v.push(key)
+      }
+      filter.push(name)
+      continue
+    }
+
+    if (
+      matchTargets(art.target_triples ?? [], targets)
+    ) {
+      if (!isUrl(key) && url) {
+        v.push(replaceFilename(url, key))
+      } else {
+        v.push(key)
       }
     }
   }
 
   return v
 }
-
-export function hasFile(art: Artifact, path: string) {
-  path = path.replaceAll('\\', '/')
-  if (art.name) {
-    const prefix = removePostfix(art.name) + '/'
-    if (path.startsWith(prefix)) {
-      path = path.slice(prefix.length)
-    }
-  }
-
-  for (const i of art.assets ?? []) {
-    if (path === '*') {
-      // FIXME: support regex
-      return true
-    }
-
-    if (path === i.path) {
-      switch (i.kind) {
-        case 'executable':
-        case 'c_dynamic_library':
-        case 'c_static_library': {
-          return true
-        }
-        // case "readme":
-        // case "license":
-        // case "changelog":
-        default: {
-          return false
-        }
-      }
-    }
-  }
-
-  return false
-}
-
-// export async function getArtifactDownloadUrl(
-//   artUrl: string,
-// ): Promise<string[]> {
-//   const v: string[] = []
-//   const repo = Repo.fromUrl(artUrl)
-//   if (repo) {
-//     return await repo.matchArtifactUrl(artUrl)
-//   }
-//   return v
-// }
 
 export function readDistManfiest(path: string): DistManifest | undefined {
   if (!existsSync(path)) {

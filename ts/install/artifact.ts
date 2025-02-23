@@ -23,10 +23,7 @@ async function downloadAndInstall(
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
   const filename = getFilename(downloadUrl)
-  const s = matchName(filename)
-  // console.log('s', s, filename)
   const subDirName = matchName(filename) ?? nameNoExt(filename)
-  console.log(subDirName, filename)
   const list = files.filter((i) => !i.isDir)
 
   if (list.length > 1) {
