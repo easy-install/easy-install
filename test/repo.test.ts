@@ -68,6 +68,14 @@ test('fromUrl', async () => {
         'https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip',
         new Repo('Ryubing', 'Ryujinx', '1.2.78'),
       ],
+      [
+        'ahaoboy/ansi2',
+        new Repo('ahaoboy', 'ansi2'),
+      ],
+      [
+        'ahaoboy/ansi2@v1',
+        new Repo('ahaoboy', 'ansi2', 'v1'),
+      ],
     ] as const
   ) {
     expect(Repo.fromUrl(url)).toEqual(repo)

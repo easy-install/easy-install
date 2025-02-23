@@ -27,12 +27,14 @@ export class Repo {
   static fromUrl(url: string): Repo | undefined {
     for (
       const re of [
-        /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/(.+)/,
-        /https?:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/tag\/([^\/]+)/,
-        /https:\/\/github\.com\/([^\/]+)\/([^\/]+)/,
+        /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/(.+)$/,
+        /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/tag\/([^\/]+)$/,
+        /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)$/,
+        /^([^\/@]+)\/([^\/@]+)(?:@([^\/]+))?$/,
       ]
     ) {
       const match = url.match(re)
+      console.log(match, re)
       if (match) {
         return new Repo(match[1], match[2], match[3])
       }

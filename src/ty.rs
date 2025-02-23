@@ -56,15 +56,16 @@ impl TryFrom<&str> for Repo {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         trace!("get_artifact_api {}", value);
         let re_gh_tag = Regex::new(
-            r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)",
+            r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)$",
         )
         .unwrap();
 
-        let re_gh_download_tag = Regex::new(r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)").unwrap();
+        let re_gh_download_tag = Regex::new(r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$").unwrap();
 
         let re_gh_releases =
-            Regex::new(r"http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
+            Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)$").unwrap();
 
+        let re_short = Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
         if let Some(captures) = re_gh_tag.captures(value) {
             if let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
@@ -99,6 +100,20 @@ impl TryFrom<&str> for Repo {
                     owner: owner.as_str().to_string(),
                     name: name.as_str().to_string(),
                     tag: None,
+                });
+            }
+        }
+
+        if let Some(captures) = re_short.captures(value) {
+            if let (Some(owner), Some(name), tag) = (
+                captures.name("owner"),
+                captures.name("repo"),
+                captures.name("tag"),
+            ) {
+                return Ok(Repo {
+                    owner: owner.as_str().to_string(),
+                    name: name.as_str().to_string(),
+                    tag: tag.map(|i| i.as_str().to_string()),
                 });
             }
         }

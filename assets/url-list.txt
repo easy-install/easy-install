@@ -23,3 +23,6 @@ https://github.com/ahaoboy/v8-build
 https://github.com/ahaoboy/txiki.js-build
 https://github.com/Ryubing/Ryujinx
 https://github.com/NickeManarin/ScreenToGif
+https://github.com/houseabsolute/ubi
+https://github.com/zyedidia/eget
+ahaoboy/ansi2

@@ -437,13 +437,19 @@ mod test {
         assert!(
             Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").is_err()
         );
-
+        assert_eq!(
+          Repo::try_from("ahaoboy/ansi2").unwrap(),
+          repo
+        );
         let repo = Repo {
             owner: "ahaoboy".to_string(),
             name: "ansi2".to_string(),
             tag: Some("v0.2.11".to_string()),
         };
-
+        assert_eq!(
+          Repo::try_from("ahaoboy/ansi2@v0.2.11").unwrap(),
+          repo
+        );
         assert_eq!(
             Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap(),
             repo
@@ -468,6 +474,7 @@ mod test {
           Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").unwrap(),
           repo
         );
+
     }
 
     #[test]
