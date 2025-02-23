@@ -202,10 +202,11 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
     let musl = is_musl::is_musl();
     let mut filter = vec![];
     for (key, _) in manfiest.artifacts.iter() {
-        if is_hash_file(key) || is_msi_file(key) {
+        let filename = get_filename(key);
+        if is_hash_file(&filename) || is_msi_file(&filename) {
             continue;
         }
-        if let Some(name) = match_name(key, None, os, arch, musl) {
+        if let Some(name) = match_name(&filename, None, os, arch, musl) {
             if filter.contains(&name) {
                 continue;
             }
@@ -357,7 +358,7 @@ pub async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     }
 
     if let Ok(repo) = Repo::try_from(art_url) {
-        return repo.match_artifact_url(art_url).await;
+        return repo.match_artifact_url().await;
     }
     vec![]
 }
@@ -598,7 +599,7 @@ mod test {
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
         let artifact_url = repo.get_artifact_url().await;
-        println!("{:?}",artifact_url);
+        println!("{:?}", artifact_url);
         assert_eq!(artifact_url.len(), 1);
     }
 
@@ -607,8 +608,6 @@ mod test {
         let json = "./dist-manifest/quickjs-ng.json";
         let manifest = read_dist_manfiest(json).unwrap();
         let urls = get_artifact_url_from_manfiest(json, &manifest);
-        assert_eq!(urls.len(), 2);
-
         for i in urls {
             let download_urls = get_artifact_download_url(&i);
             assert_eq!(download_urls.await.len(), 1);

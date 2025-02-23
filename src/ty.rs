@@ -2,7 +2,7 @@ use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
 use crate::manfiest::{Artifact, DistManifest};
 use crate::rule::match_name;
-use crate::tool::{is_hash_file, is_msi_file};
+use crate::tool::{get_filename, is_hash_file, is_msi_file};
 use is_musl::is_musl;
 use regex::Regex;
 use std::collections::HashMap;
@@ -167,23 +167,30 @@ impl Repo {
         v
     }
 
-    pub async fn match_artifact_url(&self, pattern: &str) -> Vec<String> {
+    pub async fn match_artifact_url(&self) -> Vec<String> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
         let mut v = vec![];
-        let re = Regex::new(pattern).unwrap();
-        let pattern_name = pattern.split("/").last();
-        let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
+        let mut filter = vec![];
+
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             for art in artifacts.assets {
-                if !is_hash_file(&art.browser_download_url)
-                    && !is_msi_file(&art.browser_download_url)
-                    && (re.is_match(&art.browser_download_url)
-                        || name_re.clone().map(|r| r.is_match(&art.name)) == Some(true))
+                let filename = get_filename(&art.browser_download_url);
+                let os = std::env::consts::OS;
+                let arch = std::env::consts::ARCH;
+                let musl = is_musl();
+                if is_hash_file(&art.browser_download_url) || is_msi_file(&art.browser_download_url)
                 {
+                    continue;
+                }
+                if let Some(name) = match_name(&filename, None, os, arch, musl) {
+                    if filter.contains(&name) {
+                        continue;
+                    }
                     v.push(art.browser_download_url);
+                    filter.push(name);
                 }
             }
         }
