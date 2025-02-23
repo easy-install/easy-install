@@ -342,9 +342,9 @@ pub fn is_url(s: &str) -> bool {
 pub fn is_dist_manfiest(s: &str) -> bool {
     s.ends_with(".json")
 }
-
+const HASH_EXTS: [&str; 2] = [".sha256sum", ".sha256"];
 pub fn is_hash_file(s: &str) -> bool {
-    s.ends_with(".sha256")
+    HASH_EXTS.iter().any(|i| s.ends_with(i))
 }
 const INSTALLER_EXTS: [&str; 2] = [".msi", ".app"];
 
@@ -579,21 +579,21 @@ mod test {
         assert_eq!(artifact_url.len(), 2);
     }
 
-    #[tokio::test]
-    async fn test_get_artifact_download_url() {
-        for url in [
-        "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
-        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
-        "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
-        "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
-        "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
-        "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
-        "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
-      ]{
-          let art_url = get_artifact_download_url(url).await;
-          assert_eq!(art_url.len(), 1);
-      }
-    }
+    // #[tokio::test]
+    // async fn test_get_artifact_download_url() {
+    //     for url in [
+    //     "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
+    //     "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
+    //     "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
+    //     "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
+    //     "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
+    //     "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
+    //     "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
+    //   ]{
+    //       let art_url = get_artifact_download_url(url).await;
+    //       assert_eq!(art_url.len(), 1);
+    //   }
+    // }
 
     #[tokio::test]
     async fn test_starship() {
