@@ -4,7 +4,7 @@ use crate::install::file::install_from_single_file;
 use crate::manfiest::DistManifest;
 use crate::rule::match_name;
 use crate::tool::{
-    display_output, get_artifact_download_url, get_common_prefix, get_filename,
+    display_output, get_artifact_download_url, get_common_prefix_len, get_filename,
     install_output_files, is_archive_file, name_no_ext, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
@@ -39,14 +39,13 @@ pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Outpu
                 install_dir.push(name);
             }
 
-            let prefix_len = get_common_prefix(
+            let prefix_len = get_common_prefix_len(
                 file_list
                     .iter()
                     .map(|i| i.path.as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
-            )
-            .map_or(0, |i| i.len());
+            );
 
             for entry in file_list {
                 let size = entry.buffer.len() as u32;

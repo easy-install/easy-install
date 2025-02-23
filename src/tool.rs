@@ -183,8 +183,8 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
 
     #[cfg(unix)]
     if let Some(mode) = mode {
-        if mode > 0 {
-            std::fs::set_permissions(src, PermissionsExt::from_mode(mode))
+        if *mode > 0 {
+            std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
                 .expect("failed to set_permissions");
         }
     }
@@ -225,15 +225,15 @@ pub async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) 
 //     s.to_string()
 // }
 
-pub fn get_common_prefix(list: &[&str]) -> Option<String> {
+pub fn get_common_prefix_len(list: &[&str]) -> usize {
     if list.is_empty() {
-        return None;
+        return 0;
     }
 
     if list.len() == 1 {
         match list[0].rfind('/') {
-            Some(i) => return Some(list[0][..=i].to_string()),
-            None => return None,
+            Some(i) => return i+1,
+            None => return 0,
         }
     }
 
@@ -251,10 +251,9 @@ pub fn get_common_prefix(list: &[&str]) -> Option<String> {
     }
 
     if p == 0 {
-        return None;
+        return 0;
     }
-    let s = parts[0][..p].join("/") + "/";
-    Some(s)
+    parts[0][..p].join("/").len() + 1
 }
 
 pub fn install_output_files(files: &Vec<OutputFile>) {
@@ -375,7 +374,7 @@ mod test {
     };
     use detect_targets::detect_targets;
 
-    use super::{get_bin_name, get_common_prefix};
+    use super::{get_bin_name, get_common_prefix_len};
 
     #[test]
     fn test_is_file() {
@@ -633,12 +632,12 @@ mod test {
     #[test]
     fn test_get_common_prefix() {
         assert_eq!(
-            get_common_prefix(&["/a/ab/c", "/a/ad", "/a/ab/d",]),
-            Some("/a/".to_string())
+            get_common_prefix_len(&["/a/ab/c", "/a/ad", "/a/ab/d",]),
+           3
         );
-        assert_eq!(get_common_prefix(&["a",]), None);
-        assert_eq!(get_common_prefix(&["/a",]), Some("/".to_string()));
-        assert_eq!(get_common_prefix(&["/a/b"]), Some("/a/".to_string()));
+        assert_eq!(get_common_prefix_len(&["a",]), 0);
+        assert_eq!(get_common_prefix_len(&["/a",]), 1);
+        assert_eq!(get_common_prefix_len(&["/a/b"]), 3);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import {
   getAssetNames,
-  getCommonPrefix,
+  getCommonPrefixLen,
   isArchiveFile,
   isExeFile,
 } from '../ts/tool'
@@ -183,22 +183,22 @@ test('getCommonPrefix', () => {
           '/a/ad',
           '/a/ab/d',
         ],
-        '/a/',
+        3,
       ],
       [
         ['a'],
-        undefined,
+        0,
       ],
       [
         ['/a'],
-        '/',
+        1,
       ],
       [
         ['/a/b'],
-        '/a/',
+        3,
       ],
     ] as const
   ) {
-    expect(getCommonPrefix(a)).toEqual(b)
+    expect(getCommonPrefixLen(a)).toEqual(b)
   }
 })

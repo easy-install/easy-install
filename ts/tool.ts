@@ -435,13 +435,13 @@ export function addOutputToPath(output: Output) {
   }
 }
 
-export function getCommonPrefix(list: readonly string[]): string | undefined {
+export function getCommonPrefixLen(list: readonly string[]): number {
   if (list.length === 0) {
-    return undefined
+    return 0
   }
   if (list.length === 1) {
     const i = list[0].lastIndexOf('/')
-    return list[0].slice(0, i === -1 ? 0 : i + 1)
+    return i === -1 ? 0 : i + 1
   }
   const parts = list.map((i) => i.split('/'))
   const n = parts.reduce((pre, cur) => Math.max(pre, cur.length), 0)
@@ -452,7 +452,7 @@ export function getCommonPrefix(list: readonly string[]): string | undefined {
       break
     }
   }
-  return p === 0 ? undefined : parts[0].slice(0, p).join('/') + '/'
+  return parts[0].slice(0, p).join('/').length + 1
 }
 
 export function installOutputFiles(files: OutputFile[]) {

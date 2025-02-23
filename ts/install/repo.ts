@@ -4,7 +4,7 @@ import { Repo } from '../repo'
 import {
   displayOutput,
   download,
-  getCommonPrefix,
+  getCommonPrefixLen,
   installOutputFiles,
   isExeFile,
   nameNoExt,
@@ -55,7 +55,7 @@ export async function repoInstall(
       if (list.length > 1) {
         installDir = join(installDir, subDirName).replaceAll('\\', '/')
       }
-      const prefixLen = getCommonPrefix(list.map((i) => i.path))?.length ?? 0
+      const prefixLen = getCommonPrefixLen(list.map((i) => i.path))
       if (!existsSync(installDir)) {
         mkdirSync(installDir, { recursive: true })
       }

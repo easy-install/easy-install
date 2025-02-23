@@ -4,7 +4,7 @@ import { downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
   displayOutput,
-  getCommonPrefix,
+  getCommonPrefixLen,
   installOutputFiles,
   isArchiveFile,
   nameNoExt,
@@ -29,7 +29,7 @@ async function downloadAndInstall(
     installDir = join(installDir, subDirName).replaceAll('\\', '/')
   }
   const outputFiles: OutputFile[] = []
-  const prefixLen = getCommonPrefix(list.map((i) => i.path))?.length ?? 0
+  const prefixLen = getCommonPrefixLen(list.map((i) => i.path))
 
   for (const { isDir, mode = 0, buffer, path } of list) {
     const installPath = join(installDir, path.slice(prefixLen))
