@@ -74,6 +74,7 @@ test('matchName', () => {
       ['ffmpeg-x86_64-v3-git-5470d024e.zip', 'win32', 'x64'],
       ['mpv-x86_64-v3-20250220-git-f9271fb.zip', 'win32', 'x64'],
       ['mise-v2025.2.7-macos-x64.tar.gz', 'darwin', 'x64'],
+      ['7z2409-x64.exe', 'win32', 'x64'],
     ] as const
   ) {
     const name = matchName(a, undefined, b, c, false)

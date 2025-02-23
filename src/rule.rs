@@ -1,7 +1,6 @@
 use easy_archive::ty::Fmt;
 use regex::Regex;
 
-
 #[derive(Debug, Clone)]
 pub struct Target {
     pub target: String,
@@ -32,7 +31,7 @@ pub fn get_ext_re() -> String {
 
 const OS_LIST: [&str; 4] = ["macos", "linux", "windows", "freebsd"];
 
-const ARCH_LIST: [&str; 5] = ["x86_64", "aarch64", "x86", "i686","arm"];
+const ARCH_LIST: [&str; 5] = ["x86_64", "aarch64", "x86", "i686", "arm"];
 
 const SEQ_RE: &str = "[_ -]";
 const VERSION_RE: &str = "v?(\\d+\\.\\d+\\.\\d+)";
@@ -317,8 +316,8 @@ pub fn detect_targets(os: &str, arch: &str, musl: bool) -> Vec<String> {
             vec!["arm-unknown-linux-musleabihf".to_string()]
         }
         ("linux", "arm", false) => {
-          vec!["arm-unknown-linux-gnu".to_string()]
-      }
+            vec!["arm-unknown-linux-gnu".to_string()]
+        }
         ("linux", "x86", false) => {
             vec!["i686-unknown-linux-gnu".to_string()]
         }
@@ -527,6 +526,7 @@ mod test {
                 "x86_64",
             ),
             ("mise-v2025.2.7-macos-x64.tar.gz", "macos", "x86_64"),
+            ("7z2409-x64.exe", "windows", "x86_64"),
         ] {
             let s = match_name(url, None, os, arch, false).unwrap();
             assert!(!s.is_empty());

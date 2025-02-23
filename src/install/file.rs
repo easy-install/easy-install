@@ -1,8 +1,12 @@
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::manfiest::DistManifest;
-use crate::tool::{display_output, get_bin_name, get_meta, path_to_str};
+use crate::rule::match_name;
+use crate::tool::{
+    display_output, get_bin_name, get_filename, get_meta, install_output_files, path_to_str,
+};
 use crate::ty::{Output, OutputFile, OutputItem};
+use is_musl::is_musl;
 
 pub async fn install_from_single_file(
     url: &str,
@@ -21,37 +25,30 @@ pub async fn install_from_single_file(
 
     if let Some(bin) = download_binary(url).await {
         let artifact = manfiest.and_then(|i| i.get_artifact_by_key(url));
-
-        let art_name = url
-            .split("/")
-            .last()
-            .map(|i| i.to_string())
-            .expect("can't get artifact name");
+        let filename = get_filename(url);
+        let os = std::env::consts::OS;
+        let arch = std::env::consts::ARCH;
+        let musl = is_musl();
+        let art_name = match_name(&filename, None, os, arch, musl).unwrap_or(filename.clone());
         let name = artifact.and_then(|i| i.name).unwrap_or(art_name);
         let mut install_path = install_dir.clone();
         install_path.push(get_bin_name(&name));
-
-        if let Some(dir) = install_path.parent() {
-            std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
-        }
-        std::fs::write(&install_path, &bin).expect("write file failed");
+        println!("install_dir {:?} {}", install_dir, name);
         let (mode, size, is_dir) = get_meta(&install_path);
         let install_path = path_to_str(&install_path);
-        println!("Installation Successful");
-        let origin_path = url.split("/").last().unwrap_or(name.as_str()).to_string();
-
         let files = vec![OutputFile {
-            mode,
+            mode: Some(mode),
             size,
-            origin_path,
+            origin_path: filename,
             is_dir,
             install_path,
+            buffer: bin,
         }];
-
+        install_output_files(&files);
+        println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
             install_dir: bin_dir_str.clone(),
-            bin_dir: bin_dir_str.clone(),
             files,
         };
 

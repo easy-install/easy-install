@@ -2,13 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-pub type LocalPath = String;
 pub type RelPath = String;
-pub type SystemId = String;
-pub type AssetId = String;
 pub type ArtifactId = String;
 pub type TripleName = String;
-pub type SortedSet<T> = std::collections::BTreeSet<T>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DistManifest {
@@ -42,10 +38,6 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executable_name: Option<String>,
 
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub executable_dir: Option<String>,
-
     /// The high-level name of the asset
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -64,9 +56,6 @@ pub struct Asset {
 #[serde(tag = "kind")]
 #[non_exhaustive]
 pub enum AssetKind {
-    /// An executable artifact
-    #[serde(rename = "executable-dir")]
-    ExecutableDir(ExecutableAsset),
     /// An executable artifact
     #[serde(rename = "executable")]
     Executable(ExecutableAsset),
@@ -150,8 +139,8 @@ pub enum ArtifactKind {
     #[serde(rename = "updater")]
     Updater,
     /// A file that already exists
-    #[serde(rename = "sbom")]
-    SBOM,
+    // #[serde(rename = "sbom")]
+    // SBOM,
     /// Unknown to this version of cargo-dist-schema
     ///
     /// This is a fallback for forward/backward-compat

@@ -31,8 +31,6 @@ jobs:
           toolchain: nightly
           override: true
       - name: cargo test
-        # FIXME: add macos test
-        # if: matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest'
         run: |
           cargo test
       - name: cargo run

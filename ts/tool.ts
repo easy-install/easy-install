@@ -440,8 +440,8 @@ export function getCommonPrefix(list: readonly string[]): string | undefined {
     return undefined
   }
   if (list.length === 1) {
-    const v = list[0].split('/')
-    return v.length > 1 ? v.slice(0, -1).join('/') + '/' : undefined
+    const i = list[0].lastIndexOf('/')
+    return list[0].slice(0, i === -1 ? 0 : i + 1)
   }
   const parts = list.map((i) => i.split('/'))
   const n = parts.reduce((pre, cur) => Math.max(pre, cur.length), 0)
@@ -455,7 +455,7 @@ export function getCommonPrefix(list: readonly string[]): string | undefined {
   return p === 0 ? undefined : parts[0].slice(0, p).join('/') + '/'
 }
 
-export function installFiles(files: OutputFile[]) {
+export function installOutputFiles(files: OutputFile[]) {
   for (const { installPath, buffer, mode } of files) {
     const dstDir = dirname(installPath)
     if (!existsSync(dstDir)) {

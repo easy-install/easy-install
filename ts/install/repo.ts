@@ -5,7 +5,7 @@ import {
   displayOutput,
   download,
   getCommonPrefix,
-  installFiles,
+  installOutputFiles,
   isExeFile,
   nameNoExt,
   showSuccess,
@@ -75,7 +75,7 @@ export async function repoInstall(
           buffer,
         })
       }
-      installFiles(outputFiles)
+      installOutputFiles(outputFiles)
       output[i] = {
         installDir,
         files: outputFiles,

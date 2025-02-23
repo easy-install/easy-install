@@ -5,7 +5,7 @@ import { getInstallDir } from '../env'
 import {
   displayOutput,
   getCommonPrefix,
-  installFiles,
+  installOutputFiles,
   isArchiveFile,
   nameNoExt,
 } from '../tool'
@@ -45,7 +45,7 @@ async function downloadAndInstall(
   if (!outputFiles.length) {
     return {}
   }
-  installFiles(outputFiles)
+  installOutputFiles(outputFiles)
   const output = {
     [downloadUrl]: {
       installDir,

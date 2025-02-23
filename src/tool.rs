@@ -18,7 +18,7 @@ use regex::Regex;
 use std::str::FromStr;
 
 pub fn get_bin_name(s: &str) -> String {
-    if cfg!(windows) && !s.ends_with(".exe") && !s.contains(".") {
+    if cfg!(windows) && !WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) && !s.contains(".") {
         return s.to_string() + ".exe";
     }
     s.to_string()
@@ -70,7 +70,7 @@ pub fn display_output(output: &Output) -> String {
                 let s = human_size(k.size as usize);
                 v.push(
                     [
-                        mode_to_string(k.mode, k.is_dir),
+                        mode_to_string(k.mode.unwrap_or(0), k.is_dir),
                         " ".repeat(max_size_len - s.len()) + &s,
                         [k.origin_path.as_str(), k.install_path.as_str()].join(" -> "),
                     ]
@@ -82,18 +82,36 @@ pub fn display_output(output: &Output) -> String {
     v.join("\n")
 }
 
+const DEEP: usize = 3;
+const WINDOWS_EXE_EXTS: [&str; 3] = [".exe", ".ps1", ".bat"];
+
+fn dirname(s: &str) -> String {
+    let i = s.rfind('/').map_or(s.len(), |i| i + 1);
+    s[0..i].to_string()
+}
+
 pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
         for f in &v.files {
-            if check(f, &v.install_dir, &v.bin_dir) {
+            let deep = f.origin_path.split("/").count();
+            if deep <= DEEP && check(f) {
                 println!("Warning: file exists at {}", f.install_path);
             }
         }
     }
     for v in output.values() {
         add_to_path(&v.install_dir);
-        if v.install_dir != v.bin_dir {
-            add_to_path(&v.bin_dir);
+
+        for f in &v.files {
+            let deep = f.origin_path.split("/").count();
+            if deep <= DEEP
+                && WINDOWS_EXE_EXTS
+                    .iter()
+                    .any(|i| f.origin_path.ends_with(i) || (f.mode.unwrap_or(0) & 0o111 != 0))
+            {
+                let dir = dirname(&f.install_path);
+                add_to_path(&dir);
+            }
         }
 
         #[cfg(unix)]
@@ -105,8 +123,9 @@ pub fn add_output_to_path(output: &Output) {
     }
 }
 
-pub fn get_filename(s: &str) -> Option<String> {
-    s.split("/").last().map(|i| i.to_string())
+pub fn get_filename(s: &str) -> String {
+    let i = s.rfind("/").map_or(0, |i| i + 1);
+    s[i..].to_string()
 }
 
 #[cfg(windows)]
@@ -132,17 +151,14 @@ pub fn which(name: &str) -> Option<String> {
 }
 
 const EXEC_MASK: u32 = 0o111;
-pub fn executable(name: &str, mode: u32) -> bool {
-    name.ends_with(".exe") || (!name.contains(".") && mode & EXEC_MASK != 0)
+pub fn executable(name: &str, mode: &Option<u32>) -> bool {
+    name.ends_with(".exe") || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
 }
 
-pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
+pub fn check(file: &OutputFile) -> bool {
     let file_path = &file.install_path;
-    let name = get_filename(file_path).unwrap();
-    if !file_path.starts_with(install_dir)
-        || !file_path.starts_with(binstall_dir)
-        || !executable(&name, file.mode)
-    {
+    let name = get_filename(file_path);
+    if !executable(&name, &file.mode) {
         return false;
     }
     if let Some(p) = which(&name) {
@@ -153,11 +169,11 @@ pub fn check(file: &OutputFile, install_dir: &str, binstall_dir: &str) -> bool {
     false
 }
 
-pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
-    std::fs::copy(src, dst)
-}
+// pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
+//     std::fs::copy(src, dst)
+// }
 
-pub fn write_to_file(src: &str, buffer: &[u8], mode: Option<u32>) {
+pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     let Ok(d) = std::path::PathBuf::from_str(src);
     if let Some(p) = d.parent() {
         std::fs::create_dir_all(p).expect("failed to create_dir_all");
@@ -167,8 +183,10 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: Option<u32>) {
 
     #[cfg(unix)]
     if let Some(mode) = mode {
-        std::fs::set_permissions(src, PermissionsExt::from_mode(mode))
-            .expect("failed to set_permissions");
+        if mode > 0 {
+            std::fs::set_permissions(src, PermissionsExt::from_mode(mode))
+                .expect("failed to set_permissions");
+        }
     }
 
     #[cfg(windows)]
@@ -195,16 +213,65 @@ pub async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) 
     v
 }
 
-pub fn remove_postfix(s: &str) -> String {
-    use Fmt::*;
-    for i in [Tar, TarBz, TarGz, TarXz, TarZstd, Zip] {
-        for ext in i.extensions() {
-            if !ext.is_empty() && s.ends_with(&ext) {
-                return s[0..s.len() - ext.len()].to_string();
-            }
+// pub fn remove_postfix(s: &str) -> String {
+//     use Fmt::*;
+//     for i in [Tar, TarBz, TarGz, TarXz, TarZstd, Zip] {
+//         for ext in i.extensions() {
+//             if !ext.is_empty() && s.ends_with(&ext) {
+//                 return s[0..s.len() - ext.len()].to_string();
+//             }
+//         }
+//     }
+//     s.to_string()
+// }
+
+pub fn get_common_prefix(list: &[&str]) -> Option<String> {
+    if list.is_empty() {
+        return None;
+    }
+
+    if list.len() == 1 {
+        match list[0].rfind('/') {
+            Some(i) => return Some(list[0][..=i].to_string()),
+            None => return None,
         }
     }
-    s.to_string()
+
+    let parts: Vec<Vec<&str>> = list.iter().map(|i| i.split('/').collect()).collect();
+    let max_len = parts.iter().map(|p| p.len()).max().unwrap_or(0);
+
+    let mut p = 0;
+    while p < max_len {
+        let head: Vec<_> = parts.iter().map(|k| k.get(p).unwrap_or(&"")).collect();
+        let first = head[0];
+        if head.iter().any(|&i| i != first) {
+            break;
+        }
+        p += 1;
+    }
+
+    if p == 0 {
+        return None;
+    }
+    let s = parts[0][..p].join("/") + "/";
+    Some(s)
+}
+
+pub fn install_output_files(files: &Vec<OutputFile>) {
+    for OutputFile {
+        install_path,
+        buffer,
+        mode,
+        ..
+    } in files
+    {
+        write_to_file(install_path, buffer, mode);
+    }
+}
+
+pub fn name_no_ext(s: &str) -> String {
+    let i = s.find(".").unwrap_or(s.len());
+    s[0..i].to_string()
 }
 
 #[cfg(unix)]
@@ -227,11 +294,11 @@ pub fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
 }
 
 pub fn is_archive_file(s: &str) -> bool {
-   Fmt::guess(s).is_some()
+    Fmt::guess(s).is_some()
 }
 
 pub fn is_exe_file(s: &str) -> bool {
-    if s.ends_with(".exe") {
+    if WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) {
         return true;
     }
     let re_latest =
@@ -301,12 +368,14 @@ mod test {
     use crate::{
         download::{download_dist_manfiest, read_dist_manfiest},
         tool::{
-            get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file,
+            dirname, get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file,
             is_exe_file, is_url,
         },
         ty::Repo,
     };
     use detect_targets::detect_targets;
+
+    use super::{get_bin_name, get_common_prefix};
 
     #[test]
     fn test_is_file() {
@@ -429,48 +498,48 @@ mod test {
         assert!(!manfiest.artifacts.is_empty())
     }
 
-    #[tokio::test]
-    async fn test_manifest_jsc() {
-        let repo = Repo {
-            owner: "ahaoboy".to_string(),
-            name: "jsc-build".to_string(),
-            tag: None,
-        };
+    // #[tokio::test]
+    // async fn test_manifest_jsc() {
+    //     let repo = Repo {
+    //         owner: "ahaoboy".to_string(),
+    //         name: "jsc-build".to_string(),
+    //         tag: None,
+    //     };
 
-        let manifest = repo.get_manfiest().await.unwrap();
-        let art = manifest
-            .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
-            .unwrap();
+    //     let manifest = repo.get_manfiest().await.unwrap();
+    //     let art = manifest
+    //         .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
+    //         .unwrap();
 
-        assert!(art.has_file("bin/jsc"));
-        assert!(art.has_file("lib/libJavaScriptCore.a"));
-        assert!(!art.has_file("lib/jsc"));
-    }
+    //     assert!(art.has_file("bin/jsc"));
+    //     assert!(art.has_file("lib/libJavaScriptCore.a"));
+    //     assert!(!art.has_file("lib/jsc"));
+    // }
 
-    #[tokio::test]
-    async fn test_manifest_mujs() {
-        let repo = Repo {
-            owner: "ahaoboy".to_string(),
-            name: "mujs-build".to_string(),
-            tag: None,
-        };
+    // #[tokio::test]
+    // async fn test_manifest_mujs() {
+    //     let repo = Repo {
+    //         owner: "ahaoboy".to_string(),
+    //         name: "mujs-build".to_string(),
+    //         tag: None,
+    //     };
 
-        let manifest = repo.get_manfiest().await.unwrap();
-        let art = manifest
-            .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
-            .unwrap();
+    //     let manifest = repo.get_manfiest().await.unwrap();
+    //     let art = manifest
+    //         .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
+    //         .unwrap();
 
-        assert!(art.has_file("mujs"));
-        assert!(!art.has_file("mujs.exe"));
+    //     assert!(art.has_file("mujs"));
+    //     assert!(!art.has_file("mujs.exe"));
 
-        let manifest = repo.get_manfiest().await.unwrap();
-        let art = manifest
-            .get_artifact(&vec!["x86_64-pc-windows-gnu".to_string()])
-            .unwrap();
+    //     let manifest = repo.get_manfiest().await.unwrap();
+    //     let art = manifest
+    //         .get_artifact(&vec!["x86_64-pc-windows-gnu".to_string()])
+    //         .unwrap();
 
-        assert!(!art.has_file("mujs"));
-        assert!(art.has_file("mujs.exe"));
-    }
+    //     assert!(!art.has_file("mujs"));
+    //     assert!(art.has_file("mujs.exe"));
+    // }
 
     #[tokio::test]
     async fn test_install_from_manfiest() {
@@ -559,5 +628,36 @@ mod test {
       ]{
         assert_eq!(is_exe_file(a),b);
       }
+    }
+
+    #[test]
+    fn test_get_common_prefix() {
+        assert_eq!(
+            get_common_prefix(&["/a/ab/c", "/a/ad", "/a/ab/d",]),
+            Some("/a/".to_string())
+        );
+        assert_eq!(get_common_prefix(&["a",]), None);
+        assert_eq!(get_common_prefix(&["/a",]), Some("/".to_string()));
+        assert_eq!(get_common_prefix(&["/a/b"]), Some("/a/".to_string()));
+    }
+
+    #[test]
+    fn test_get_bin_name() {
+        for (a, b) in [
+            ("a", if cfg!(windows) { "a.exe" } else { "a" }),
+            ("a.bat", "a.bat"),
+            ("a.ps1", "a.ps1"),
+            ("a.msi", "a.msi"),
+        ] {
+            let s = get_bin_name(a);
+            assert_eq!(b, s)
+        }
+    }
+
+    #[test]
+    fn test_dirname() {
+        for (a, b) in [("a", "a"), ("/a", "/"), ("/a/b", "/a/"), ("a/b/c", "a/b/")] {
+            assert_eq!(dirname(a), b);
+        }
     }
 }

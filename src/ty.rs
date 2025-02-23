@@ -1,64 +1,30 @@
-use crate::artifact::Artifacts;
+use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
-use crate::manfiest::{self, Artifact, Asset, DistManifest};
-use crate::tool::{is_archive_file, is_hash_file, is_msi_file, remove_postfix};
+use crate::manfiest::{Artifact, DistManifest};
+use crate::tool::{is_archive_file, is_hash_file, is_msi_file};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::path::PathBuf;
-use std::str::FromStr;
 use tracing::trace;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub struct OutputFile {
     pub install_path: String,
-    pub mode: u32,
+    pub mode: Option<u32>,
     pub size: u32,
     pub origin_path: String,
     pub is_dir: bool,
+    pub buffer: Vec<u8>
 }
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct OutputItem {
     pub install_dir: String,
-    pub bin_dir: String,
     pub files: Vec<OutputFile>,
 }
 
 pub type Output = HashMap<String, OutputItem>;
 
 impl Artifact {
-    pub fn has_file(&self, p: &str) -> bool {
-        let mut p = p.to_string().replace("\\", "/");
-        // FIXME: The full path should be used
-        // but the cargo-dist path has a prefix
-        if let Some(name) = &(self.name) {
-            let prefix = remove_postfix(name) + "/";
-            if p.starts_with(&prefix) {
-                p = p[prefix.len()..].to_string();
-            }
-        }
-
-        for i in &self.assets {
-            let name = PathBuf::from_str(&p).unwrap().to_str().unwrap().to_string();
-            if i.path.clone().unwrap_or_default() == "*" {
-                return true;
-            }
-            if Some(name.as_str()) == i.path.as_deref() {
-                return match &i.kind {
-                    manfiest::AssetKind::Executable(_) => true,
-                    manfiest::AssetKind::ExecutableDir(_) => false,
-                    manfiest::AssetKind::CDynamicLibrary(_) => true,
-                    manfiest::AssetKind::CStaticLibrary(_) => true,
-                    manfiest::AssetKind::Readme => false,
-                    manfiest::AssetKind::License => false,
-                    manfiest::AssetKind::Changelog => false,
-                    manfiest::AssetKind::Unknown => false,
-                };
-            }
-        }
-        false
-    }
-
     pub fn match_targets(&self, targets: &Vec<String>) -> bool {
         for i in targets {
             if self.target_triples.contains(i) {
@@ -67,39 +33,9 @@ impl Artifact {
         }
         false
     }
-
-    pub fn get_assets_executable_dir(&self) -> Option<Asset> {
-        for i in self.assets.clone() {
-            if let manfiest::AssetKind::ExecutableDir(_) = i.kind {
-                return Some(i);
-            }
-        }
-        None
-    }
-
-    pub fn get_asset(&self, path: &str) -> Option<Asset> {
-        self.assets.clone().into_iter().find_map(|i| {
-            if i.path == Some(path.to_owned()) {
-                return Some(i);
-            }
-            None
-        })
-    }
 }
 
 impl DistManifest {
-    pub fn get_artifact(&self, targets: &Vec<String>) -> Option<Artifact> {
-        self.artifacts.clone().into_iter().find_map(|(_, art)| {
-            if art.match_targets(targets)
-              // && is_archive_file(&name)
-              && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
-            {
-                return Some(art);
-            }
-            None
-        })
-    }
-
     pub fn get_artifact_by_key(&self, key: &str) -> Option<Artifact> {
         self.artifacts.get(key).cloned()
     }
@@ -209,7 +145,7 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
         let mut v = vec![];
-        if let Some(artifacts) = download_json::<Artifacts>(&api).await {
+        if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
                 for pat in &targets {
@@ -237,7 +173,7 @@ impl Repo {
         let re = Regex::new(pattern).unwrap();
         let pattern_name = pattern.split("/").last();
         let name_re = pattern_name.map(|i| Regex::new(i).unwrap());
-        if let Some(artifacts) = download_json::<Artifacts>(&api).await {
+        if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             for art in artifacts.assets {
                 if !is_hash_file(&art.browser_download_url)
                     && !is_msi_file(&art.browser_download_url)

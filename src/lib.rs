@@ -1,11 +1,14 @@
-pub mod artifact;
-pub mod download;
-pub mod env;
-pub mod install;
-pub mod manfiest;
-pub mod tool;
-pub mod ty;
-pub mod rule;
+mod artifact;
+mod download;
+mod env;
+mod install;
+mod manfiest;
+mod tool;
+mod ty;
+mod rule;
+
+use clap::Parser;
+use tool::add_output_to_path;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
@@ -16,9 +19,6 @@ pub struct Args {
     #[arg()]
     pub url: String,
 }
-
-use clap::Parser;
-use tool::add_output_to_path;
 
 pub async fn run_main(args: Args) {
     let Args { url, dir } = args;

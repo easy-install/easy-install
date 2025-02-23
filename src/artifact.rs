@@ -1,10 +1,9 @@
 use serde::Deserialize;
 use std::hash::Hash;
-use std::{borrow::Borrow, collections::HashSet, hash::Hasher};
+use std::{collections::HashSet, hash::Hasher};
 #[derive(Eq, Deserialize, Debug)]
-pub struct Artifact {
+pub struct GhArtifact {
     pub name: String,
-    pub url: String,
     pub browser_download_url: String,
 }
 
@@ -12,13 +11,13 @@ pub struct Artifact {
 // same hash as a str with the same content, and that the comparison will be
 // the same to coparing a string.
 
-impl PartialEq for Artifact {
+impl PartialEq for GhArtifact {
     fn eq(&self, other: &Self) -> bool {
         self.name.eq(&other.name)
     }
 }
 
-impl Hash for Artifact {
+impl Hash for GhArtifact {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
@@ -31,13 +30,13 @@ impl Hash for Artifact {
 // Implement Borrow so that we can use call
 // `HashSet::contains::<str>`
 
-impl Borrow<str> for Artifact {
-    fn borrow(&self) -> &str {
-        &self.name
-    }
-}
+// impl Borrow<str> for Artifact {
+//     fn borrow(&self) -> &str {
+//         &self.name
+//     }
+// }
 
 #[derive(Debug, Default, Deserialize)]
-pub struct Artifacts {
-    pub assets: HashSet<Artifact>,
+pub struct GhArtifacts {
+    pub assets: HashSet<GhArtifact>,
 }
