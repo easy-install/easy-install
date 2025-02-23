@@ -12,8 +12,8 @@ use std::os::unix::prelude::PermissionsExt;
 
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
+use crate::rule::match_name;
 use crate::ty::{Output, OutputFile, Repo};
-use detect_targets::detect_targets;
 use regex::Regex;
 use std::str::FromStr;
 
@@ -195,19 +195,23 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     }
 }
 
-pub async fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
-    let targets = detect_targets().await;
+pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
     let mut v = vec![];
-    for (name, art) in manfiest.artifacts.iter() {
-        if art.match_targets(&targets)
-          // && is_archive_file(name)
-          && art.kind.clone().unwrap_or("executable-zip".to_owned()) == "executable-zip"
-        {
-            if !is_url(name) {
-                v.push(replace_filename(url, name));
-            } else {
-                v.push(name.clone());
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+    let musl = is_musl::is_musl();
+    let mut filter = vec![];
+    for (key, _) in manfiest.artifacts.iter() {
+        if let Some(name) = match_name(key, None, os, arch, musl) {
+            if filter.contains(&name) {
+                continue;
             }
+            if !is_url(key) {
+                v.push(replace_filename(url, key));
+            } else {
+                v.push(key.clone());
+            }
+            filter.push(name);
         }
     }
     v
@@ -232,7 +236,7 @@ pub fn get_common_prefix_len(list: &[&str]) -> usize {
 
     if list.len() == 1 {
         match list[0].rfind('/') {
-            Some(i) => return i+1,
+            Some(i) => return i + 1,
             None => return 0,
         }
     }
@@ -306,10 +310,14 @@ pub fn is_exe_file(s: &str) -> bool {
     let re_tag =
         Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")
             .expect("failed to build github release regex");
-
-    for (re, n) in [(re_latest, 3), (re_tag, 4)] {
+    let re_tag2 = Regex::new(
+        r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$",
+    )
+    .expect("failed to build github release regex");
+    for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
         if let Some(cap) = re.captures(s) {
             if let Some(name) = cap.get(n) {
+                println!("name {}", name.as_str());
                 if is_archive_file(name.as_str()) {
                     return false;
                 }
@@ -372,7 +380,7 @@ mod test {
         },
         ty::Repo,
     };
-    use detect_targets::detect_targets;
+    
 
     use super::{get_bin_name, get_common_prefix_len};
 
@@ -545,7 +553,7 @@ mod test {
         let url =
             "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
-        let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
+        let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
     }
 
@@ -554,7 +562,7 @@ mod test {
         let url =
             "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
-        let art_url = get_artifact_url_from_manfiest(url, &manfiest).await;
+        let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
     }
 
@@ -562,7 +570,7 @@ mod test {
     async fn test_deno() {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
-        let artifact_url = repo.get_artifact_url(detect_targets().await).await;
+        let artifact_url = repo.get_artifact_url().await;
         assert_eq!(artifact_url.len(), 2);
     }
 
@@ -585,7 +593,7 @@ mod test {
     #[tokio::test]
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
-        let artifact_url = repo.get_artifact_url(detect_targets().await).await;
+        let artifact_url = repo.get_artifact_url().await;
         assert_eq!(artifact_url.len(), 1);
     }
 
@@ -593,12 +601,12 @@ mod test {
     async fn test_quickjs_ng() {
         let json = "./dist-manifest/quickjs-ng.json";
         let manifest = read_dist_manfiest(json).unwrap();
-        let urls = get_artifact_url_from_manfiest(json, &manifest).await;
+        let urls = get_artifact_url_from_manfiest(json, &manifest);
         assert_eq!(urls.len(), 2);
 
         for i in urls {
-            let download_urls = get_artifact_download_url(&i).await;
-            assert_eq!(download_urls.len(), 1);
+            let download_urls = get_artifact_download_url(&i);
+            assert_eq!(download_urls.await.len(), 1);
         }
     }
 
@@ -623,7 +631,10 @@ mod test {
         ("https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64", true),
         ("https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz", false),
         ("https://github.com/easy-install/easy-install", false),
-        ("https://github.com/easy-install/easy-install/releases/tag/v0.1.5", false)
+        ("https://github.com/easy-install/easy-install/releases/tag/v0.1.5", false),
+        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64", true),
+        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.zip", false),
+        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.msi", false)
       ]{
         assert_eq!(is_exe_file(a),b);
       }
@@ -631,10 +642,7 @@ mod test {
 
     #[test]
     fn test_get_common_prefix() {
-        assert_eq!(
-            get_common_prefix_len(&["/a/ab/c", "/a/ad", "/a/ab/d",]),
-           3
-        );
+        assert_eq!(get_common_prefix_len(&["/a/ab/c", "/a/ad", "/a/ab/d",]), 3);
         assert_eq!(get_common_prefix_len(&["a",]), 0);
         assert_eq!(get_common_prefix_len(&["/a",]), 1);
         assert_eq!(get_common_prefix_len(&["/a/b"]), 3);

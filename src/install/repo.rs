@@ -1,11 +1,10 @@
 use crate::install::artifact::install_from_artifact_url;
 use crate::ty::{Output, Repo};
-use detect_targets::detect_targets;
 use tracing::trace;
 
 pub async fn install_from_github(repo: &Repo, dir: Option<String>) -> Output {
     trace!("install_from_git {}", repo);
-    let artifact_url = repo.get_artifact_url(detect_targets().await).await;
+    let artifact_url = repo.get_artifact_url().await;
     let mut v = Output::new();
     if !artifact_url.is_empty() {
         for i in artifact_url {
@@ -15,8 +14,9 @@ pub async fn install_from_github(repo: &Repo, dir: Option<String>) -> Output {
         }
     } else {
         println!(
-            "not found asset for {} on {}",
-            detect_targets().await.join(","),
+            "not found asset for os:{} arch:{} on {}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
             repo.get_gh_url()
         );
     }

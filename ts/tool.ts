@@ -39,20 +39,23 @@ export function isExeFile(s: string): boolean {
     return true
   }
 
+  // https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64
   const reLatest =
-    /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/latest\/download\/([^\/]+)/
+    /https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/latest\/download\/([^\/]+)$/
   const reTag =
-    /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/([^\/]+)/
+    /https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/([^\/]+)$/
+  const reTag2 =
+    /https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/([^\/]+)\/([^\/]+)$/
 
   for (
     const [re, n] of [
-      [reLatest, 3],
+      [reTag2, 5],
       [reTag, 4],
+      [reLatest, 3],
     ] as const
   ) {
     const match = re.exec(s)
     const name = match?.[n]
-
     if (name && !isArchiveFile(name) && !name.includes('.')) {
       return true
     }
@@ -476,3 +479,4 @@ export function nameNoExt(s: string) {
 }
 
 export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
+export const INSTALLER_EXTS = ['.msi', '.app']

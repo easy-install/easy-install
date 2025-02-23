@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { Repo } from '../ts/repo'
-import { isUrl } from '../ts'
+import { isExeFile, isUrl } from '../ts'
 
 test('getReleasesApiUrl', () => {
   const repo = Repo.fromUrl('https://github.com/denoland/deno')!
@@ -143,4 +143,46 @@ test('getManfiest', async () => {
   expect(json!.artifacts['cargo-dist-x86_64-apple-darwin.tar.xz'].name).toEqual(
     'cargo-dist-x86_64-apple-darwin.tar.xz',
   )
+})
+
+test('isExeFile', () => {
+  for (
+    const [a, b] of [
+      [
+        'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
+        true,
+      ],
+      [
+        'https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe',
+        true,
+      ],
+      [
+        'https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64',
+        true,
+      ],
+      [
+        'https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz',
+        false,
+      ],
+      ['https://github.com/easy-install/easy-install', false],
+      [
+        'https://github.com/easy-install/easy-install/releases/tag/v0.1.5',
+        false,
+      ],
+      [
+        'https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64',
+        true,
+      ],
+      [
+        'https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.zip',
+        false,
+      ],
+      [
+        'https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.msi',
+        false,
+      ],
+    ] as const
+  ) {
+    expect(isExeFile(a)).toBe(b)
+  }
 })

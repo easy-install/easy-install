@@ -10,7 +10,6 @@ authors = ["ahaoboy"]
 include = ["/src", "/Cargo.toml", "/README.md"]
 
 [dependencies]
-detect-targets = "0.1"
 clap = { version = "4.5", features = ["derive"] }
 is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
 is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }

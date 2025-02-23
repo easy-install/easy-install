@@ -1,7 +1,9 @@
 use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
 use crate::manfiest::{Artifact, DistManifest};
-use crate::tool::{is_archive_file, is_hash_file, is_msi_file};
+use crate::rule::match_name;
+use crate::tool::{is_hash_file, is_msi_file};
+use is_musl::is_musl;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -14,7 +16,7 @@ pub struct OutputFile {
     pub size: u32,
     pub origin_path: String,
     pub is_dir: bool,
-    pub buffer: Vec<u8>
+    pub buffer: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct OutputItem {
@@ -24,16 +26,16 @@ pub struct OutputItem {
 
 pub type Output = HashMap<String, OutputItem>;
 
-impl Artifact {
-    pub fn match_targets(&self, targets: &Vec<String>) -> bool {
-        for i in targets {
-            if self.target_triples.contains(i) {
-                return true;
-            }
-        }
-        false
-    }
-}
+// impl Artifact {
+//     pub fn match_targets(&self, targets: &Vec<String>) -> bool {
+//         for i in targets {
+//             if self.target_triples.contains(i) {
+//                 return true;
+//             }
+//         }
+//         false
+//     }
+// }
 
 impl DistManifest {
     pub fn get_artifact_by_key(&self, key: &str) -> Option<Artifact> {
@@ -140,27 +142,25 @@ impl Repo {
     pub async fn get_manfiest(&self) -> Option<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub async fn get_artifact_url(&self, targets: Vec<String>) -> Vec<String> {
+    pub async fn get_artifact_url(&self) -> Vec<String> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
         let mut v = vec![];
+        let os = std::env::consts::OS;
+        let arch = std::env::consts::ARCH;
+        let musl = is_musl();
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
-                for pat in &targets {
-                    let remove_target = i.name.replace(pat, "");
-                    if i.name.contains(pat)
-                        && is_archive_file(&i.name)
-                        && !filter.contains(&remove_target)
-                    {
+                if let Some(name) = match_name(&i.name, None, os, arch, musl) {
+                    if !filter.contains(&name) {
                         v.push(i.browser_download_url.clone());
-                        filter.push(remove_target)
+                        filter.push(name)
                     }
                 }
             }
         }
-
         v
     }
 
@@ -194,22 +194,5 @@ impl Display for Repo {
             Some(t) => f.write_str(&format!("{}/{}@{}", self.owner, self.name, t)),
             None => f.write_str(&format!("{}/{}", self.owner, self.name)),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::ty::Repo;
-
-    #[tokio::test]
-    async fn test_api() {
-        let repo = Repo::try_from("https://github.com/ahaoboy/jsc-build").unwrap();
-        let artifact_url = repo
-            .get_artifact_url(vec![
-                "x86_64-unknown-linux-gnu".to_string(),
-                "x86_64-unknown-linux-musl".to_string(),
-            ])
-            .await;
-        assert_eq!(artifact_url.len(), 1);
     }
 }
