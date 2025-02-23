@@ -200,7 +200,6 @@ pub fn match_name(
     let rules = get_rules(bin);
     for (name, rule) in match_rules(s, &rules) {
         let t = &rule.target;
-        println!("{} {} {} {} {}", name, rule.rule, t.os, t.arch, t.musl);
         if (os == "linux" || os == "freebsd") && t.os == os && t.arch == arch && t.musl == musl {
             return Some(name);
         }

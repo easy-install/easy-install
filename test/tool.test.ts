@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import {
   getAssetNames,
   getCommonPrefixLen,
+  getFilename,
   isArchiveFile,
   isExeFile,
 } from '../ts/tool'
@@ -10,10 +11,8 @@ import { downloadDistManfiest } from '../ts/download'
 import { Repo } from '../ts'
 import {
   getArtifact,
-  // getArtifactDownloadUrl,
   getArtifactUrlFromManfiest,
   hasFile,
-  readDistManfiest,
 } from '../ts/dist-manifest'
 
 test('getAssetNames', () => {
@@ -200,5 +199,16 @@ test('getCommonPrefix', () => {
     ] as const
   ) {
     expect(getCommonPrefixLen(a)).toEqual(b)
+  }
+})
+
+test("getFilename", () => {
+  for (const [a, b] of [
+    ["/a/b", "b"],
+    ["/a/b/c.exe", "c.exe"],
+    ["a", 'a']
+  ]) {
+    console.log(getFilename(a))
+    expect(getFilename(a)).toEqual(b)
   }
 })

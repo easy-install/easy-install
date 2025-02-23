@@ -5,6 +5,7 @@ import {
   displayOutput,
   download,
   getCommonPrefixLen,
+  getFilename,
   installOutputFiles,
   isExeFile,
   nameNoExt,
@@ -45,7 +46,7 @@ export async function repoInstall(
     } else {
       console.log(`download ${i}`)
       const downloadPath = await download(i)
-      const filename = downloadPath.split('/').at(-1)!
+      const filename = getFilename(downloadPath)
       const { files } = extractTo(downloadPath) || {}
       if (!files) {
         return {}

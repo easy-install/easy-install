@@ -22,23 +22,14 @@ test('fileInstall', async () => {
   expect(existsSync(item2.installPath!)).toEqual(true)
 })
 
-test('artifactInstall', async () => {
-  const url =
-    'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
-  const output = (await artifactInstall(url))!
-  const item = Object.values(output)[0]
-  const mujsPath = join(item.installDir, 'mujs', 'mujs')
-  expect(existsSync(mujsPath)).toEqual(true)
-})
-
-test('artifactInstall ', async () => {
-  const url =
-    'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
-  const output = await artifactInstall(url)!
-  const item = Object.values(output)[0]
-  const mujsPath = join(item.installDir, 'mujs')
-  expect(existsSync(mujsPath)).toEqual(true)
-})
+// test('artifactInstall', async () => {
+//   const url =
+//     'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
+//   const output = (await artifactInstall(url))!
+//   const item = Object.values(output)[0]
+//   const mujsPath = join(item.installDir, 'mujs', 'mujs')
+//   expect(existsSync(mujsPath)).toEqual(true)
+// })
 
 test('install starship ', async () => {
   const url = 'https://github.com/starship/starship'

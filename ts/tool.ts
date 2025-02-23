@@ -453,7 +453,7 @@ export function getCommonPrefixLen(list: readonly string[]): number {
       break
     }
   }
-  return parts[0].slice(0, p).join('/').length + 1
+  return parts[0].slice(0, p).join('/').length
 }
 
 export function installOutputFiles(files: OutputFile[]) {

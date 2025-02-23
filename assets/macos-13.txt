@@ -1,0 +1,15 @@
+zig
+llrt
+alist
+mujs
+bun
+fnm
+starship
+yt-dlp
+pnpm
+biome
+qjs
+qjsc
+hermes
+xst
+esbuild

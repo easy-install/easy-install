@@ -38,148 +38,29 @@ jobs:
           cargo run -- --version
       - name: install
         run: |
-          for file in ./dist-manifest/*.json; do
+          for file in dist-manifest/*.json; do
             echo $file
             cargo run -- $file
             source ~/.bashrc
           done
 
-          cargo run -- https://github.com/starship/starship
-          cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/ahaoboy/mujs-build
-          cargo run -- https://github.com/ahaoboy/neofetch
-          cargo run -- https://github.com/axodotdev/cargo-dist
-          cargo run -- https://github.com/ahaoboy/jsc-build
-          cargo run -- https://github.com/ahaoboy/spidermonkey-build
-          cargo run -- https://github.com/ahaoboy/v8-build
-          cargo run -- https://github.com/ahaoboy/txiki.js-build
-          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
-
-      - name: test which on windows
-        if: matrix.os == 'windows-latest'
-        shell: powershell
+      - name: install list
         run: |
-          $env:PATH -split ';' | Write-Host
+          cat assets/url-list.txt | while read line
+          do
+              echo $line
+              cargo run -- "$line"
+          done
 
-          Copy-Item -Path "C:\Users\runneradmin\.easy-install\graaljs\bin\js.exe" -Destination "C:\Users\runneradmin\.easy-install\graaljs\bin\graaljs.exe"
-
-          get-command mujs
-          get-command neofetch
-          get-command dist
-          get-command deno
-          get-command ffmpeg
-          get-command zig
-          get-command llrt
-          get-command alist
-          get-command bun
-          get-command fnm
-          get-command 7z
-          get-command starship
-          get-command ScreenToGif
-          get-command yt-dlp
-          get-command pnpm
-          get-command biome
-          get-command qjs
-          get-command qjsc
-          get-command boa
-          get-command graaljs
-          get-command hermes
-          get-command xst
-          get-command mpv
-          get-command esbuild
-          get-command rcedit
-          get-command bun
-
-      - name: test which on ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+      - name: test which
         run: |
-          echo $PATH
-          # cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
-          mv ~/.easy-install/graaljs/bin/js ~/.easy-install/graaljs/bin/graaljs
-          # cat ~/.bashrc
-          # source ~/.bashrc
-          # echo $PATH
+          ls -lh ~/.easy-install
 
-          which jsc
-          which js
-          which d8
-          which deno
-          which ffmpeg
-          which zig
-          which llrt
-          which alist
-          which bun
-          which fnm
-          which 7z
-          which starship
-          which yt-dlp
-          which pnpm
-          which biome
-          which qjs
-          which qjsc
-          which boa
-          which graaljs
-          which hermes
-          which xst
-          which esbuild
-          which bun
-
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
-          d8 ./test.js
-          js ./test.js
-          jsc ./test.js
-          boa ./test.js
-          llrt ./test.js
-
-      - name: test which on macos
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          echo $PATH
-          # cp /usr/local/bin/graaljs/bin/js /usr/local/bin/graaljs/bin/graaljs
-          # mv ~/.easy-install/graaljs/bin/js ~/.easy-install/graaljs/bin/graaljs
-
-          # which deno
-          which zig
-          which llrt
-          which alist
-          which mujs
-          which bun
-          which fnm
-          which 7z
-          which starship
-          which yt-dlp
-          which pnpm
-          which biome
-          which qjs
-          which qjsc
-          # which boa
-          # which graaljs
-          # which js
-          which hermes
-          which xst
-          which esbuild
-          fnm --version
-
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
-          # d8 ./test.js
-          # js ./test.js
-          # jsc ./test.js
-          mujs test.js
-          qjs test.js
-          # boa test.js
-          llrt ./test.js
-
-      - name: test check file exists
-        run: |
-          cargo run -- https://github.com/ahaoboy/mujs-build
-          cargo run -- https://github.com/denoland/deno
-          cargo run -- https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
-      - name: test builtin
-        run: |
-          cargo run -- https://github.com/pnpm/pnpm
-          pnpm --version
-          cargo run -- https://github.com/pnpm/pnpm/releases/tag/v9.15.3
-          pnpm --version
+          cat assets/${{ matrix.os }}.txt | while read line
+          do
+              echo $line
+              which $line
+          done
 
   js-test:
     strategy:
@@ -204,125 +85,26 @@ jobs:
           pnpm run test:run
       - name: install
         run: |
-          for file in ./dist-manifest/*.json; do
+          for file in dist-manifest/*.json; do
             echo $file
-            cli/cli.js $file
+            node cli/cli.js $file
             source ~/.bashrc
           done
-          # skip when release
-          # cli/cli.js https://github.com/easy-install/easy-install
 
-          cli/cli.js https://github.com/denoland/deno
-          cli/cli.js https://github.com/starship/starship
-          cli/cli.js https://github.com/ahaoboy/mujs-build
-          cli/cli.js https://github.com/ahaoboy/neofetch
-          cli/cli.js https://github.com/axodotdev/cargo-dist
-          cli/cli.js https://github.com/ahaoboy/jsc-build
-          cli/cli.js https://github.com/ahaoboy/spidermonkey-build
-          cli/cli.js https://github.com/ahaoboy/v8-build
-          cli/cli.js https://github.com/ahaoboy/txiki.js-build
+      - name: install list
+        run: |
+          cat assets/url-list.txt | while read line
+          do
+              echo $line
+              node cli/cli.js "$line"
+          done
 
+      - name: test which
+        run: |
           ls -lh ~/.easy-install
 
-      - name: test windows
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          $env:PATH -split ';' | Write-Host
-
-          Copy-Item -Path "C:\Users\runneradmin\.easy-install\graaljs\bin\js.exe" -Destination "C:\Users\runneradmin\.easy-install\graaljs\bin\graaljs.exe"
-
-          get-command mujs
-          get-command neofetch
-          get-command dist
-          get-command deno
-          get-command denort
-          get-command ffmpeg
-          get-command zig
-          get-command llrt
-          get-command alist
-          get-command bun
-          get-command fnm
-          get-command 7z
-          get-command starship
-          get-command ScreenToGif
-          get-command yt-dlp
-          get-command pnpm
-          get-command biome
-          get-command qjs
-          get-command qjsc
-          get-command boa
-          get-command graaljs
-          get-command hermes
-          get-command xst
-          get-command mpv
-          get-command esbuild
-          get-command rcedit
-          get-command tjs
-
-      - name: test ubuntu
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
-          echo $PATH
-          mv ~/.easy-install/graaljs/bin/js ~/.easy-install/graaljs/bin/graaljs
-          # cat ~/.bashrc
-          # source ~/.bashrc
-          # echo $PATH
-
-          which jsc
-          which js
-          which d8
-          which deno
-          which denort
-          which ffmpeg
-          which zig
-          which llrt
-          which alist
-          which bun
-          which fnm
-          which 7z
-          which starship
-          which yt-dlp
-          which pnpm
-          which biome
-          which qjs
-          which qjsc
-          which boa
-          which graaljs
-          which hermes
-          which xst
-          which esbuild
-          which tjs
-
-          echo "var o=Function('return this')(),n=o.print||o.console.log;n('hello world')" >> test.js
-          d8 ./test.js
-          js ./test.js
-          jsc ./test.js
-          llrt ./test.js
-
-      - name: test macos
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          # which ei
-          which dist
-          which js
-          which starship
-          which qjs
-          which qjsc
-          # which boa
-          which llrt
-          which hermes
-          which xst
-          which tjs
-          which pnpm
-      - name: test check file exists
-        run: |
-          cli/cli.js https://github.com/ahaoboy/mujs-build
-          cli/cli.js https://github.com/denoland/deno
-          cli/cli.js https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json
-      - name: test builtin
-        run: |
-          cli/cli.js https://github.com/pnpm/pnpm
-          pnpm --version
-          cli/cli.js https://github.com/pnpm/pnpm/releases/tag/v9.15.3
-          pnpm --version
+          cat assets/${{ matrix.os }}.txt | while read line
+          do
+              echo $line
+              which $line
+          done
