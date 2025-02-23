@@ -26,3 +26,5 @@ https://github.com/ahaoboy/jsc-build
 https://github.com/ahaoboy/spidermonkey-build
 https://github.com/ahaoboy/v8-build
 https://github.com/ahaoboy/txiki.js-build
+https://github.com/Ryubing/Ryujinx
+https://github.com/NickeManarin/ScreenToGif
