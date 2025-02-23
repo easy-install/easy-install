@@ -302,17 +302,17 @@ export function addExecutePermission(filePath: string) {
   }
 }
 
-export function atomiInstall(src: string, dst: string) {
-  const dir = path.dirname(dst)
-  if (fs.existsSync(dir) && fs.statSync(dir).isFile()) {
-    console.log(`remove ${dir}`)
-    fs.rmSync(dir)
-  }
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-  }
-  fs.copyFileSync(src, dst)
-}
+// export function atomiInstall(src: string, dst: string) {
+//   const dir = path.dirname(dst)
+//   if (fs.existsSync(dir) && fs.statSync(dir).isFile()) {
+//     console.log(`remove ${dir}`)
+//     fs.rmSync(dir)
+//   }
+//   if (!fs.existsSync(dir)) {
+//     fs.mkdirSync(dir, { recursive: true })
+//   }
+//   fs.copyFileSync(src, dst)
+// }
 
 export function isDistManfiest(s: string) {
   return s.endsWith('.json')
@@ -453,7 +453,7 @@ export function getCommonPrefixLen(list: readonly string[]): number {
       break
     }
   }
-  return parts[0].slice(0, p).join('/').length
+  return parts[0].slice(0, p).join('/').length + 1
 }
 
 export function installOutputFiles(files: OutputFile[]) {
