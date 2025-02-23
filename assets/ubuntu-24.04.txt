@@ -16,7 +16,6 @@ biome
 qjs
 qjsc
 boa
-graaljs
 hermes
 xst
 esbuild

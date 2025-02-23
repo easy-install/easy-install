@@ -16,10 +16,8 @@ biome
 qjs
 qjsc
 boa
-graaljs
 hermes
 xst
 mpv
 esbuild
 rcedit
-bun
