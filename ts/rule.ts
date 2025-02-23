@@ -251,17 +251,21 @@ function getCommonTargets(
     }
     case 'linux': {
       switch (arch) {
+        case 'riscv64': {
+          return [
+            { target: 'linux-riscv64', rank: 10 },
+          ]
+        }
         case 'arm64': {
           if (musl) {
             return [
               { target: 'linux-arm64-musl', rank: 10 },
               { target: 'linux-aarch64-musl', rank: 10 },
-              { target: 'linux-aarch64', rank: 10 },
-              { target: 'linux-riscv64', rank: 10 },
               { target: 'linux', rank: 1 },
             ]
           }
           return [
+            { target: 'linux-aarch64', rank: 10 },
             { target: 'linux-armv7', rank: 10 },
             { target: 'linux-arm64', rank: 10 },
             { target: 'linux', rank: 1 },

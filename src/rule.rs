@@ -257,6 +257,9 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
                 ("mac".to_string(), 1),
             ]
         }
+        ("linux", "riscv64", _) => {
+            vec![("linux-riscv64".to_string(), 10)]
+        }
         ("linux", "aarch64", true) => {
             vec![
                 ("linux-aarch64-musl".to_string(), 10),
@@ -266,6 +269,7 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("linux", "aarch64", false) => {
             vec![
+                ("linux-aarch64".to_string(), 10),
                 ("linux-armv7".to_string(), 10),
                 ("linux-arm64".to_string(), 10),
                 ("linux".to_string(), 1),
