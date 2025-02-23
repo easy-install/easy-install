@@ -35,7 +35,7 @@ export function isArchiveFile(s: string): boolean {
 }
 
 export function isExeFile(s: string): boolean {
-  if (s.endsWith('.exe')) {
+  if (WINDOWS_EXE_EXTS.some((i) => s.endsWith(i))) {
     return true
   }
 
@@ -182,7 +182,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -447,13 +447,15 @@ export function getCommonPrefixLen(list: readonly string[]): number {
   const parts = list.map((i) => i.split('/'))
   const n = parts.reduce((pre, cur) => Math.max(pre, cur.length), 0)
   let p = 0
-  for (; p < n; p++) {
+  while (p < n) {
     const head = parts.map((k) => k[p])
     if (head.some((i) => i !== head[0])) {
       break
     }
+    p++
   }
-  return parts[0].slice(0, p).join('/').length + 1
+  const s = parts[0].slice(0, p).join('/').length
+  return s === 0 ? 0 : s + 1
 }
 
 export function installOutputFiles(files: OutputFile[]) {
@@ -474,4 +476,3 @@ export function nameNoExt(s: string) {
 }
 
 export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
-

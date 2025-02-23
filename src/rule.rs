@@ -34,7 +34,7 @@ const OS_LIST: [&str; 4] = ["macos", "linux", "windows", "freebsd"];
 const ARCH_LIST: [&str; 5] = ["x86_64", "aarch64", "x86", "i686", "arm"];
 
 const SEQ_RE: &str = "[_ -]";
-const VERSION_RE: &str = "v?(\\d+\\.\\d+\\.\\d+)";
+const VERSION_RE: &str = "v?(\\d+\\.\\d+\\.\\d+|latest|beta|alpha)";
 
 pub fn target_to_rules(target: Target, bin: Option<String>) -> Vec<Rule> {
     let mut re_list = vec![];
@@ -146,15 +146,16 @@ pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
         });
     }
 
-    for (re, rank) in [
-        (format!("^{}{}{}.exe$", bin_re, SEQ_RE, VERSION_RE), 5),
-        (format!("^{}{}(x86|x64).exe$", bin_re, SEQ_RE), 5),
-        (format!("^{}.exe$", bin_re), 1),
+    for (re, rank,arch) in [
+        (format!("^{}{}{}.exe$", bin_re, SEQ_RE, VERSION_RE), 5, "x86_64".to_string()),
+        (format!("^{}{}(x86|x64).exe$", bin_re, SEQ_RE), 5,"x86_64".to_string()),
+        (format!("^{}{}(arm|arm64|win32-arm64|win-arm64).exe$", bin_re, SEQ_RE), 5,"aarch64".to_string()),
+        (format!("^{}.exe$", bin_re), 1,"x86_64".to_string()),
     ] {
         let target = Target {
             rank: 20,
             os: "windows".to_string(),
-            arch: "x86_64".to_string(),
+            arch,
             target: re.clone(),
             musl: false,
         };
@@ -243,6 +244,8 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("linux", "aarch64", true) => {
             vec![
+
+                ("linux-aarch64-musl".to_string(), 10),
                 ("linux-arm64-musl".to_string(), 10),
                 ("linux".to_string(), 1),
             ]
@@ -292,6 +295,7 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
             vec![
                 ("windows-arm64".to_string(), 10),
                 ("win32-arm64".to_string(), 10),
+                ("win-arm64".to_string(), 10),
             ]
         }
         _ => {

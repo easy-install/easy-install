@@ -5,7 +5,10 @@ test('rule', () => {
   for (
     const [a, b, c, d, e] of [
       [
-        'mujs-x86_64-unknown-linux-gnu.tar.gz', 'mujs', 'linux', 'x64'
+        'mujs-x86_64-unknown-linux-gnu.tar.gz',
+        'mujs',
+        'linux',
+        'x64',
       ],
       ['mujs-x86_64-unknown-linux-gnu.tar.xz', 'mujs', 'linux', 'x64'],
       ['mise-v2025.2.6-linux-x64', 'mise', 'linux', 'x64'],
@@ -61,7 +64,8 @@ test('rule', () => {
       ['bun-linux-x64-baseline.zip', 'bun', 'linux', 'x64'],
     ] as const
   ) {
-    expect(matchName(a, undefined, c, d, !!e)).toBe(b)
+    const name = matchName(a, undefined, c, d, !!e)
+    expect(name).toBe(b)
   }
 })
 

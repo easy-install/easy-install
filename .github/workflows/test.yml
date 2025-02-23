@@ -49,7 +49,7 @@ jobs:
           cat assets/url-list.txt | while read line
           do
               echo $line
-              cargo run -- "$line"
+              cargo run -- $line
           done
 
       - name: test which

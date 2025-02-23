@@ -42,7 +42,7 @@ const ARCH_LIST: NodeJS.Architecture[] = [
 // TODO: support musl
 // const MUSL_LIST: NodeJS.Architecture[] = []
 const seqRe = '[_-\\s]'
-const versionRe = `v\?(\\d+\\.\\d+\\.\\d+)`
+const versionRe = `v\?(\\d+\\.\\d+\\.\\d+|latest|beta|alpha)`
 function targetToRules(target: Target, bin?: string): Rule[] {
   const reList: { rule: string; rank: number }[] = []
   const binRe = bin?.length ? `(${bin})` : `([^\/]+)`
@@ -132,7 +132,7 @@ export function getRules(bin?: string): Rule[] {
   // windows
   const binRe = bin?.length ? `(${bin})` : `([^\/]+)`
   for (
-    const { target, rank } of [
+    const { target, rank, arch } of [
       ...getCommonTargets('win32', 'x64').map((i) => ({
         target: `^${binRe}${seqRe}${
           i.target.replaceAll(
@@ -141,17 +141,23 @@ export function getRules(bin?: string): Rule[] {
           ).replaceAll('-', seqRe)
         }.exe$`,
         rank: 10,
+        arch: 'x64',
       })),
-      { target: `^${binRe}${seqRe}${versionRe}.exe$`, rank: 5 },
-      { target: `^${binRe}${seqRe}(x86|x64).exe$`, rank: 5 },
-      { target: `^${binRe}.exe$`, rank: 1 },
+      { target: `^${binRe}${seqRe}${versionRe}.exe$`, rank: 5, arch: 'x64' },
+      { target: `^${binRe}${seqRe}(x86|x64).exe$`, rank: 5, arch: 'x64' },
+      {
+        target: `^${binRe}${seqRe}(arm|arm64|win32-arm64|win-arm64).exe$`,
+        rank: 5,
+        arch: 'arm64',
+      },
+      { target: `^${binRe}.exe$`, rank: 1, arch: 'x64' },
     ]
   ) {
     v.push({
       target: {
         rank: 20,
         os: 'win32',
-        arch: 'x64',
+        arch: arch || 'x64',
         target,
       },
       rank: 20 + rank,
@@ -249,6 +255,7 @@ function getCommonTargets(
           if (musl) {
             return [
               { target: 'linux-arm64-musl', rank: 10 },
+              { target: 'linux-aarch64-musl', rank: 10 },
               { target: 'linux-aarch64', rank: 10 },
               { target: 'linux-riscv64', rank: 10 },
               { target: 'linux', rank: 1 },
@@ -303,6 +310,7 @@ function getCommonTargets(
           return [
             { target: 'windows-arm64', rank: 10 },
             { target: 'win32-arm64', rank: 10 },
+            { target: 'win-arm64', rank: 10 },
           ]
         }
       }

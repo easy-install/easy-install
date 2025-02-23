@@ -8,7 +8,6 @@ llrt
 alist
 bun
 fnm
-7z
 starship
 ScreenToGif
 yt-dlp

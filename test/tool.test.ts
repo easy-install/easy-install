@@ -196,19 +196,25 @@ test('getCommonPrefix', () => {
         ['/a/b'],
         3,
       ],
+      [
+        ['mujs.dll', 'mujs.exe'],
+        0,
+      ],
     ] as const
   ) {
-    expect(getCommonPrefixLen(a)).toEqual(b)
+    const n = getCommonPrefixLen(a)
+    expect(n).toEqual(b)
   }
 })
 
-test("getFilename", () => {
-  for (const [a, b] of [
-    ["/a/b", "b"],
-    ["/a/b/c.exe", "c.exe"],
-    ["a", 'a']
-  ]) {
-    console.log(getFilename(a))
+test('getFilename', () => {
+  for (
+    const [a, b] of [
+      ['/a/b', 'b'],
+      ['/a/b/c.exe', 'c.exe'],
+      ['a', 'a'],
+    ]
+  ) {
     expect(getFilename(a)).toEqual(b)
   }
 })

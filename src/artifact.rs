@@ -27,15 +27,6 @@ impl Hash for GhArtifact {
     }
 }
 
-// Implement Borrow so that we can use call
-// `HashSet::contains::<str>`
-
-// impl Borrow<str> for Artifact {
-//     fn borrow(&self) -> &str {
-//         &self.name
-//     }
-// }
-
 #[derive(Debug, Default, Deserialize)]
 pub struct GhArtifacts {
     pub assets: HashSet<GhArtifact>,

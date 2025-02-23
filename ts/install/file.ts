@@ -2,20 +2,14 @@ import { join } from 'path'
 import { downloadBinary, downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
-  addExecutePermission,
   displayOutput,
   getBinName,
+  installOutputFiles,
   nameNoExt,
   showSuccess,
 } from '../tool'
 import { DistManifest, Output } from '../type'
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'fs'
+import { chmodSync, readFileSync } from 'fs'
 import { matchName } from '../rule'
 
 export type FileInstall = {
@@ -77,13 +71,10 @@ export async function fileInstall(
   const artifact = dist?.['artifacts'][url]
   if (artifact) {
     const buffer = new Uint8Array(await downloadBinary(downloadUrl))
-    const name = artifact.name ?? matchName
-    const installPath = join(installDir, getBinName(name)).replaceAll('\\', '/')
-    if (!existsSync(installDir)) {
-      mkdirSync(installDir, { recursive: true })
-    }
-    writeFileSync(installPath, buffer, { mode })
-    addExecutePermission(installPath)
+    const installPath = join(installDir, getBinName(binName)).replaceAll(
+      '\\',
+      '/',
+    )
     const size = buffer.byteLength
     const files = [{
       size,
@@ -101,6 +92,7 @@ export async function fileInstall(
         files,
       },
     }
+    installOutputFiles(files)
     showSuccess()
     console.log(displayOutput(output))
     return output
