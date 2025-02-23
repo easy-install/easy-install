@@ -146,11 +146,26 @@ pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
         });
     }
 
-    for (re, rank,arch) in [
-        (format!("^{}{}{}.exe$", bin_re, SEQ_RE, VERSION_RE), 5, "x86_64".to_string()),
-        (format!("^{}{}(x86|x64).exe$", bin_re, SEQ_RE), 5,"x86_64".to_string()),
-        (format!("^{}{}(arm|arm64|win32-arm64|win-arm64).exe$", bin_re, SEQ_RE), 5,"aarch64".to_string()),
-        (format!("^{}.exe$", bin_re), 1,"x86_64".to_string()),
+    for (re, rank, arch) in [
+        (
+            format!("^{}{}{}.exe$", bin_re, SEQ_RE, VERSION_RE),
+            5,
+            "x86_64".to_string(),
+        ),
+        (
+            format!("^{}{}(x86|x64).exe$", bin_re, SEQ_RE),
+            5,
+            "x86_64".to_string(),
+        ),
+        (
+            format!(
+                "^{}{}(arm|arm64|win32-arm64|win-arm64).exe$",
+                bin_re, SEQ_RE
+            ),
+            5,
+            "aarch64".to_string(),
+        ),
+        (format!("^{}.exe$", bin_re), 1, "x86_64".to_string()),
     ] {
         let target = Target {
             rank: 20,
@@ -244,7 +259,6 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("linux", "aarch64", true) => {
             vec![
-
                 ("linux-aarch64-musl".to_string(), 10),
                 ("linux-arm64-musl".to_string(), 10),
                 ("linux".to_string(), 1),
@@ -314,6 +328,9 @@ pub fn detect_targets(os: &str, arch: &str, musl: bool) -> Vec<String> {
         }
         ("linux", "aarch64", true) => {
             vec!["aarch64-unknown-linux-musl".to_string()]
+        }
+        ("linux", "aarch64", false) => {
+            vec!["aarch64-unknown-linux-gnu".to_string()]
         }
         ("linux", "arm", true) => {
             vec!["arm-unknown-linux-musleabihf".to_string()]
