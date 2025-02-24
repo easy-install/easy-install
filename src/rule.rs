@@ -317,7 +317,8 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
                 ("windows-x86".to_string(), 10),
                 ("windows-x64".to_string(), 10),
                 ("windows-x86_64".to_string(), 10),
-                ("win".to_string(), 10),
+                ("x86_64-v3".to_string(), 10),
+                ("win".to_string(), 5),
                 // ("x86_64".to_string(), 1),
             ]
         }
@@ -559,7 +560,6 @@ mod test {
             ),
             ("ffmpeg-n7.1-latest-win64-gpl-7.1.zip", "windows", "x86_64"),
             ("7z2409-linux-x64.tar.xz", "linux", "x86_64"),
-            ("mpy-easy-windows-full.zip", "windows", "x86_64"),
             ("mpy-easy-windows-full.zip", "windows", "x86_64"),
             ("ffmpeg-x86_64-v3-git-5470d024e.zip", "windows", "x86_64"),
             (

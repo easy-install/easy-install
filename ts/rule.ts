@@ -311,7 +311,8 @@ function getCommonTargets(
             { target: 'windows-x86', rank: 10 },
             { target: 'windows-x64', rank: 10 },
             { target: 'windows-x86_64', rank: 10 },
-            { target: 'win', rank: 10 },
+            { target: 'x86_64-v3', rank: 10 },
+            { target: 'win', rank: 5 },
             // { target: 'x86_64', rank: 1 },
           ]
         }
