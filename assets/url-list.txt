@@ -26,3 +26,4 @@ https://github.com/NickeManarin/ScreenToGif
 https://github.com/houseabsolute/ubi
 https://github.com/zyedidia/eget
 ahaoboy/ansi2
+nushell/nushell

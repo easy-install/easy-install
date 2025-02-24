@@ -29,10 +29,29 @@ pub fn get_ext_re() -> String {
     format!("({})", v.join("|").replace(".", "\\."))
 }
 
-const OS_LIST: [&str; 5] = ["macos", "linux", "windows", "freebsd", "netbsd"];
+const OS_ARCH_MUSL_LIST: [(&str, &str, bool); 19] = [
+    ("macos", "x86_64", false),
+    ("macos", "aarch64", false),
+    ("windows", "x86_64", false),
+    ("windows", "x86", false),
+    ("windows", "aarch64", false),
+    ("linux", "x86_64", false),
+    ("linux", "x86_64", true),
+    ("linux", "x86", false),
+    ("linux", "x86", true),
+    ("linux", "aarch64", false),
+    ("linux", "aarch64", true),
+    ("linux", "riscv64", false),
+    ("linux", "s390x", false),
+    ("linux", "powerpc", false),
+    ("linux", "powerpc64", false),
+    ("linux", "arm", false),
+    ("linux", "arm", true),
+    ("freebsd", "x86_64", false),
+    ("netbsd", "x86_64", false),
+];
 
-const ARCH_LIST: [&str; 5] = ["x86_64", "aarch64", "x86", "i686", "arm"];
-
+// std::env::consts::ARCH
 const SEQ_RE: &str = "[_ -]";
 const VERSION_RE: &str = "v?(\\d+\\.\\d+\\.\\d+|latest|beta|alpha)";
 
@@ -104,29 +123,20 @@ fn get_common_rules(bin: Option<String>, os: &str, arch: &str, musl: bool) -> Ve
 pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
     let mut v = vec![];
 
-    for os in OS_LIST {
-        for arch in ARCH_LIST {
-            let mut musl_list = vec![false];
-            if os == "linux" {
-                musl_list.push(true);
-            }
-
-            for musl in musl_list {
-                for target in detect_targets(os, arch, musl) {
-                    v.extend(target_to_rules(
-                        Target {
-                            target,
-                            rank: 10,
-                            os: os.to_string(),
-                            arch: arch.to_string(),
-                            musl,
-                        },
-                        bin.clone(),
-                    ));
-                }
-            }
-            v.extend(get_common_rules(bin.clone(), os, arch, false));
+    for (os, arch, musl) in OS_ARCH_MUSL_LIST {
+        for target in detect_targets(os, arch, musl) {
+            v.extend(target_to_rules(
+                Target {
+                    target,
+                    rank: 10,
+                    os: os.to_string(),
+                    arch: arch.to_string(),
+                    musl,
+                },
+                bin.clone(),
+            ));
         }
+        v.extend(get_common_rules(bin.clone(), os, arch, false));
     }
 
     // windows
@@ -173,6 +183,11 @@ pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
             "aarch64".to_string(),
         ),
         (format!("^{}.exe$", bin_re), 1, "x86_64".to_string()),
+        (
+            format!("^{}{}x86_64-v3", bin_re, SEQ_RE),
+            1,
+            "x86_64".to_string(),
+        ),
     ] {
         let target = Target {
             rank: 20,
@@ -236,110 +251,50 @@ pub fn match_name(
 }
 
 pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)> {
-    match (os, arch, musl) {
-        ("macos", "aarch64", _) => {
-            vec![
-                ("darwin-aarch64".to_string(), 10),
-                ("macos-arm64".to_string(), 10),
-                ("darwin-arm64".to_string(), 10),
-                ("mac64arm".to_string(), 10),
-                ("universal".to_string(), 10),
-                ("macos-universal".to_string(), 10),
-                ("macos".to_string(), 1),
-                ("darwin".to_string(), 1),
-                ("mac".to_string(), 1),
-            ]
-        }
-        ("macos", "x86_64", _) => {
-            vec![
-                ("macos-amd64".to_string(), 10),
-                ("darwin-x64".to_string(), 10),
-                ("darwin-x86_64".to_string(), 10),
-                ("darwin-amd64".to_string(), 10),
-                ("macos-legacy".to_string(), 10),
-                ("universal".to_string(), 10),
-                ("macos-universal".to_string(), 10),
-                ("mac64".to_string(), 1),
-                ("darwin".to_string(), 1),
-                ("macos".to_string(), 1),
-                ("mac".to_string(), 1),
-            ]
-        }
-        ("linux", "riscv64", _) => {
-            vec![("linux-riscv64".to_string(), 10)]
-        }
-        ("linux", "aarch64", true) => {
-            vec![
-                ("linux-aarch64-musl".to_string(), 10),
-                ("linux-arm64-musl".to_string(), 10),
-                ("linux".to_string(), 1),
-            ]
-        }
-        ("linux", "aarch64", false) => {
-            vec![
-                ("linux-arm64".to_string(), 10),
-                ("linux-arm".to_string(), 10),
-                ("linux-aarch64".to_string(), 10),
-                ("linux-armv7".to_string(), 10),
-                ("linux".to_string(), 1),
-            ]
-        }
-        ("linux", "x86_64", true) => {
-            vec![
-                ("linux-musl-x86_64".to_string(), 10),
-                ("linux-amd64-musl".to_string(), 10),
-                ("linux-x64-musl".to_string(), 10),
-                ("linux-amd64".to_string(), 10),
-                ("linux-x86_64".to_string(), 10),
-                ("linux-musl".to_string(), 5),
-                ("linux-x64".to_string(), 5),
-                ("linux-x86".to_string(), 5),
-                ("linux".to_string(), 1),
-            ]
-        }
-        ("linux", "x86_64", false) => {
-            vec![
-                ("linux-amd64".to_string(), 10),
-                ("lin64".to_string(), 10),
-                ("linux-x64".to_string(), 10),
-                ("linux-x86".to_string(), 10),
-                ("linux-x86_64".to_string(), 10),
-                ("linux".to_string(), 1),
-            ]
-        }
-        ("windows", "x86_64", _) => {
-            vec![
-                ("windows-msvc-x86_64".to_string(), 10),
-                ("win32-x64".to_string(), 10),
-                ("win-x64".to_string(), 10),
-                ("win64".to_string(), 10),
-                ("windows-amd64".to_string(), 10),
-                ("windows-x86".to_string(), 10),
-                ("windows-x64".to_string(), 10),
-                ("windows-x86_64".to_string(), 10),
-                ("x86_64-v3".to_string(), 10),
-                ("win".to_string(), 5),
-                // ("x86_64".to_string(), 1),
-            ]
-        }
-        ("windows", "aarch64", _) => {
-            vec![
-                ("windows-msvc-arm64".to_string(), 10),
-                ("windows-arm64".to_string(), 10),
-                ("win32-arm64".to_string(), 10),
-                ("win-arm64".to_string(), 10),
-            ]
-        }
-        ("freebsd", "x86_64", _) => {
-            vec![("freebsd-x86_64".to_string(), 10)]
-        }
-        ("netbsd", "x86_64", _) => {
-            vec![("netbsd-x86_64".to_string(), 10)]
-        }
-        _ => {
-            vec![]
-        }
+    let mut os_list = match os {
+        "linux" => vec!["linux", "lin64"],
+        "macos" => vec!["darwin", "macos", "mac", "mac64", "universal"],
+        "windows" => vec!["windows", "win32", "win", "win64"],
+        "freebsd" => vec!["freebsd"],
+        "netbsd" => vec!["netbsd"],
+        _ => vec![],
+    };
+    let arch_list = match arch {
+        "x86_64" => vec!["x86_64", "amd64", "x64", "x86", "386", "i686", "legacy"],
+        "x86" => vec!["386", "i686", "x86"],
+        "aarch64" => vec!["aarch64", "arm64", "armv7"],
+        "arm" => vec!["arm"],
+        "s390x" => vec!["s390x"],
+        "powerpc" => vec!["powerpc"],
+        "powerpc64" => vec!["powerpc64"],
+        "riscv64" => vec!["riscv64"],
+        _ => vec![],
+    };
+
+    let suffix_list = match musl {
+        true => vec!["musl"],
+        false => match os {
+            "windows" => vec!["msvc", "gnu"],
+            _ => vec!["gnu"],
+        },
+    };
+
+    if os == "macos" && arch == "aarch64" {
+        os_list.push("mac64arm");
     }
+
+    let os_re = format!("({})", os_list.join("|"));
+    let arch_re = format!("({})", arch_list.join("|"));
+    let mut v = vec![];
+
+    for suffix in &suffix_list {
+        v.push((format!("{}-{}-{}", os_re, arch_re, suffix), 10));
+        v.push((format!("{}-{}-{}", os_re, suffix, arch_re,), 10));
+    }
+    v.push((format!("{}-{}", os_re, arch_re), 10));
+
+    v.push((os_re, 1));
+    v
 }
 
 pub fn detect_targets(os: &str, arch: &str, musl: bool) -> Vec<String> {
