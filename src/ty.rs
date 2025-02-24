@@ -63,7 +63,7 @@ impl TryFrom<&str> for Repo {
         let re_gh_download_tag = Regex::new(r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$").unwrap();
 
         let re_gh_releases =
-            Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)$").unwrap();
+            Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
 
         let re_short = Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
         if let Some(captures) = re_gh_tag.captures(value) {

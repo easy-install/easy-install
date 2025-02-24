@@ -29,7 +29,7 @@ export class Repo {
       const re of [
         /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/releases\/download\/([^\/]+)\/(.+)$/,
         /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/tag\/([^\/]+)$/,
-        /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)$/,
+        /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)/,
         /^([^\/@]+)\/([^\/@]+)(?:@([^\/]+))?$/,
       ]
     ) {
