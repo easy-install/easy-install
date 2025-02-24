@@ -32,6 +32,7 @@ const OS_LIST: NodeJS.Platform[] = [
   'linux',
   'win32',
   'freebsd',
+  'netbsd',
 ]
 const ARCH_LIST: NodeJS.Architecture[] = [
   'x64',
@@ -274,10 +275,12 @@ function getCommonTargets(
         case 'x64': {
           if (musl) {
             return [
+              { target: 'linux-musl-x86_64', rank: 10 },
               { target: 'linux-amd64-musl', rank: 10 },
               { target: 'linux-x64-musl', rank: 10 },
               { target: 'linux-amd64', rank: 10 },
               { target: 'linux-x86_64', rank: 10 },
+              { target: 'linux-musl', rank: 5 },
               { target: 'linux-x64', rank: 5 },
               { target: 'linux-x86', rank: 5 },
               { target: 'linux', rank: 1 },
@@ -299,6 +302,7 @@ function getCommonTargets(
       switch (arch) {
         case 'x64': {
           return [
+            { target: 'windows-msvc-x86_64', rank: 10 },
             { target: 'win32-x64', rank: 10 },
             { target: 'win-x64', rank: 10 },
             { target: 'win64', rank: 10 },
@@ -312,9 +316,29 @@ function getCommonTargets(
         }
         case 'arm64': {
           return [
+            { target: 'windows-msvc-arm64', rank: 10 },
             { target: 'windows-arm64', rank: 10 },
             { target: 'win32-arm64', rank: 10 },
             { target: 'win-arm64', rank: 10 },
+          ]
+        }
+      }
+    }
+
+    case 'freebsd': {
+      switch (arch) {
+        case 'x64': {
+          return [
+            { target: 'freebsd-x86_64', rank: 10 },
+          ]
+        }
+      }
+    }
+    case 'netbsd': {
+      switch (arch) {
+        case 'x64': {
+          return [
+            { target: 'netbsd-x86_64', rank: 10 },
           ]
         }
       }

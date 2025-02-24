@@ -36,10 +36,10 @@ export async function repoInstall(
   )
 
   const output: Output = {}
-  if (!installDir) {
-    installDir = getInstallDir()
-  }
   for (const i of downloadUrlList) {
+    if (!installDir) {
+      installDir = getInstallDir()
+    }
     if (isExeFile(i)) {
       const out = await fileInstall({ url: i }, i, undefined, installDir)
       Object.assign(output, out)

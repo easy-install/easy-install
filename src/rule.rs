@@ -1,5 +1,5 @@
 use easy_archive::ty::Fmt;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 
 #[derive(Debug, Clone)]
 pub struct Target {
@@ -29,7 +29,7 @@ pub fn get_ext_re() -> String {
     format!("({})", v.join("|").replace(".", "\\."))
 }
 
-const OS_LIST: [&str; 4] = ["macos", "linux", "windows", "freebsd"];
+const OS_LIST: [&str; 5] = ["macos", "linux", "windows", "freebsd", "netbsd"];
 
 const ARCH_LIST: [&str; 5] = ["x86_64", "aarch64", "x86", "i686", "arm"];
 
@@ -70,11 +70,18 @@ pub fn target_to_rules(target: Target, bin: Option<String>) -> Vec<Rule> {
         .into_iter()
         .chain(re_list)
         .map(|(re, rank)| Rule {
-            rule: Regex::new(&re).unwrap(),
+            rule: create_re(&re),
             target: target.clone(),
             rank,
         })
         .collect()
+}
+
+fn create_re(s: &str) -> Regex {
+    RegexBuilder::new(s)
+        .case_insensitive(false)
+        .build()
+        .unwrap()
 }
 
 fn get_common_rules(bin: Option<String>, os: &str, arch: &str, musl: bool) -> Vec<Rule> {
@@ -142,7 +149,7 @@ pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
         v.push(Rule {
             target,
             rank: 30,
-            rule: Regex::new(&re).unwrap(),
+            rule: create_re(&re),
         });
     }
 
@@ -177,7 +184,7 @@ pub fn get_rules(bin: Option<String>) -> Vec<Rule> {
         v.push(Rule {
             target,
             rank: 20 + rank,
-            rule: Regex::new(&re).unwrap(),
+            rule: create_re(&re),
         });
     }
     v.sort_by(|a, b| b.rank.cmp(&a.rank));
@@ -278,10 +285,12 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("linux", "x86_64", true) => {
             vec![
+                ("linux-musl-x86_64".to_string(), 10),
                 ("linux-amd64-musl".to_string(), 10),
                 ("linux-x64-musl".to_string(), 10),
                 ("linux-amd64".to_string(), 10),
                 ("linux-x86_64".to_string(), 10),
+                ("linux-musl".to_string(), 5),
                 ("linux-x64".to_string(), 5),
                 ("linux-x86".to_string(), 5),
                 ("linux".to_string(), 1),
@@ -299,6 +308,7 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("windows", "x86_64", _) => {
             vec![
+                ("windows-msvc-x86_64".to_string(), 10),
                 ("win32-x64".to_string(), 10),
                 ("win-x64".to_string(), 10),
                 ("win64".to_string(), 10),
@@ -312,10 +322,17 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("windows", "aarch64", _) => {
             vec![
+                ("windows-msvc-arm64".to_string(), 10),
                 ("windows-arm64".to_string(), 10),
                 ("win32-arm64".to_string(), 10),
                 ("win-arm64".to_string(), 10),
             ]
+        }
+        ("freebsd", "x86_64", _) => {
+            vec![("freebsd-x86_64".to_string(), 10)]
+        }
+        ("netbsd", "x86_64", _) => {
+            vec![("netbsd-x86_64".to_string(), 10)]
         }
         _ => {
             vec![]
@@ -377,17 +394,16 @@ pub fn detect_targets(os: &str, arch: &str, musl: bool) -> Vec<String> {
 }
 #[cfg(test)]
 mod test {
-    use regex::Regex;
-
-    use super::{match_name, VERSION_RE};
+    use super::{create_re, match_name, VERSION_RE};
 
     #[test]
     fn test_version_re() {
-        let re = Regex::new(VERSION_RE).unwrap();
+        let re = create_re(VERSION_RE);
         for (s, b) in [
             ("0.0.0", "0.0.0"),
             ("v1.2.3", "1.2.3"),
             ("v2025.2.22", "2025.2.22"),
+            ("V2025.2.22", "2025.2.22"),
         ] {
             let ret = re.captures(s).unwrap().get(1).unwrap().as_str();
             assert_eq!(ret, b);
