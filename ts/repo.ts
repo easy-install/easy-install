@@ -34,7 +34,6 @@ export class Repo {
       ]
     ) {
       const match = url.match(re)
-      console.log(match, re)
       if (match) {
         return new Repo(match[1], match[2], match[3])
       }

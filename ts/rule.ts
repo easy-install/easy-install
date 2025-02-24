@@ -266,9 +266,10 @@ function getCommonTargets(
             ]
           }
           return [
+            { target: 'linux-arm64', rank: 10 },
+            { target: 'linux-arm', rank: 10 },
             { target: 'linux-aarch64', rank: 10 },
             { target: 'linux-armv7', rank: 10 },
-            { target: 'linux-arm64', rank: 10 },
             { target: 'linux', rank: 1 },
           ]
         }
@@ -311,7 +312,7 @@ function getCommonTargets(
             { target: 'windows-x64', rank: 10 },
             { target: 'windows-x86_64', rank: 10 },
             { target: 'win', rank: 10 },
-            { target: 'x86_64', rank: 1 },
+            // { target: 'x86_64', rank: 1 },
           ]
         }
         case 'arm64': {

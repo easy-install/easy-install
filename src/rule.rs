@@ -277,9 +277,10 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
         }
         ("linux", "aarch64", false) => {
             vec![
+                ("linux-arm64".to_string(), 10),
+                ("linux-arm".to_string(), 10),
                 ("linux-aarch64".to_string(), 10),
                 ("linux-armv7".to_string(), 10),
-                ("linux-arm64".to_string(), 10),
                 ("linux".to_string(), 1),
             ]
         }
@@ -317,7 +318,7 @@ pub fn get_common_targets(os: &str, arch: &str, musl: bool) -> Vec<(String, u32)
                 ("windows-x64".to_string(), 10),
                 ("windows-x86_64".to_string(), 10),
                 ("win".to_string(), 10),
-                ("x86_64".to_string(), 1),
+                // ("x86_64".to_string(), 1),
             ]
         }
         ("windows", "aarch64", _) => {
