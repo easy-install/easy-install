@@ -2,10 +2,10 @@ use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::manfiest::DistManifest;
 use crate::tool::{
-    display_output, get_bin_name, get_filename, get_meta, install_output_files, path_to_str,
+    display_output, ends_with_exe, get_bin_name, get_filename, get_meta, install_output_files, path_to_str
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use guess_target::{get_local_target, guess_target};
+use guess_target::{get_local_target, guess_target, Os};
 
 pub async fn install_from_single_file(
     url: &str,
@@ -23,6 +23,9 @@ pub async fn install_from_single_file(
     }
 
     let local_target = get_local_target();
+    if ends_with_exe(url) && local_target.iter().any(|t| t.os() != Os::Windows) {
+        return output;
+    }
 
     if let Some(bin) = download_binary(url).await {
         let artifact = manfiest.and_then(|i| i.get_artifact_by_key(url));

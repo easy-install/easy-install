@@ -1,19 +1,20 @@
 import { join } from 'path'
-// import { getArtifactDownloadUrl } from '../dist-manifest'
 import { downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
   displayOutput,
+  endsWithExe,
   getCommonPrefixLen,
   getFilename,
   installOutputFiles,
   isArchiveFile,
+  isExeFile,
   nameNoExt,
 } from '../tool'
 import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { getLocalTarget, guessTarget } from 'guess-target'
+import { getLocalTarget, guessTarget, Os, targetGetOs } from 'guess-target'
 
 async function downloadAndInstall(
   downloadUrl: string,
@@ -25,6 +26,12 @@ async function downloadAndInstall(
   const filename = getFilename(downloadUrl)
 
   const localTarget = getLocalTarget()
+  if (
+    endsWithExe(downloadUrl) &&
+    localTarget.some((i) => targetGetOs(i) !== Os.Windows)
+  ) {
+    return {}
+  }
   const guess = guessTarget(filename)
   const subDirName = guess.find((i) => localTarget.includes(i.target))?.name ??
     nameNoExt(filename)

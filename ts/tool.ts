@@ -34,8 +34,12 @@ export function isArchiveFile(s: string): boolean {
   return false
 }
 
+export function endsWithExe(s: string): boolean {
+  return WINDOWS_EXE_EXTS.some((i) => s.endsWith(i))
+}
+
 export function isExeFile(s: string): boolean {
-  if (WINDOWS_EXE_EXTS.some((i) => s.endsWith(i))) {
+  if (endsWithExe(s)) {
     return true
   }
 

@@ -3,7 +3,7 @@ use std::os::windows::fs::MetadataExt;
 
 use easy_archive::tool::{human_size, mode_to_string};
 use easy_archive::ty::Fmt;
-use guess_target::{get_local_target, guess_target};
+use guess_target::{get_local_target, guess_target, Os};
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
@@ -219,6 +219,10 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
         if is_hash_file(&filename) || is_msi_file(&filename) {
             continue;
         }
+        if ends_with_exe(key) && local_target.iter().any(|t| t.os() != Os::Windows) {
+            continue;
+        }
+
         let guess = guess_target(&filename);
 
         if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
@@ -336,8 +340,11 @@ pub fn is_archive_file(s: &str) -> bool {
     Fmt::guess(s).is_some()
 }
 
+pub fn ends_with_exe(s: &str) -> bool {
+    WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i))
+}
 pub fn is_exe_file(s: &str) -> bool {
-    if WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) {
+    if ends_with_exe(s) {
         return true;
     }
     let re_latest =

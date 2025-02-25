@@ -4,6 +4,7 @@ import { Repo } from '../repo'
 import {
   displayOutput,
   download,
+  endsWithExe,
   getCommonPrefixLen,
   getFilename,
   installOutputFiles,
@@ -16,7 +17,7 @@ import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
 import { existsSync, mkdirSync } from 'fs'
 import { fileInstall } from './file'
-import { getLocalTarget, guessTarget } from 'guess-target'
+import { getLocalTarget, guessTarget, Os, targetGetOs } from 'guess-target'
 
 export async function repoInstall(
   repo: Repo,
@@ -49,10 +50,15 @@ export async function repoInstall(
       const filename = getFilename(downloadPath)
       const { files } = extractTo(downloadPath) || {}
       if (!files) {
-        return {}
+        continue
       }
       const list = files.filter((i) => !i.isDir)
       const localTarget = getLocalTarget()
+      if (
+        endsWithExe(i) && localTarget.some((i) => targetGetOs(i) !== Os.Windows)
+      ) {
+        continue
+      }
       const guess = guessTarget(filename)
       const subDirName = guess.find((i) =>
         localTarget.includes(i.target)

@@ -3,14 +3,16 @@ import { downloadBinary, downloadToFile } from '../download'
 import { getInstallDir } from '../env'
 import {
   displayOutput,
+  endsWithExe,
   getBinName,
   installOutputFiles,
+  isExeFile,
   nameNoExt,
   showSuccess,
 } from '../tool'
 import { DistManifest, Output } from '../type'
 import { chmodSync, readFileSync } from 'fs'
-import { getLocalTarget, guessTarget } from 'guess-target'
+import { getLocalTarget, guessTarget, Os, targetGetOs } from 'guess-target'
 
 export type FileInstall = {
   url: string
@@ -36,6 +38,12 @@ export async function fileInstall(
   const filename = name ?? downloadUrl.split('/').at(-1)!
 
   const localTarget = getLocalTarget()
+  if (
+    endsWithExe(downloadUrl) &&
+    localTarget.some((i) => targetGetOs(i) !== Os.Windows)
+  ) {
+    return {}
+  }
   const guess = guessTarget(filename)
   const binName = guess.find((i) => localTarget.includes(i.target))?.name ??
     nameNoExt(filename)
