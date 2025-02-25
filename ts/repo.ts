@@ -1,5 +1,5 @@
+import { getLocalTarget, guessTarget } from 'guess-target'
 import { downloadJson } from './download'
-import { getRules, matchName, matchRules, Rule } from './rule'
 import {
   detectTargets,
   getFetchOption,
@@ -63,10 +63,13 @@ export class Repo {
   ): Promise<string[]> {
     const releases = await this.getRelease(tag)
     // const rule = new Rule(bin, os, arch, musl)
+    const localTarget = getLocalTarget()
     if (bin) {
       for (const a of releases.assets) {
+        const guess = guessTarget(a.name)
+        const name = guess.find((i) => localTarget.includes(i.target))?.name
         if (
-          matchName(a.name, bin, os, arch, musl)
+          name
         ) {
           return [a.browser_download_url]
         }
@@ -82,13 +85,13 @@ export class Repo {
         continue
       }
 
-      const ret = matchName(name, undefined, os, arch, musl)
-      const id = [ret, os, arch, musl].join('-')
+      const guess = guessTarget(name)
+      const ret = guess.find((i) => localTarget.includes(i.target))
       if (
-        ret && !v.includes(browser_download_url) && !filter.has(id)
+        ret && !v.includes(browser_download_url) && filter.has(ret.target)
       ) {
         v.push(browser_download_url)
-        filter.add(id)
+        filter.add(ret.target)
       }
     }
     if (!v.length) {
@@ -139,23 +142,4 @@ export class Repo {
     }
     return v
   }
-
-  // async matchArtifactUrl(pattern: string): Promise<string[]> {
-  //   const v: string[] = []
-  //   const api = this.getArtifactApi()
-  //   const art = await downloadJson<Artifacts>(api)
-  //   const re = new RegExp(pattern)
-  //   const patternName = pattern.split('/').at(-1)
-  //   const nameRe = patternName && new RegExp(patternName)
-  //   for (const asset of art?.assets || []) {
-  //     if (
-  //       !isHashFile(asset.browser_download_url) &&
-  //       (re.test(asset.browser_download_url) ||
-  //         (nameRe && nameRe.test(asset.name)))
-  //     ) {
-  //       v.push(asset.browser_download_url)
-  //     }
-  //   }
-  //   return v
-  // }
 }

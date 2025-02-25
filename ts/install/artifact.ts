@@ -13,7 +13,7 @@ import {
 import { DistManifest, Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { matchName } from '../rule'
+import { getLocalTarget, guessTarget } from 'guess-target'
 
 async function downloadAndInstall(
   downloadUrl: string,
@@ -23,7 +23,12 @@ async function downloadAndInstall(
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
   const filename = getFilename(downloadUrl)
-  const subDirName = matchName(filename) ?? nameNoExt(filename)
+
+  const localTarget = getLocalTarget()
+  const guess = guessTarget(filename)
+  const subDirName = guess.find((i) => localTarget.includes(i.target))?.name ??
+    nameNoExt(filename)
+
   const list = files.filter((i) => !i.isDir)
 
   if (list.length > 1) {

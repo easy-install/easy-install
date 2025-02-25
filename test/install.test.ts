@@ -1,8 +1,6 @@
 import { expect, test } from 'vitest'
 import { fileInstall, Repo } from '../ts'
 import { existsSync } from 'fs'
-import { artifactInstall } from '../ts/install/artifact'
-import { join } from 'path'
 
 test('fileInstall', async () => {
   const url =
@@ -21,15 +19,6 @@ test('fileInstall', async () => {
   const item2 = Object.values(output2)[0].files[0]!
   expect(existsSync(item2.installPath!)).toEqual(true)
 })
-
-// test('artifactInstall', async () => {
-//   const url =
-//     'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz'
-//   const output = (await artifactInstall(url))!
-//   const item = Object.values(output)[0]
-//   const mujsPath = join(item.installDir, 'mujs', 'mujs')
-//   expect(existsSync(mujsPath)).toEqual(true)
-// })
 
 test('install starship ', async () => {
   const url = 'https://github.com/starship/starship'

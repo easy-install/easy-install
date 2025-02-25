@@ -14,9 +14,9 @@ import {
 import { Output, OutputFile } from '../type'
 import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { matchName } from '../rule'
 import { existsSync, mkdirSync } from 'fs'
 import { fileInstall } from './file'
+import { getLocalTarget, guessTarget } from 'guess-target'
 
 export async function repoInstall(
   repo: Repo,
@@ -52,7 +52,12 @@ export async function repoInstall(
         return {}
       }
       const list = files.filter((i) => !i.isDir)
-      const subDirName = matchName(filename) ?? nameNoExt(filename)
+      const localTarget = getLocalTarget()
+      const guess = guessTarget(filename)
+      const subDirName = guess.find((i) =>
+        localTarget.includes(i.target)
+      )?.name ?? nameNoExt(filename)
+
       if (list.length > 1) {
         installDir = join(installDir, subDirName).replaceAll('\\', '/')
       }

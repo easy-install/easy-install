@@ -378,7 +378,7 @@ const HASH_EXTS: [&str; 2] = [".sha256sum", ".sha256"];
 pub fn is_hash_file(s: &str) -> bool {
     HASH_EXTS.iter().any(|i| s.ends_with(i))
 }
-const INSTALLER_EXTS: [&str; 2] = [".msi", ".app"];
+const INSTALLER_EXTS: [&str; 3] = [".msi", ".app", ".msix"];
 
 pub fn is_msi_file(s: &str) -> bool {
     INSTALLER_EXTS.iter().any(|i| s.ends_with(i))

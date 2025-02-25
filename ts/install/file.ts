@@ -10,7 +10,7 @@ import {
 } from '../tool'
 import { DistManifest, Output } from '../type'
 import { chmodSync, readFileSync } from 'fs'
-import { matchName } from '../rule'
+import { getLocalTarget, guessTarget } from 'guess-target'
 
 export type FileInstall = {
   url: string
@@ -34,7 +34,12 @@ export async function fileInstall(
 
   const { url, name } = info
   const filename = name ?? downloadUrl.split('/').at(-1)!
-  const binName = matchName(filename) ?? nameNoExt(filename)
+
+  const localTarget = getLocalTarget()
+  const guess = guessTarget(filename)
+  const binName = guess.find((i) => localTarget.includes(i.target))?.name ??
+    nameNoExt(filename)
+
   const mode = 0o755
   const originPath = downloadUrl.split('/').at(-1)!
   const isDir = false

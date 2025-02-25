@@ -4,7 +4,7 @@ import * as path from 'path'
 import { chmodSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { Output, OutputFile } from './type'
 import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
-import { File, humanSize, modeToString } from '@easy-install/easy-archive'
+import { humanSize, modeToString } from '@easy-install/easy-archive'
 import { spawnSync } from 'child_process'
 import { randomId } from './download'
 import { extensions, Fmt } from '@easy-install/easy-archive'
@@ -287,7 +287,7 @@ export function isHashFile(s: string): boolean {
   return ['.sha256sum', '.sha256'].some((i) => s.endsWith(i))
 }
 export function isMsiFile(s: string): boolean {
-  return ['.msi', '.app'].some((i) => s.endsWith(i))
+  return ['.msi', '.app', '.msix'].some((i) => s.endsWith(i))
 }
 export function isMsys() {
   return !!process.env['MSYSTEM']

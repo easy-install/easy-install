@@ -11,7 +11,7 @@ import {
   replaceFilename,
 } from './tool'
 import { Artifact, DistManifest } from './type'
-import { matchName } from './rule'
+import { getLocalTarget, guessTarget } from 'guess-target'
 
 export function getAssetsExecutableDir(art: Artifact) {
   return art.assets?.find((i) => i.kind === 'executable-dir')
@@ -48,7 +48,11 @@ export function getArtifactUrlFromManfiest(
       continue
     }
     const art = dist.artifacts[key]
-    const name = matchName(filename)
+
+    const localTarget = getLocalTarget()
+    const guess = guessTarget(filename)
+    const name = guess.find((i) => localTarget.includes(i.target))?.name
+
     if (name && !filter.includes(name)) {
       if (!isUrl(key) && url) {
         v.push(replaceFilename(url, key))
