@@ -1,8 +1,10 @@
-import { getLocalTarget, guessTarget } from 'guess-target'
+import { getLocalTarget, guessTarget, targetToString } from 'guess-target'
 import { downloadJson } from './download'
 import {
   detectTargets,
   getFetchOption,
+  getFilename,
+  guessName,
   isArchiveFile,
   isHashFile,
   isMsiFile,
@@ -57,46 +59,34 @@ export class Repo {
   async getAssetUrlList(
     bin?: string,
     tag = 'latest',
-    os = process.platform,
-    arch = process.arch,
-    musl = isMusl(),
-  ): Promise<string[]> {
+  ): Promise<{ name: string; url: string }[]> {
     const releases = await this.getRelease(tag)
-    // const rule = new Rule(bin, os, arch, musl)
-    const localTarget = getLocalTarget()
     if (bin) {
-      for (const a of releases.assets) {
-        const guess = guessTarget(a.name)
-        const name = guess.find((i) => localTarget.includes(i.target))?.name
-        if (
-          name
-        ) {
-          return [a.browser_download_url]
+      for (const a of releases.assets || []) {
+        const ret = guessName(a.browser_download_url)
+        if (ret?.name === bin) {
+          return [{ name: ret?.name, url: a.browser_download_url }]
         }
       }
     }
-    const v: string[] = []
+    const v: { name: string; url: string }[] = []
     const filter = new Set()
-    for (const { name, url, browser_download_url } of releases.assets) {
+    for (const { name, url, browser_download_url } of releases.assets || []) {
       if (
         isHashFile(url) || isHashFile(name) ||
         isMsiFile(browser_download_url) || isMsiFile(name)
       ) {
         continue
       }
-
-      const guess = guessTarget(name)
-      const ret = guess.find((i) => localTarget.includes(i.target))
-      if (
-        ret && !v.includes(browser_download_url) && filter.has(ret.target)
-      ) {
-        v.push(browser_download_url)
-        filter.add(ret.target)
+      const ret = guessName(browser_download_url)
+      if (ret && !filter.has(ret.name + ret.target)) {
+        v.push({ name: ret.name, url: browser_download_url })
+        filter.add(ret.name + ret.target)
       }
     }
     if (!v.length) {
       console.log(
-        `No asset found for bin:${bin} tag:${tag} os:${os} arch:${arch}`,
+        `No asset found`,
       )
       return []
     }

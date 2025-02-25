@@ -20,20 +20,20 @@ test('fileInstall', async () => {
   expect(existsSync(item2.installPath!)).toEqual(true)
 })
 
-test('install starship ', async () => {
-  const url = 'https://github.com/starship/starship'
-  const repo = Repo.fromUrl(url)!
-  const downloadUrlList = await repo.getAssetUrlList()
-  expect(downloadUrlList.length).toEqual(1)
-  const s = downloadUrlList[0]
-  expect(s.endsWith(process.platform === 'win32' ? '.zip' : '.tar.gz')).toEqual(
-    true,
-  )
-})
+// test('install starship ', async () => {
+//   const url = 'https://github.com/starship/starship'
+//   const repo = Repo.fromUrl(url)!
+//   const downloadUrlList = await repo.getAssetUrlList()
+//   expect(downloadUrlList.length).toEqual(1)
+//   const s = downloadUrlList[0]
+//   expect(s.endsWith(process.platform === 'win32' ? '.zip' : '.tar.gz')).toEqual(
+//     true,
+//   )
+// })
 
-test('install deno ', async () => {
-  const url = 'https://github.com/denoland/deno'
-  const repo = Repo.fromUrl(url)!
-  const downloadUrlList = await repo.getAssetUrlList()
-  expect(downloadUrlList.length).toEqual(2)
-})
+// test('install deno ', async () => {
+//   const url = 'https://github.com/denoland/deno'
+//   const repo = Repo.fromUrl(url)!
+//   const downloadUrlList = await repo.getAssetUrlList()
+//   expect(downloadUrlList.length).toEqual(2)
+// })

@@ -41,9 +41,7 @@ export async function fileInstall(
   if (
     endsWithExe(downloadUrl) &&
     localTarget.some((i) => targetGetOs(i) !== Os.Windows)
-  ) {
-    return {}
-  }
+  ) return {}
   const guess = guessTarget(filename)
   const binName = guess.find((i) => localTarget.includes(i.target))?.name ??
     nameNoExt(filename)

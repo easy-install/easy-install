@@ -37,16 +37,16 @@ export async function repoInstall(
   )
 
   const output: Output = {}
-  for (const i of downloadUrlList) {
+  for (const { name, url } of downloadUrlList) {
     if (!installDir) {
       installDir = getInstallDir()
     }
-    if (isExeFile(i)) {
-      const out = await fileInstall({ url: i }, i, undefined, installDir)
+    if (isExeFile(url)) {
+      const out = await fileInstall({ url }, url, undefined, installDir)
       Object.assign(output, out)
     } else {
-      console.log(`download ${i}`)
-      const downloadPath = await download(i)
+      console.log(`download ${url}`)
+      const downloadPath = await download(url)
       const filename = getFilename(downloadPath)
       const { files } = extractTo(downloadPath) || {}
       if (!files) {
@@ -55,7 +55,8 @@ export async function repoInstall(
       const list = files.filter((i) => !i.isDir)
       const localTarget = getLocalTarget()
       if (
-        endsWithExe(i) && localTarget.some((i) => targetGetOs(i) !== Os.Windows)
+        endsWithExe(url) &&
+        localTarget.some((i) => targetGetOs(i) !== Os.Windows)
       ) {
         continue
       }
@@ -88,7 +89,7 @@ export async function repoInstall(
         })
       }
       installOutputFiles(outputFiles)
-      output[i] = {
+      output[url] = {
         installDir,
         files: outputFiles,
       }

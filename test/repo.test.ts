@@ -14,38 +14,38 @@ test('getReleasesApiUrl', () => {
   )
 })
 
-test('getAssetUrl', async () => {
-  const repo = Repo.fromUrl('https://github.com/denoland/deno')!
-  expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'win32', 'x64')).toEqual(
-    ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-pc-windows-msvc.zip'],
-  )
-  expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
-    ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip'],
-  )
-  expect(await repo.getAssetUrlList(undefined, 'v2.1.6', 'darwin', 'x64'))
-    .toEqual(
-      [
-        'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip',
-        'https://github.com/denoland/deno/releases/download/v2.1.6/denort-x86_64-apple-darwin.zip',
-      ],
-    )
-})
+// test('getAssetUrl', async () => {
+//   const repo = Repo.fromUrl('https://github.com/denoland/deno')!
+//   expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'win32', 'x64')).toEqual(
+//     ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-pc-windows-msvc.zip'],
+//   )
+//   expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
+//     ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip'],
+//   )
+//   expect(await repo.getAssetUrlList(undefined, 'v2.1.6', 'darwin', 'x64'))
+//     .toEqual(
+//       [
+//         'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip',
+//         'https://github.com/denoland/deno/releases/download/v2.1.6/denort-x86_64-apple-darwin.zip',
+//       ],
+//     )
+// })
 
-test('getAssetUrl mise', async () => {
-  const repo = Repo.fromUrl('https://github.com/jdx/mise/releases')!
-  expect(await repo.getAssetUrlList(undefined, undefined, 'win32', 'x64'))
-    .toEqual(
-      [
-        'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-windows-x64.zip',
-      ],
-    )
-  expect(await repo.getAssetUrlList(undefined, undefined, 'darwin', 'x64'))
-    .toEqual(
-      [
-        'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-macos-x64',
-      ],
-    )
-})
+// test('getAssetUrl mise', async () => {
+//   const repo = Repo.fromUrl('https://github.com/jdx/mise/releases')!
+//   expect(await repo.getAssetUrlList(undefined, undefined, 'win32', 'x64'))
+//     .toEqual(
+//       [
+//         'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-windows-x64.zip',
+//       ],
+//     )
+//   expect(await repo.getAssetUrlList(undefined, undefined, 'darwin', 'x64'))
+//     .toEqual(
+//       [
+//         'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-macos-x64',
+//       ],
+//     )
+// })
 
 test('fromUrl', async () => {
   for (

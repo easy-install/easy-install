@@ -9,6 +9,7 @@ import { spawnSync } from 'child_process'
 import { randomId } from './download'
 import { extensions, Fmt } from '@easy-install/easy-archive'
 import { dirname } from 'path'
+import { getLocalTarget, guessTarget, targetToString } from 'guess-target'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
@@ -484,3 +485,15 @@ export function nameNoExt(s: string) {
 
 export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
 export const INSTALLER_EXTS = ['.msi', '.app']
+
+export function guessName(
+  name: string,
+): { name: string; target: string } | undefined {
+  const filename = getFilename(name)
+  const s = nameNoExt(filename)
+  const guess = guessTarget(s)
+  const localTarget = getLocalTarget().map(targetToString)
+  const ret = guess.find((i) => localTarget.includes(targetToString(i.target)))
+  if (!ret) return
+  return { name: ret.name, target: targetToString(ret.target) }
+}
