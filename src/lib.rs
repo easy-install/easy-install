@@ -5,7 +5,6 @@ mod install;
 mod manfiest;
 mod tool;
 mod ty;
-mod rule;
 
 use clap::Parser;
 use tool::add_output_to_path;

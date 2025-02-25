@@ -1,12 +1,11 @@
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::manfiest::DistManifest;
-use crate::rule::match_name;
 use crate::tool::{
     display_output, get_bin_name, get_filename, get_meta, install_output_files, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use is_musl::is_musl;
+use guess_target::{get_local_target, guess_target};
 
 pub async fn install_from_single_file(
     url: &str,
@@ -23,17 +22,23 @@ pub async fn install_from_single_file(
         }
     }
 
+    let local_target = get_local_target();
+
     if let Some(bin) = download_binary(url).await {
         let artifact = manfiest.and_then(|i| i.get_artifact_by_key(url));
         let filename = get_filename(url);
-        let os = std::env::consts::OS;
-        let arch = std::env::consts::ARCH;
-        let musl = is_musl();
-        let art_name = match_name(&filename, None, os, arch, musl).unwrap_or(filename.clone());
+
+        let guess = guess_target(&filename);
+
+        let art_name = guess
+            .iter()
+            .find(|i| local_target.contains(&i.target))
+            .map_or(filename.clone(), |i| i.name.clone());
+
         let name = artifact.and_then(|i| i.name).unwrap_or(art_name);
         let mut install_path = install_dir.clone();
         install_path.push(get_bin_name(&name));
-        println!("install_dir {:?} {}", install_dir, name);
+        // println!("install_dir {:?} {}", install_dir, name);
         let (mode, size, is_dir) = get_meta(&install_path);
         let install_path = path_to_str(&install_path);
         let files = vec![OutputFile {

@@ -37,6 +37,7 @@
     "release-alpha": "pnpm publish -r --access public --tag alpha"
   },
   "dependencies": {
+    "guess-target": "^0.1.4",
     "path-clean": "^0.1.0",
     "crud-path": "^0.1.8",
     "@easy-install/easy-archive": "^0.1.8"

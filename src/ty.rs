@@ -1,9 +1,8 @@
 use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
 use crate::manfiest::{Artifact, DistManifest};
-use crate::rule::match_name;
-use crate::tool::{get_filename, is_hash_file, is_msi_file};
-use is_musl::is_musl;
+use crate::tool::{is_hash_file, is_msi_file};
+use guess_target::{get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -25,17 +24,6 @@ pub struct OutputItem {
 }
 
 pub type Output = HashMap<String, OutputItem>;
-
-// impl Artifact {
-//     pub fn match_targets(&self, targets: &Vec<String>) -> bool {
-//         for i in targets {
-//             if self.target_triples.contains(i) {
-//                 return true;
-//             }
-//         }
-//         false
-//     }
-// }
 
 impl DistManifest {
     pub fn get_artifact_by_key(&self, key: &str) -> Option<Artifact> {
@@ -65,7 +53,8 @@ impl TryFrom<&str> for Repo {
         let re_gh_releases =
             Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
 
-        let re_short = Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
+        let re_short =
+            Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
         if let Some(captures) = re_gh_tag.captures(value) {
             if let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
@@ -162,50 +151,19 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
         let mut v = vec![];
-        let os = std::env::consts::OS;
-        let arch = std::env::consts::ARCH;
-        let musl = is_musl();
+        let local_target = get_local_target();
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
                 if is_hash_file(&i.name) || is_msi_file(&i.name) {
                     continue;
                 }
-                if let Some(name) = match_name(&i.name, None, os, arch, musl) {
-                    if !filter.contains(&name) {
+                let guess = guess_target(&i.name);
+                if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+                    if !filter.contains(&item.name) {
                         v.push(i.browser_download_url.clone());
-                        filter.push(name)
+                        filter.push(item.name.clone())
                     }
-                }
-            }
-        }
-        v
-    }
-
-    pub async fn match_artifact_url(&self) -> Vec<String> {
-        trace!("get_artifact_url {}/{}", self.owner, self.name);
-        let api = self.get_artifact_api();
-        trace!("get_artifact_url api {}", api);
-
-        let mut v = vec![];
-        let mut filter = vec![];
-
-        if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
-            for art in artifacts.assets {
-                let filename = get_filename(&art.browser_download_url);
-                let os = std::env::consts::OS;
-                let arch = std::env::consts::ARCH;
-                let musl = is_musl();
-                if is_hash_file(&art.browser_download_url) || is_msi_file(&art.browser_download_url)
-                {
-                    continue;
-                }
-                if let Some(name) = match_name(&filename, None, os, arch, musl) {
-                    if filter.contains(&name) {
-                        continue;
-                    }
-                    v.push(art.browser_download_url);
-                    filter.push(name);
                 }
             }
         }

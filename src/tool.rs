@@ -3,6 +3,7 @@ use std::os::windows::fs::MetadataExt;
 
 use easy_archive::tool::{human_size, mode_to_string};
 use easy_archive::ty::Fmt;
+use guess_target::{get_local_target, guess_target};
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
@@ -12,7 +13,6 @@ use std::os::unix::prelude::PermissionsExt;
 
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
-use crate::rule::{detect_targets, match_name};
 use crate::ty::{Output, OutputFile, Repo};
 use regex::Regex;
 use std::str::FromStr;
@@ -206,18 +206,23 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
 }
 pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
     let mut v = vec![];
-    let os = std::env::consts::OS;
-    let arch = std::env::consts::ARCH;
-    let musl = is_musl::is_musl();
+    // let os = std::env::consts::OS;
+    // let arch = std::env::consts::ARCH;
+    // let musl = is_musl::is_musl();
     let mut filter = vec![];
-    let targets = detect_targets(os, arch, musl);
+    // let targets = detect_targets(os, arch, musl);
+
+    let local_target = get_local_target();
+
     for (key, art) in manfiest.artifacts.iter() {
         let filename = get_filename(key);
         if is_hash_file(&filename) || is_msi_file(&filename) {
             continue;
         }
-        if let Some(name) = match_name(&filename, None, os, arch, musl) {
-            if filter.contains(&name) {
+        let guess = guess_target(&filename);
+
+        if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+            if filter.contains(&item.name) {
                 continue;
             }
             if !is_url(key) {
@@ -225,11 +230,18 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
             } else {
                 v.push(key.clone());
             }
-            filter.push(name);
+            filter.push(item.name.clone());
             continue;
         }
 
-        if has_common_elements(&art.target_triples, &targets) {
+        if has_common_elements(
+            &art.target_triples,
+            local_target
+                .iter()
+                .map(|i| i.to_str().to_string())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        ) {
             if !is_url(key) {
                 v.push(replace_filename(url, key));
             } else {
@@ -378,7 +390,7 @@ pub async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
     }
 
     if let Ok(repo) = Repo::try_from(art_url) {
-        return repo.match_artifact_url().await;
+        return repo.get_artifact_url().await;
     }
     vec![]
 }
@@ -437,19 +449,13 @@ mod test {
         assert!(
             Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").is_err()
         );
-        assert_eq!(
-          Repo::try_from("ahaoboy/ansi2").unwrap(),
-          repo
-        );
+        assert_eq!(Repo::try_from("ahaoboy/ansi2").unwrap(), repo);
         let repo = Repo {
             owner: "ahaoboy".to_string(),
             name: "ansi2".to_string(),
             tag: Some("v0.2.11".to_string()),
         };
-        assert_eq!(
-          Repo::try_from("ahaoboy/ansi2@v0.2.11").unwrap(),
-          repo
-        );
+        assert_eq!(Repo::try_from("ahaoboy/ansi2@v0.2.11").unwrap(), repo);
         assert_eq!(
             Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap(),
             repo
@@ -474,7 +480,6 @@ mod test {
           Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").unwrap(),
           repo
         );
-
     }
 
     #[test]

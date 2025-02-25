@@ -2,13 +2,12 @@ use crate::download::download_extract;
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
 use crate::manfiest::DistManifest;
-use crate::rule::match_name;
 use crate::tool::{
     display_output, get_artifact_download_url, get_common_prefix_len, get_filename,
     install_output_files, is_archive_file, name_no_ext, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use is_musl::is_musl;
+use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
 pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Output {
@@ -30,12 +29,13 @@ pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Outpu
         if let Some(download_files) = download_extract(url).await {
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
-                let os = std::env::consts::OS;
-                let arch = std::env::consts::ARCH;
-                let musl = is_musl();
+                let local_target = get_local_target();
                 let filename = get_filename(url);
-                let name =
-                    match_name(&filename, None, os, arch, musl).unwrap_or(name_no_ext(&filename));
+                let guess = guess_target(&filename);
+                let name = guess
+                    .iter()
+                    .find(|i| local_target.contains(&i.target))
+                    .map_or(name_no_ext(&filename), |i| i.name.clone());
                 install_dir.push(name);
             }
 
