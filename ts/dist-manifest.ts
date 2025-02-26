@@ -10,17 +10,17 @@ import {
   removePostfix,
   replaceFilename,
 } from './tool'
-import { Artifact, DistManifest } from './type'
+import { DistArtifact, DistManifest } from './type'
 import { getLocalTarget, guessTarget } from 'guess-target'
 
-export function getAssetsExecutableDir(art: Artifact) {
+export function getAssetsExecutableDir(art: DistArtifact) {
   return art.assets?.find((i) => i.kind === 'executable-dir')
 }
 
 export function getArtifact(
   dist: DistManifest,
   targets: string[],
-): Artifact | undefined {
+): DistArtifact | undefined {
   for (const art of Object.values(dist.artifacts)) {
     if (
       matchTargets(art.target_triples ?? [], targets) &&
@@ -31,7 +31,7 @@ export function getArtifact(
   }
 }
 
-export function getAssetByPath(art: Artifact, path: string) {
+export function getAssetByPath(art: DistArtifact, path: string) {
   return art.assets?.find((i) => i.path === path)
 }
 
@@ -66,6 +66,9 @@ export function getArtifactUrlFromManfiest(
     if (
       matchTargets(art.target_triples ?? [], targets)
     ) {
+      if (art.kind && !['executable-zip'].includes(art.kind)) {
+        continue
+      }
       if (!isUrl(key) && url) {
         v.push(replaceFilename(url, key))
       } else {

@@ -35,9 +35,8 @@ ei https://github.com/ahaoboy/mujs-build
 # install v0.0.1
 ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
 
-# install crate
-ei ansi2
-
+# install yt-dlp from github
+ei ansi2 yt-dlp/yt-dlp
 
 # install deno and denort
 ei https://github.com/denoland/deno

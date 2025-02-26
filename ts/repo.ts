@@ -61,14 +61,6 @@ export class Repo {
     tag = 'latest',
   ): Promise<{ name: string; url: string }[]> {
     const releases = await this.getRelease(tag)
-    if (bin) {
-      for (const a of releases.assets || []) {
-        const ret = guessName(a.browser_download_url)
-        if (ret?.name === bin) {
-          return [{ name: ret?.name, url: a.browser_download_url }]
-        }
-      }
-    }
     const v: { name: string; url: string }[] = []
     const filter = new Set()
     for (const { name, url, browser_download_url } of releases.assets || []) {
@@ -79,9 +71,13 @@ export class Repo {
         continue
       }
       const ret = guessName(browser_download_url)
-      if (ret && !filter.has(ret.name + ret.target)) {
+      console.log(name, ret)
+      if (ret && !filter.has(ret.name)) {
+        if (bin && bin !== ret.name) {
+          continue
+        }
         v.push({ name: ret.name, url: browser_download_url })
-        filter.add(ret.name + ret.target)
+        filter.add(ret.name)
       }
     }
     if (!v.length) {

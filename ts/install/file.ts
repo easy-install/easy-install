@@ -5,8 +5,8 @@ import {
   displayOutput,
   endsWithExe,
   getBinName,
+  getFilename,
   installOutputFiles,
-  isExeFile,
   nameNoExt,
   showSuccess,
 } from '../tool'
@@ -35,14 +35,14 @@ export async function fileInstall(
   }
 
   const { url, name } = info
-  const filename = name ?? downloadUrl.split('/').at(-1)!
+  const filename = name ?? getFilename(downloadUrl)
 
   const localTarget = getLocalTarget()
   if (
     endsWithExe(downloadUrl) &&
     localTarget.some((i) => targetGetOs(i) !== Os.Windows)
   ) return {}
-  const guess = guessTarget(filename)
+  const guess = guessTarget(nameNoExt(filename))
   const binName = guess.find((i) => localTarget.includes(i.target))?.name ??
     nameNoExt(filename)
 

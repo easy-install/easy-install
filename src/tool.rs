@@ -1,5 +1,3 @@
-#[cfg(windows)]
-use std::os::windows::fs::MetadataExt;
 
 use easy_archive::tool::{human_size, mode_to_string};
 use easy_archive::ty::Fmt;
