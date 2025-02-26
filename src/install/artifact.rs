@@ -1,10 +1,9 @@
 use crate::download::download_extract;
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
-use crate::manfiest::DistManifest;
 use crate::tool::{
-    display_output, get_artifact_download_url, get_common_prefix_len, get_filename,
-    install_output_files, is_archive_file, name_no_ext, path_to_str,
+    display_output, get_common_prefix_len, get_filename, install_output_files, is_archive_file,
+    name_no_ext, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use guess_target::{get_local_target, guess_target};
@@ -80,27 +79,15 @@ pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Outpu
     output
 }
 
-pub async fn install_from_artifact_url(
-    art_url: &str,
-    manfiest: Option<DistManifest>,
-    dir: Option<String>,
-) -> Output {
+pub async fn install_from_artifact_url(art_url: &str, name: &str, dir: Option<String>) -> Output {
     trace!("install_from_artifact_url {}", art_url);
-    let urls = get_artifact_download_url(art_url).await;
     let mut v = Output::new();
-    if urls.is_empty() {
-        println!("not found download_url for {art_url}");
-        return v;
-    }
-    if urls.len() == 1 && !is_archive_file(&urls[0]) {
-        println!("download {}", urls[0]);
-        let output = install_from_single_file(&urls[0], manfiest.clone(), dir.clone()).await;
+    println!("download {}", art_url);
+    if !is_archive_file(art_url) {
+        let output = install_from_single_file(art_url, name, dir.clone()).await;
         return output;
     }
-    for url in urls {
-        println!("download {}", url);
-        let output = install_from_download_file(&url, dir.clone()).await;
-        v.extend(output);
-    }
+    let output = install_from_download_file(art_url, dir.clone()).await;
+    v.extend(output);
     v
 }

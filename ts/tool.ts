@@ -289,10 +289,14 @@ export function replaceFilename(baseUrl: string, name: string): string {
 }
 
 export function isHashFile(s: string): boolean {
-  return ['.sha256sum', '.sha256'].some((i) => s.toLowerCase().endsWith(i.toLowerCase()))
+  return ['.sha256sum', '.sha256'].some((i) =>
+    s.toLowerCase().endsWith(i.toLowerCase())
+  )
 }
 export function isMsiFile(s: string): boolean {
-  return ['.msi', '.app', '.msix','appimage'].some((i) => s.toLowerCase().endsWith(i.toLowerCase()))
+  return ['.msi', '.app', '.msix', 'appimage'].some((i) =>
+    s.toLowerCase().endsWith(i.toLowerCase())
+  )
 }
 export function isMsys() {
   return !!process.env['MSYSTEM']

@@ -4,16 +4,13 @@ use std::os::windows::fs::MetadataExt;
 use easy_archive::tool::{human_size, mode_to_string};
 use easy_archive::ty::Fmt;
 use guess_target::{get_local_target, guess_target, Os};
-#[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
-
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
-use crate::ty::{Output, OutputFile, Repo};
+use crate::ty::{Output, OutputFile};
 use regex::Regex;
 use std::str::FromStr;
 
@@ -24,28 +21,6 @@ pub fn get_bin_name(s: &str) -> String {
     s.to_string()
 }
 
-pub fn get_meta<P: AsRef<Path>>(s: P) -> (u32, u32, bool) {
-    let mut mode = 0;
-    let mut size = 0;
-    let mut is_dir = false;
-    if let Ok(meta) = std::fs::metadata(s) {
-        #[cfg(windows)]
-        {
-            mode = 0;
-            size = meta.file_size() as u32;
-        }
-
-        #[cfg(unix)]
-        {
-            mode = meta.mode();
-            size = meta.size() as u32;
-        }
-
-        is_dir = meta.is_dir()
-    }
-
-    (mode, size, is_dir)
-}
 const MAX_FILE_COUNT: usize = 16;
 pub fn display_output(output: &Output) -> String {
     let mut v = vec![];
@@ -104,11 +79,7 @@ pub fn add_output_to_path(output: &Output) {
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
-            if deep <= DEEP
-                && WINDOWS_EXE_EXTS
-                    .iter()
-                    .any(|i| f.origin_path.ends_with(i) || (f.mode.unwrap_or(0) & 0o111 != 0))
-            {
+            if deep <= DEEP && ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0) {
                 let dir = dirname(&f.install_path);
                 add_to_path(&dir);
             }
@@ -169,10 +140,6 @@ pub fn check(file: &OutputFile) -> bool {
     false
 }
 
-// pub fn atomic_install(src: &Path, dst: &Path) -> std::io::Result<u64> {
-//     std::fs::copy(src, dst)
-// }
-
 pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     let Ok(d) = std::path::PathBuf::from_str(src);
     if let Some(p) = d.parent() {
@@ -194,24 +161,14 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
         _ = mode;
     }
 }
-fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
-    for s1 in arr1 {
-        for s2 in arr2 {
-            if s1 == s2 {
-                return true;
-            }
-        }
-    }
-    false
-}
-pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<String> {
-    let mut v = vec![];
-    // let os = std::env::consts::OS;
-    // let arch = std::env::consts::ARCH;
-    // let musl = is_musl::is_musl();
-    let mut filter = vec![];
-    // let targets = detect_targets(os, arch, musl);
 
+fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
+    arr1.iter().any(|x| arr2.contains(x))
+}
+
+pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<(String, String)> {
+    let mut v = vec![];
+    let mut filter = vec![];
     let local_target = get_local_target();
 
     for (key, art) in manfiest.artifacts.iter() {
@@ -219,6 +176,7 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
         if is_hash_file(&filename) || is_msi_file(&filename) {
             continue;
         }
+
         if ends_with_exe(key) && local_target.iter().any(|t| t.os() != Os::Windows) {
             continue;
         }
@@ -230,9 +188,9 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                 continue;
             }
             if !is_url(key) {
-                v.push(replace_filename(url, key));
+                v.push((item.name.clone(), replace_filename(url, key)));
             } else {
-                v.push(key.clone());
+                v.push((item.name.clone(), key.clone()));
             }
             filter.push(item.name.clone());
             continue;
@@ -247,27 +205,15 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                 .as_slice(),
         ) {
             if !is_url(key) {
-                v.push(replace_filename(url, key));
+                v.push((name_no_ext(&filename), replace_filename(url, key)));
             } else {
-                v.push(key.to_string());
+                v.push((name_no_ext(&filename), key.to_string()));
             }
             continue;
         }
     }
     v
 }
-
-// pub fn remove_postfix(s: &str) -> String {
-//     use Fmt::*;
-//     for i in [Tar, TarBz, TarGz, TarXz, TarZstd, Zip] {
-//         for ext in i.extensions() {
-//             if !ext.is_empty() && s.ends_with(&ext) {
-//                 return s[0..s.len() - ext.len()].to_string();
-//             }
-//         }
-//     }
-//     s.to_string()
-// }
 
 pub fn get_common_prefix_len(list: &[&str]) -> usize {
     if list.is_empty() {
@@ -381,25 +327,18 @@ pub fn is_url(s: &str) -> bool {
 pub fn is_dist_manfiest(s: &str) -> bool {
     s.ends_with(".json")
 }
-const HASH_EXTS: [&str; 2] = [".sha256sum", ".sha256"];
+const HASH_EXTS: [&str; 4] = [".sha256sum", ".sha256", ".md", ".txt"];
 pub fn is_hash_file(s: &str) -> bool {
-    HASH_EXTS.iter().any(|i| s.ends_with(i))
+    HASH_EXTS
+        .iter()
+        .any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
 }
 const INSTALLER_EXTS: [&str; 4] = [".msi", ".app", ".msix", ".appimage"];
 
 pub fn is_msi_file(s: &str) -> bool {
-    INSTALLER_EXTS.iter().any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
-}
-
-pub async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
-    if !art_url.contains("*") {
-        return vec![art_url.to_string()];
-    }
-
-    if let Ok(repo) = Repo::try_from(art_url) {
-        return repo.get_artifact_url().await;
-    }
-    vec![]
+    INSTALLER_EXTS
+        .iter()
+        .any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
 }
 
 pub fn path_to_str(p: &Path) -> String {
@@ -417,11 +356,8 @@ pub fn replace_filename(base_url: &str, name: &str) -> String {
 #[cfg(test)]
 mod test {
     use crate::{
-        download::{download_dist_manfiest, read_dist_manfiest},
-        tool::{
-            dirname, get_artifact_download_url, get_artifact_url_from_manfiest, is_archive_file,
-            is_exe_file, is_url,
-        },
+        download::download_dist_manfiest,
+        tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
         ty::Repo,
     };
 
@@ -642,16 +578,16 @@ mod test {
         assert_eq!(artifact_url.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_quickjs_ng() {
-        let json = "./dist-manifest/quickjs-ng.json";
-        let manifest = read_dist_manfiest(json).unwrap();
-        let urls = get_artifact_url_from_manfiest(json, &manifest);
-        for i in urls {
-            let download_urls = get_artifact_download_url(&i);
-            assert_eq!(download_urls.await.len(), 1);
-        }
-    }
+    // #[tokio::test]
+    // async fn test_quickjs_ng() {
+    //     let json = "./dist-manifest/quickjs-ng.json";
+    //     let manifest = read_dist_manfiest(json).unwrap();
+    //     let urls = get_artifact_url_from_manfiest(json, &manifest);
+    //     for i in urls {
+    //         let download_urls = get_artifact_download_url(&i);
+    //         assert_eq!(download_urls.await.len(), 1);
+    //     }
+    // }
 
     // #[tokio::test]
     // async fn test_graaljs() {

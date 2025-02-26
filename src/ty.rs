@@ -1,8 +1,8 @@
 use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
-use crate::manfiest::{Artifact, DistManifest};
-use crate::tool::{is_hash_file, is_msi_file};
-use guess_target::{get_local_target, guess_target};
+use crate::manfiest::DistManifest;
+use crate::tool::{ends_with_exe, get_filename, is_hash_file, is_msi_file, name_no_ext};
+use guess_target::{get_local_target, guess_target, Os};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -24,12 +24,6 @@ pub struct OutputItem {
 }
 
 pub type Output = HashMap<String, OutputItem>;
-
-impl DistManifest {
-    pub fn get_artifact_by_key(&self, key: &str) -> Option<Artifact> {
-        self.artifacts.get(key).cloned()
-    }
-}
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Repo {
@@ -146,7 +140,7 @@ impl Repo {
     pub async fn get_manfiest(&self) -> Option<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub async fn get_artifact_url(&self) -> Vec<String> {
+    pub async fn get_artifact_url(&self) -> Vec<(String, String)> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
@@ -155,13 +149,21 @@ impl Repo {
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
-                if is_hash_file(&i.name) || is_msi_file(&i.name) {
+                if is_hash_file(&i.browser_download_url) || is_msi_file(&i.browser_download_url) {
                     continue;
                 }
-                let guess = guess_target(&i.name);
+                if ends_with_exe(&i.browser_download_url)
+                    && local_target.iter().any(|t| t.os() != Os::Windows)
+                {
+                    continue;
+                }
+                let filename = get_filename(&i.browser_download_url);
+                let name = name_no_ext(&filename);
+                let guess = guess_target(&name);
+                println!("filename {} {:?}", filename, guess);
                 if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
                     if !filter.contains(&item.name) {
-                        v.push(i.browser_download_url.clone());
+                        v.push((item.name.clone(), i.browser_download_url.clone()));
                         filter.push(item.name.clone())
                     }
                 }

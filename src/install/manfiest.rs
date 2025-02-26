@@ -16,9 +16,9 @@ pub async fn install_from_manfiest(
         println!("install_from_manfiest {} failed", url);
         return v;
     }
-    for art_url in art_url_list {
+    for (name, art_url) in art_url_list {
         trace!("install_from_manfiest art_url {}", art_url);
-        v.extend(install_from_artifact_url(&art_url, Some(manfiest.clone()), dir.clone()).await);
+        v.extend(install_from_artifact_url(&art_url, &name, dir.clone()).await);
     }
     v
 }
