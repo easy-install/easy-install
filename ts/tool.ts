@@ -289,10 +289,10 @@ export function replaceFilename(baseUrl: string, name: string): string {
 }
 
 export function isHashFile(s: string): boolean {
-  return ['.sha256sum', '.sha256'].some((i) => s.endsWith(i))
+  return ['.sha256sum', '.sha256'].some((i) => s.toLowerCase().endsWith(i.toLowerCase()))
 }
 export function isMsiFile(s: string): boolean {
-  return ['.msi', '.app', '.msix'].some((i) => s.endsWith(i))
+  return ['.msi', '.app', '.msix','appimage'].some((i) => s.toLowerCase().endsWith(i.toLowerCase()))
 }
 export function isMsys() {
   return !!process.env['MSYSTEM']
@@ -484,7 +484,7 @@ export function nameNoExt(s: string) {
 }
 
 export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
-export const INSTALLER_EXTS = ['.msi', '.app']
+export const INSTALLER_EXTS = ['.msi', '.is_msi_file']
 
 export function guessName(
   name: string,

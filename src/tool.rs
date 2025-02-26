@@ -385,10 +385,10 @@ const HASH_EXTS: [&str; 2] = [".sha256sum", ".sha256"];
 pub fn is_hash_file(s: &str) -> bool {
     HASH_EXTS.iter().any(|i| s.ends_with(i))
 }
-const INSTALLER_EXTS: [&str; 3] = [".msi", ".app", ".msix"];
+const INSTALLER_EXTS: [&str; 4] = [".msi", ".app", ".msix", ".appimage"];
 
 pub fn is_msi_file(s: &str) -> bool {
-    INSTALLER_EXTS.iter().any(|i| s.ends_with(i))
+    INSTALLER_EXTS.iter().any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
 }
 
 pub async fn get_artifact_download_url(art_url: &str) -> Vec<String> {
