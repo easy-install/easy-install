@@ -162,13 +162,22 @@ impl Repo {
                 let guess = guess_target(&name);
                 if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
                     if !filter.contains(&item.name) {
-                        v.push((item.name.clone(), i.browser_download_url.clone()));
+                        v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
                         filter.push(item.name.clone())
                     }
                 }
             }
         }
-        v
+        let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
+        v.into_iter()
+            .filter_map(|i| {
+                if i.0 < max_rank {
+                    None
+                } else {
+                    Some((i.1, i.2))
+                }
+            })
+            .collect()
     }
 }
 

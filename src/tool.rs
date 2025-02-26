@@ -207,7 +207,7 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
 
 pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<(String, String)> {
     let mut v = vec![];
-    let mut filter = vec![];
+    // let mut filter = vec![];
     let local_target = get_local_target();
 
     for (key, art) in manfiest.artifacts.iter() {
@@ -220,20 +220,20 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
             continue;
         }
 
-        let guess = guess_target(&filename);
+        // let guess = guess_target(&filename);
 
-        if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
-            if filter.contains(&item.name) {
-                continue;
-            }
-            if !is_url(key) {
-                v.push((item.name.clone(), replace_filename(url, key)));
-            } else {
-                v.push((item.name.clone(), key.clone()));
-            }
-            filter.push(item.name.clone());
-            continue;
-        }
+        // if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+        //     if filter.contains(&item.name) {
+        //         continue;
+        //     }
+        //     if !is_url(key) {
+        //         v.push((item.rank, item.name.clone(), replace_filename(url, key)));
+        //     } else {
+        //         v.push((item.rank, item.name.clone(), key.clone()));
+        //     }
+        //     filter.push(item.name.clone());
+        //     continue;
+        // }
 
         if has_common_elements(
             &art.target_triples,
@@ -248,14 +248,26 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                     continue;
                 }
             }
+            let name = name_no_ext(&filename);
+            let name = guess_target(&name).pop().map_or(name, |i| i.name);
             if !is_url(key) {
-                v.push((name_no_ext(&filename), replace_filename(url, key)));
+                v.push((name, replace_filename(url, key)));
             } else {
-                v.push((name_no_ext(&filename), key.to_string()));
+                v.push((name, key.to_string()));
             }
             continue;
         }
     }
+    // let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
+    // v.into_iter()
+    //     .filter_map(|i| {
+    //         if i.0 < max_rank {
+    //             None
+    //         } else {
+    //             Some((i.1, i.2))
+    //         }
+    //     })
+    //     .collect()
     v
 }
 

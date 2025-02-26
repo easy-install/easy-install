@@ -2,14 +2,12 @@ use crate::download::download_extract;
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
 use crate::tool::{
-    display_output, get_common_prefix_len, get_filename, install_output_files, is_archive_file,
-    name_no_ext, path_to_str,
+    display_output, get_common_prefix_len, install_output_files, is_archive_file, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
-pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Output {
+pub async fn install_from_download_file(url: &str, name: &str, dir: Option<String>) -> Output {
     trace!("install_from_download_file");
     let mut install_dir = get_install_dir();
     let mut v: OutputItem = Default::default();
@@ -28,13 +26,13 @@ pub async fn install_from_download_file(url: &str, dir: Option<String>) -> Outpu
         if let Some(download_files) = download_extract(url).await {
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
-                let local_target = get_local_target();
-                let filename = get_filename(url);
-                let guess = guess_target(&filename);
-                let name = guess
-                    .iter()
-                    .find(|i| local_target.contains(&i.target))
-                    .map_or(name_no_ext(&filename), |i| i.name.clone());
+                // let local_target = get_local_target();
+                // let filename = get_filename(url);
+                // let guess = guess_target(&filename);
+                // let name = guess
+                //     .iter()
+                //     .find(|i| local_target.contains(&i.target))
+                //     .map_or(name_no_ext(&filename), |i| i.name.clone());
                 install_dir.push(name);
             }
 
@@ -87,7 +85,7 @@ pub async fn install_from_artifact_url(art_url: &str, name: &str, dir: Option<St
         let output = install_from_single_file(art_url, name, dir.clone()).await;
         return output;
     }
-    let output = install_from_download_file(art_url, dir.clone()).await;
+    let output = install_from_download_file(art_url, name, dir.clone()).await;
     v.extend(output);
     v
 }
