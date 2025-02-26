@@ -7,39 +7,37 @@ import { addGithubPath, addPath, hasPath, isGithub } from 'crud-path'
 import { humanSize, modeToString } from '@easy-install/easy-archive'
 import { spawnSync } from 'child_process'
 import { randomId } from './download'
-import { extensions, Fmt } from '@easy-install/easy-archive'
 import { dirname } from 'path'
 import { getLocalTarget, guessTarget, targetToString } from 'guess-target'
+import {
+  ALL_FILE_EXTS,
+  ArchiveFmtList,
+  INSTALLER_EXTS,
+  MAX_FILE_COUNT,
+  SKIP_FMT_LIST,
+  TEXT_FILE_EXTS,
+  WINDOWS_EXE_EXTS,
+} from './const'
 
 export function isUrl(s: string): boolean {
   return ['https://', 'http://'].some((i) => s.startsWith(i))
 }
 
-const ArchiveFmtList = [
-  Fmt.Tar,
-  Fmt.TarBz,
-  Fmt.TarGz,
-  Fmt.TarXz,
-  Fmt.TarZstd,
-  Fmt.Zip,
-].map((i) => extensions(i)).flat()
-
 export function isArchiveFile(s: string): boolean {
-  for (
-    const i of ArchiveFmtList
-  ) {
-    if (s.endsWith(i)) {
-      return true
-    }
-  }
-  return false
+  return ArchiveFmtList.some((i) => s.toLowerCase().endsWith(i.toLowerCase()))
+}
+
+export function isSkip(s: string) {
+  return [...SKIP_FMT_LIST, ...TEXT_FILE_EXTS, ...INSTALLER_EXTS].some((i) =>
+    s.toLowerCase().endsWith(i.toLowerCase())
+  )
 }
 
 export function endsWithExe(s: string): boolean {
   return WINDOWS_EXE_EXTS.some((i) => s.endsWith(i))
 }
 
-export function isExeFile(s: string): boolean {
+export function isExeUrl(s: string): boolean {
   if (endsWithExe(s)) {
     return true
   }
@@ -92,105 +90,9 @@ export async function download(url: string, outputPath?: string) {
   return outputPath.replaceAll('\\', '/')
 }
 
-export function detectTargets(
-  platform = process.platform,
-  arch = process.arch,
-  musl = isMusl(),
-): string[] {
-  switch (platform) {
-    case 'darwin': {
-      switch (arch) {
-        case 'arm64': {
-          return ['aarch64-apple-darwin']
-        }
-        case 'x64': {
-          return ['x86_64-apple-darwin']
-        }
-        default: {
-          return []
-        }
-      }
-    }
-    case 'linux': {
-      switch (arch) {
-        case 'ia32': {
-          if (musl) {
-            return ['i686-unknown-linux-musl']
-          }
-          return ['i686-unknown-linux-gnu']
-        }
-        case 'arm': {
-          if (musl) {
-            return ['arm-unknown-linux-musleabihf']
-          }
-          return ['arm-unknown-linux-gnu']
-        }
-        case 'arm64': {
-          if (musl) {
-            return ['aarch64-unknown-linux-musl' // 'aarch64-unknown-linux-gnu'
-            ]
-          }
-          return ['aarch64-unknown-linux-gnu' // 'aarch64-unknown-linux-musl'
-          ]
-        }
-        case 'x64': {
-          if (musl) {
-            return ['x86_64-unknown-linux-musl' // 'x86_64-unknown-linux-gnu'
-            ]
-          }
-          return ['x86_64-unknown-linux-gnu' //  'x86_64-unknown-linux-musl'
-          ]
-        }
-        default: {
-          return []
-        }
-      }
-    }
-    case 'win32': {
-      switch (arch) {
-        case 'x64': {
-          return ['x86_64-pc-windows-msvc', 'x86_64-pc-windows-gnu']
-        }
-        case 'arm64': {
-          return [
-            'aarch64-pc-windows-msvc',
-          ]
-        }
-        case 'ia32': {
-          return [
-            'i686-pc-windows-msvc',
-          ]
-        }
-        default: {
-          return []
-        }
-      }
-    }
-    case 'freebsd': {
-      switch (arch) {
-        case 'x64': {
-          return [
-            'x86_64-unknown-freebsd',
-          ]
-        }
-      }
-    }
-  }
-  return []
-}
-
-export function getAssetNames(
-  name: string,
-  platform = process.platform,
-  arch = process.arch,
-  musl = isMusl(),
-): string[] {
-  return detectTargets(platform, arch, musl).map((i) => `${name}-${i}`)
-}
-
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -265,15 +167,6 @@ const isMuslFromChildProcess = () => {
   }
 }
 
-export function removePostfix(s: string): string {
-  for (const i of ArchiveFmtList) {
-    if (i && s.endsWith(i)) {
-      return s.slice(0, s.length - i.length)
-    }
-  }
-  return s
-}
-
 export function matchTargets(targets: string[], platformTargets: string[]) {
   for (const i of platformTargets) {
     if (targets.includes(i)) {
@@ -288,16 +181,6 @@ export function replaceFilename(baseUrl: string, name: string): string {
   return i !== -1 ? baseUrl.slice(0, i + 1) + name : name
 }
 
-export function isHashFile(s: string): boolean {
-  return ['.sha256sum', '.sha256'].some((i) =>
-    s.toLowerCase().endsWith(i.toLowerCase())
-  )
-}
-export function isMsiFile(s: string): boolean {
-  return ['.msi', '.app', '.msix', 'appimage'].some((i) =>
-    s.toLowerCase().endsWith(i.toLowerCase())
-  )
-}
 export function isMsys() {
   return !!process.env['MSYSTEM']
 }
@@ -314,23 +197,10 @@ export function addExecutePermission(filePath: string) {
   }
 }
 
-// export function atomiInstall(src: string, dst: string) {
-//   const dir = path.dirname(dst)
-//   if (fs.existsSync(dir) && fs.statSync(dir).isFile()) {
-//     console.log(`remove ${dir}`)
-//     fs.rmSync(dir)
-//   }
-//   if (!fs.existsSync(dir)) {
-//     fs.mkdirSync(dir, { recursive: true })
-//   }
-//   fs.copyFileSync(src, dst)
-// }
-
 export function isDistManfiest(s: string) {
   return s.endsWith('.json')
 }
 
-const MAX_FILE_COUNT = 16
 export function displayOutput(output: Output) {
   const s: string[] = []
   for (const v of Object.values(output)) {
@@ -484,16 +354,13 @@ export function installOutputFiles(files: OutputFile[]) {
 }
 
 export function nameNoExt(s: string) {
-  for (const i of [...ArchiveFmtList, ...WINDOWS_EXE_EXTS, ...INSTALLER_EXTS]) {
-    if (s.endsWith(i)) {
+  for (const i of ALL_FILE_EXTS) {
+    if (s.toLowerCase().endsWith(i.toLowerCase())) {
       return s.slice(0, s.length - i.length)
     }
   }
   return s.split('.')[0]
 }
-
-export const WINDOWS_EXE_EXTS = ['.exe', '.ps1', '.bat']
-export const INSTALLER_EXTS = ['.msi', '.is_msi_file']
 
 export function guessName(
   name: string,

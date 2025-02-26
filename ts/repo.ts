@@ -1,15 +1,5 @@
-import { getLocalTarget, guessTarget, targetToString } from 'guess-target'
 import { downloadJson } from './download'
-import {
-  detectTargets,
-  getFetchOption,
-  getFilename,
-  guessName,
-  isArchiveFile,
-  isHashFile,
-  isMsiFile,
-  isMusl,
-} from './tool'
+import { getFetchOption, guessName, isSkip } from './tool'
 import { Artifacts } from './type'
 import { DistManifest } from './type'
 
@@ -64,10 +54,7 @@ export class Repo {
     const v: { name: string; url: string }[] = []
     const filter = new Set()
     for (const { name, url, browser_download_url } of releases.assets || []) {
-      if (
-        isHashFile(url) || isHashFile(name) ||
-        isMsiFile(browser_download_url) || isMsiFile(name)
-      ) {
+      if (isSkip(browser_download_url)) {
         continue
       }
       const ret = guessName(browser_download_url)
@@ -106,26 +93,5 @@ export class Repo {
       return await downloadJson(this.getManfiestUrl())
     } finally {
     }
-  }
-
-  async getArtifactUrls(): Promise<string[]> {
-    const api = this.getArtifactApi()
-    const artifacts = await downloadJson<Artifacts>(api)
-    const target = detectTargets()
-    const v: string[] = []
-    const filter: string[] = []
-    for (const i of artifacts?.assets || []) {
-      for (const pat of target) {
-        const remove_target = i.name.replace(pat, '')
-        if (
-          i.name.includes(pat) &&
-          isArchiveFile(i.name) && !filter.includes(remove_target)
-        ) {
-          v.push(i.browser_download_url)
-          filter.push(remove_target)
-        }
-      }
-    }
-    return v
   }
 }

@@ -1,8 +1,7 @@
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::tool::{
-    display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, is_hash_file,
-    is_msi_file, path_to_str,
+    display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use guess_target::{get_local_target, Os};
@@ -10,10 +9,6 @@ use guess_target::{get_local_target, Os};
 pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Output {
     let mut install_dir = get_install_dir();
     let mut output = Output::new();
-
-    if is_hash_file(url) || is_msi_file(url) {
-        return output;
-    }
 
     if let Some(target_dir) = dir {
         if target_dir.contains("/") || target_dir.contains("\\") {

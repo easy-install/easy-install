@@ -1,34 +1,12 @@
 import { expect, test } from 'vitest'
 import {
-  getAssetNames,
   getCommonPrefixLen,
   getFilename,
   isArchiveFile,
-  isExeFile,
+  isExeUrl,
 } from '../ts/tool'
-
 import { downloadDistManfiest } from '../ts/download'
-import { Repo } from '../ts'
-import { getArtifact, getArtifactUrlFromManfiest } from '../ts/dist-manifest'
-
-test('getAssetNames', () => {
-  expect(getAssetNames('deno', 'win32', 'x64')).toEqual([
-    'deno-x86_64-pc-windows-msvc',
-    'deno-x86_64-pc-windows-gnu',
-  ])
-  expect(getAssetNames('deno', 'linux', 'x64')).toEqual([
-    'deno-x86_64-unknown-linux-gnu',
-  ])
-  expect(getAssetNames('deno', 'linux', 'x64', true)).toEqual([
-    'deno-x86_64-unknown-linux-musl',
-  ])
-  expect(getAssetNames('deno', 'darwin', 'x64')).toEqual([
-    'deno-x86_64-apple-darwin',
-  ])
-  expect(getAssetNames('deno', 'darwin', 'arm64')).toEqual([
-    'deno-aarch64-apple-darwin',
-  ])
-})
+import { getArtifactUrlFromManfiest } from '../ts/dist-manifest'
 
 test('isArchiveFile', () => {
   for (
@@ -66,41 +44,6 @@ test('cargo_dist', async () => {
   expect(v.length > 0).toEqual(true)
 })
 
-test('deno', async () => {
-  const repo = Repo.fromUrl('https://github.com/denoland/deno')!
-  const v = await repo.getArtifactUrls()
-  expect(v.length > 0).toEqual(true)
-})
-
-// test('get_artifact_download_url', async () => {
-//   for (
-//     const url of [
-//       'https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip',
-//       'https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip',
-//       'https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip',
-//       'https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?',
-//       'https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip',
-//       'https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz',
-//       'https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip',
-//       'https://github.com/starship/starship',
-//     ]
-//   ) {
-//     const v = await getArtifactDownloadUrl(url)
-//     expect(v.length).toEqual(1)
-//   }
-// })
-
-// test('graaljs', async () => {
-//   const path = './dist-manifest/graaljs.json'
-//   const dist = readDistManfiest(path)!
-//   const v = getArtifactUrlFromManfiest(dist, path)
-//   expect(v.length).toEqual(1)
-//   for (const i of v) {
-//     const url = await getArtifactDownloadUrl(i)
-//     expect(url.length).toEqual(1)
-//   }
-// })
-
 test('isExeFile', () => {
   for (
     const [a, b] of [
@@ -127,7 +70,7 @@ test('isExeFile', () => {
       ],
     ] as const
   ) {
-    expect(isExeFile(a)).toEqual(b)
+    expect(isExeUrl(a)).toEqual(b)
   }
 })
 

@@ -1,7 +1,7 @@
 use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
 use crate::manfiest::DistManifest;
-use crate::tool::{ends_with_exe, get_filename, is_hash_file, is_msi_file, name_no_ext};
+use crate::tool::{ends_with_exe, get_filename, is_skip, name_no_ext};
 use guess_target::{get_local_target, guess_target, Os};
 use regex::Regex;
 use std::collections::HashMap;
@@ -149,7 +149,7 @@ impl Repo {
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
             let mut filter = vec![];
             for i in artifacts.assets {
-                if is_hash_file(&i.browser_download_url) || is_msi_file(&i.browser_download_url) {
+                if is_skip(&i.browser_download_url) {
                     continue;
                 }
                 if ends_with_exe(&i.browser_download_url)
@@ -160,7 +160,6 @@ impl Repo {
                 let filename = get_filename(&i.browser_download_url);
                 let name = name_no_ext(&filename);
                 let guess = guess_target(&name);
-                println!("filename {} {:?}", filename, guess);
                 if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
                     if !filter.contains(&item.name) {
                         v.push((item.name.clone(), i.browser_download_url.clone()));

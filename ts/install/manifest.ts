@@ -14,7 +14,7 @@ export async function manifestInstall(
   }
   const output: Output = {}
   for (const url of v) {
-    const v = await artifactInstall(url, dist, dir)
+    const v = await artifactInstall(url, dir)
     Object.assign(output, v)
   }
   return output

@@ -1,15 +1,60 @@
-use easy_archive::tool::{human_size, mode_to_string};
-use easy_archive::ty::Fmt;
-use guess_target::{get_local_target, guess_target, Os};
-use std::path::Path;
-
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
+use easy_archive::{human_size, mode_to_string};
+use easy_archive::{Fmt, IntoEnumIterator};
+use guess_target::{get_local_target, guess_target, Os};
 use regex::Regex;
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
+use std::path::Path;
 use std::str::FromStr;
+
+const DEEP: usize = 3;
+const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
+const INSTALLER_EXTS: [&str; 11] = [
+    ".msi",
+    ".msix",
+    ".appx",
+    ".deb",
+    ".rpm",
+    ".dmg",
+    ".pkg",
+    ".app",
+    ".apk",
+    ".ipa",
+    ".appimage",
+];
+const TEXT_FILE_EXTS: [&str; 11] = [
+    ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
+];
+
+const SKIP_FMT_LIST: [&str; 16] = [
+    ".sha256sum",
+    ".sha256",
+    ".sha1",
+    ".md5",
+    ".sum",
+    ".msi",
+    ".msix",
+    ".appx",
+    ".app",
+    ".appimage",
+    ".json",
+    ".txt",
+    ".md",
+    ".log",
+    ".sig",
+    ".asc",
+];
+
+pub fn is_skip(s: &str) -> bool {
+    INSTALLER_EXTS
+        .iter()
+        .chain(TEXT_FILE_EXTS.iter())
+        .chain(SKIP_FMT_LIST.iter())
+        .any(|&ext| s.to_ascii_lowercase().ends_with(&ext.to_ascii_lowercase()))
+}
 
 pub fn get_bin_name(s: &str) -> String {
     if cfg!(windows) && !WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) && !s.contains(".") {
@@ -53,9 +98,6 @@ pub fn display_output(output: &Output) -> String {
     }
     v.join("\n")
 }
-
-const DEEP: usize = 3;
-const WINDOWS_EXE_EXTS: [&str; 3] = [".exe", ".ps1", ".bat"];
 
 fn dirname(s: &str) -> String {
     let i = s.rfind('/').map_or(s.len(), |i| i + 1);
@@ -170,7 +212,7 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
 
     for (key, art) in manfiest.artifacts.iter() {
         let filename = get_filename(key);
-        if is_hash_file(&filename) || is_msi_file(&filename) {
+        if is_skip(&filename) {
             continue;
         }
 
@@ -261,23 +303,11 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
 }
 
 pub fn name_no_ext(s: &str) -> String {
-    let exts = [
-        Fmt::Tar,
-        Fmt::TarGz,
-        Fmt::TarXz,
-        Fmt::TarBz,
-        Fmt::TarZstd,
-        Fmt::Zip,
-    ]
-    .iter()
-    .flat_map(|i| i.extensions());
-
-    for ext in exts {
+    for ext in Fmt::iter().flat_map(|i| i.extensions()) {
         if s.ends_with(&ext) {
             return s[0..s.len() - ext.len()].to_string();
         }
     }
-
     let i = s.find(".").unwrap_or(s.len());
     s[0..i].to_string()
 }
@@ -345,19 +375,6 @@ pub fn is_url(s: &str) -> bool {
 
 pub fn is_dist_manfiest(s: &str) -> bool {
     s.ends_with(".json")
-}
-const HASH_EXTS: [&str; 4] = [".sha256sum", ".sha256", ".md", ".txt"];
-pub fn is_hash_file(s: &str) -> bool {
-    HASH_EXTS
-        .iter()
-        .any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
-}
-const INSTALLER_EXTS: [&str; 4] = [".msi", ".app", ".msix", ".appimage"];
-
-pub fn is_msi_file(s: &str) -> bool {
-    INSTALLER_EXTS
-        .iter()
-        .any(|i| s.to_ascii_lowercase().ends_with(&i.to_ascii_lowercase()))
 }
 
 pub fn path_to_str(p: &Path) -> String {
@@ -450,17 +467,6 @@ mod test {
         assert!(!is_url("ansi2"));
     }
 
-    // #[tokio::test]
-    // async fn test_get_artifact_url() {
-    //     let repo = Repo::try_from("https://github.com/ahaoboy/mujs-build").unwrap();
-    //     let url = repo.get_artifact_url(detect_targets().await).await[0].clone();
-    //     let files = download_extract(&url).await.unwrap();
-    //     assert!(files
-    //         .iter()
-    //         .find(|i| i.path == if IS_WINDOWS { "mujs.exe" } else { "mujs" })
-    //         .is_some());
-    // }
-
     #[tokio::test]
     async fn test_get_artifact_api() {
         let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist").unwrap();
@@ -503,49 +509,6 @@ mod test {
         assert!(!manfiest.artifacts.is_empty())
     }
 
-    // #[tokio::test]
-    // async fn test_manifest_jsc() {
-    //     let repo = Repo {
-    //         owner: "ahaoboy".to_string(),
-    //         name: "jsc-build".to_string(),
-    //         tag: None,
-    //     };
-
-    //     let manifest = repo.get_manfiest().await.unwrap();
-    //     let art = manifest
-    //         .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
-    //         .unwrap();
-
-    //     assert!(art.has_file("bin/jsc"));
-    //     assert!(art.has_file("lib/libJavaScriptCore.a"));
-    //     assert!(!art.has_file("lib/jsc"));
-    // }
-
-    // #[tokio::test]
-    // async fn test_manifest_mujs() {
-    //     let repo = Repo {
-    //         owner: "ahaoboy".to_string(),
-    //         name: "mujs-build".to_string(),
-    //         tag: None,
-    //     };
-
-    //     let manifest = repo.get_manfiest().await.unwrap();
-    //     let art = manifest
-    //         .get_artifact(&vec!["x86_64-unknown-linux-gnu".to_string()])
-    //         .unwrap();
-
-    //     assert!(art.has_file("mujs"));
-    //     assert!(!art.has_file("mujs.exe"));
-
-    //     let manifest = repo.get_manfiest().await.unwrap();
-    //     let art = manifest
-    //         .get_artifact(&vec!["x86_64-pc-windows-gnu".to_string()])
-    //         .unwrap();
-
-    //     assert!(!art.has_file("mujs"));
-    //     assert!(art.has_file("mujs.exe"));
-    // }
-
     #[tokio::test]
     async fn test_install_from_manfiest() {
         let url =
@@ -573,22 +536,6 @@ mod test {
         assert_eq!(artifact_url.len(), 2);
     }
 
-    // #[tokio::test]
-    // async fn test_get_artifact_download_url() {
-    //     for url in [
-    //     "https://github.com/Ryubing/Ryujinx/releases/latest/download/^ryujinx-*.*.*-win_x64.zip",
-    //     "https://github.com/Ryubing/Ryujinx/releases/download/1.2.80/ryujinx-*.*.*-win_x64.zip",
-    //     "https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip",
-    //     "https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest/download/^mpv-x86_64-v3-.*?-git-.*?",
-    //     "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.[0-9]*.[0-9]*.[0-9]*.Portable.x64.zip",
-    //     "https://github.com/ip7z/7zip/releases/latest/download/7z.*?-linux-x64.tar.xz",
-    //     "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip",
-    //   ]{
-    //       let art_url = get_artifact_download_url(url).await;
-    //       assert_eq!(art_url.len(), 1);
-    //   }
-    // }
-
     #[tokio::test]
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
@@ -596,30 +543,6 @@ mod test {
         println!("{:?}", artifact_url);
         assert_eq!(artifact_url.len(), 1);
     }
-
-    // #[tokio::test]
-    // async fn test_quickjs_ng() {
-    //     let json = "./dist-manifest/quickjs-ng.json";
-    //     let manifest = read_dist_manfiest(json).unwrap();
-    //     let urls = get_artifact_url_from_manfiest(json, &manifest);
-    //     for i in urls {
-    //         let download_urls = get_artifact_download_url(&i);
-    //         assert_eq!(download_urls.await.len(), 1);
-    //     }
-    // }
-
-    // #[tokio::test]
-    // async fn test_graaljs() {
-    //     let json = "./dist-manifest/graaljs.json";
-    //     let manifest = read_dist_manfiest(json).unwrap();
-    //     let urls = get_artifact_url_from_manfiest(json, &manifest).await;
-    //     assert_eq!(urls.len(), 1);
-
-    //     for i in urls {
-    //         let download_urls = get_artifact_download_url(&i).await;
-    //         assert_eq!(download_urls.len(), 1);
-    //     }
-    // }
 
     #[test]
     fn test_is_exe_file() {

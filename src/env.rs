@@ -2,8 +2,6 @@ use std::path::PathBuf;
 
 use crud_path::{add_github_path, is_github};
 
-// pub const IS_WINDOWS: bool = cfg!(target_os = "windows");
-
 pub fn add_to_path(dir: &str) {
     if crud_path::has_path(dir) {
         return;

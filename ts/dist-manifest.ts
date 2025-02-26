@@ -2,8 +2,7 @@ import { existsSync, readFileSync } from 'fs'
 import {
   getFilename,
   guessName,
-  isHashFile,
-  isMsiFile,
+  isSkip,
   isUrl,
   matchTargets,
   replaceFilename,
@@ -42,7 +41,7 @@ export function getArtifactUrlFromManfiest(
   const filter: string[] = []
   for (const key in dist.artifacts) {
     const filename = getFilename(key)
-    if (isHashFile(filename) || isMsiFile(filename)) {
+    if (isSkip(filename)) {
       continue
     }
     const art = dist.artifacts[key]

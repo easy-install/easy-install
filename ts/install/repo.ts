@@ -9,7 +9,7 @@ import {
   getFilename,
   guessName,
   installOutputFiles,
-  isExeFile,
+  isExeUrl,
   nameNoExt,
   showSuccess,
 } from '../tool'
@@ -18,7 +18,7 @@ import { manifestInstall } from './manifest'
 import { extractTo } from '@easy-install/easy-archive/tool'
 import { existsSync, mkdirSync } from 'fs'
 import { fileInstall } from './file'
-import { getLocalTarget, guessTarget, Os, targetGetOs } from 'guess-target'
+import { getLocalTarget, Os, targetGetOs } from 'guess-target'
 
 export async function repoInstall(
   repo: Repo,
@@ -42,8 +42,8 @@ export async function repoInstall(
     if (!installDir) {
       installDir = getInstallDir()
     }
-    if (isExeFile(url)) {
-      const out = await fileInstall({ url }, url, undefined, installDir)
+    if (isExeUrl(url)) {
+      const out = await fileInstall(url, name, installDir)
       Object.assign(output, out)
     } else {
       console.log(`download ${url}`)

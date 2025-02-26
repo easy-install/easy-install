@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { Repo } from '../ts/repo'
-import { isExeFile, isUrl } from '../ts'
+import { isExeUrl, isUrl } from '../ts'
 
 test('getReleasesApiUrl', () => {
   const repo = Repo.fromUrl('https://github.com/denoland/deno')!
@@ -13,39 +13,6 @@ test('getReleasesApiUrl', () => {
     'https://api.github.com/repos/denoland/deno/releases/tags/v2.1.6',
   )
 })
-
-// test('getAssetUrl', async () => {
-//   const repo = Repo.fromUrl('https://github.com/denoland/deno')!
-//   expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'win32', 'x64')).toEqual(
-//     ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-pc-windows-msvc.zip'],
-//   )
-//   expect(await repo.getAssetUrlList('deno', 'v2.1.6', 'darwin', 'x64')).toEqual(
-//     ['https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip'],
-//   )
-//   expect(await repo.getAssetUrlList(undefined, 'v2.1.6', 'darwin', 'x64'))
-//     .toEqual(
-//       [
-//         'https://github.com/denoland/deno/releases/download/v2.1.6/deno-x86_64-apple-darwin.zip',
-//         'https://github.com/denoland/deno/releases/download/v2.1.6/denort-x86_64-apple-darwin.zip',
-//       ],
-//     )
-// })
-
-// test('getAssetUrl mise', async () => {
-//   const repo = Repo.fromUrl('https://github.com/jdx/mise/releases')!
-//   expect(await repo.getAssetUrlList(undefined, undefined, 'win32', 'x64'))
-//     .toEqual(
-//       [
-//         'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-windows-x64.zip',
-//       ],
-//     )
-//   expect(await repo.getAssetUrlList(undefined, undefined, 'darwin', 'x64'))
-//     .toEqual(
-//       [
-//         'https://github.com/jdx/mise/releases/download/v2025.2.7/mise-v2025.2.7-macos-x64',
-//       ],
-//     )
-// })
 
 test('fromUrl', async () => {
   for (
@@ -91,19 +58,6 @@ test('isUrl', async () => {
     ] as const
   ) {
     expect(isUrl(url)).toEqual(ty)
-  }
-})
-
-test('getArtifactUrls', async () => {
-  const repo = Repo.fromUrl(
-    'https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.4',
-  )!
-  const urls = await repo.getArtifactUrls()
-  expect(urls.length > 0).toEqual(true)
-  if (process.platform === 'win32') {
-    expect(urls).toEqual([
-      'https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/mujs-x86_64-pc-windows-gnu.tar.xz',
-    ])
   }
 })
 
@@ -191,6 +145,6 @@ test('isExeFile', () => {
       ],
     ] as const
   ) {
-    expect(isExeFile(a)).toBe(b)
+    expect(isExeUrl(a)).toBe(b)
   }
 })

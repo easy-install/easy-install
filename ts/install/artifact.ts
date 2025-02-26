@@ -11,10 +11,10 @@ import {
   isArchiveFile,
   nameNoExt,
 } from '../tool'
-import { DistManifest, Output, OutputFile } from '../type'
+import { Output, OutputFile } from '../type'
 import { fileInstall } from './file'
 import { extractTo } from '@easy-install/easy-archive/tool'
-import { getLocalTarget, guessTarget, Os, targetGetOs } from 'guess-target'
+import { getLocalTarget, Os, targetGetOs } from 'guess-target'
 
 async function downloadAndInstall(
   downloadUrl: string,
@@ -24,7 +24,6 @@ async function downloadAndInstall(
   const tmpPath = await downloadToFile(downloadUrl)
   const { files } = extractTo(tmpPath)!
   const filename = getFilename(downloadUrl)
-
   const localTarget = getLocalTarget()
   if (
     endsWithExe(downloadUrl) &&
@@ -45,7 +44,6 @@ async function downloadAndInstall(
 
   for (const { isDir, mode = 0, buffer, path } of list) {
     const installPath = join(installDir, path.slice(prefixLen))
-    // console.log('installPath,', installDir, installPath, path.slice(prefixLen))
     outputFiles.push({
       mode: mode,
       size: buffer.length,
@@ -70,12 +68,11 @@ async function downloadAndInstall(
 }
 export async function artifactInstall(
   artUrl: string,
-  dist?: DistManifest,
   dir?: string,
 ): Promise<Output> {
   const output = isArchiveFile(artUrl)
     ? await downloadAndInstall(artUrl, dir)
-    : await fileInstall({ url: artUrl }, artUrl, dist, dir)
+    : await fileInstall(artUrl, undefined, dir)
 
   return output
 }

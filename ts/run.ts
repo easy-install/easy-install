@@ -1,11 +1,12 @@
 import { join } from 'path'
-import { detectTargets, getBinName } from './tool'
+import { getBinName } from './tool'
 import type { DistManifest, Input } from './type'
 import { existsSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { CLI_DIR } from './env'
 import { setup, setupManifest } from './setup'
 import { getArtifact } from './dist-manifest'
+import { getLocalTarget, targetToString } from 'guess-target'
 
 export async function run(
   input: Input,
@@ -29,7 +30,10 @@ export async function runManifest(
   installDir = CLI_DIR,
   args = process.argv.slice(2),
 ) {
-  const art = getArtifact(manifest, detectTargets())
+  const art = getArtifact(
+    manifest,
+    getLocalTarget().map((i) => targetToString(i)),
+  )
   if (!art) {
     console.log('not found artifact')
     return
