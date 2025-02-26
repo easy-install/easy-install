@@ -120,7 +120,7 @@ pub fn which(name: &str) -> Option<String> {
 
 const EXEC_MASK: u32 = 0o111;
 pub fn executable(name: &str, mode: &Option<u32>) -> bool {
-    name.ends_with(".exe") || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
+    ends_with_exe(name) || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
 }
 
 pub fn check(file: &OutputFile) -> bool {
@@ -261,6 +261,23 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
 }
 
 pub fn name_no_ext(s: &str) -> String {
+    let exts = [
+        Fmt::Tar,
+        Fmt::TarGz,
+        Fmt::TarXz,
+        Fmt::TarBz,
+        Fmt::TarZstd,
+        Fmt::Zip,
+    ]
+    .iter()
+    .flat_map(|i| i.extensions());
+
+    for ext in exts {
+        if s.ends_with(&ext) {
+            return s[0..s.len() - ext.len()].to_string();
+        }
+    }
+
     let i = s.find(".").unwrap_or(s.len());
     s[0..i].to_string()
 }

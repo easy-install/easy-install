@@ -1,18 +1,15 @@
 import { existsSync, readFileSync } from 'fs'
-import { Repo } from './repo'
 import {
-  detectTargets,
   getFilename,
   guessName,
   isHashFile,
   isMsiFile,
   isUrl,
   matchTargets,
-  removePostfix,
   replaceFilename,
 } from './tool'
 import { DistArtifact, DistManifest } from './type'
-import { getLocalTarget, guessTarget } from 'guess-target'
+import { getLocalTarget, targetToString } from 'guess-target'
 
 export function getAssetsExecutableDir(art: DistArtifact) {
   return art.assets?.find((i) => i.kind === 'executable-dir')
@@ -40,7 +37,7 @@ export function getArtifactUrlFromManfiest(
   dist: DistManifest,
   url?: string,
 ): string[] {
-  const targets = detectTargets()
+  const targets = getLocalTarget().map((i) => targetToString(i))
   const v: string[] = []
   const filter: string[] = []
   for (const key in dist.artifacts) {
@@ -71,6 +68,7 @@ export function getArtifactUrlFromManfiest(
       } else {
         v.push(key)
       }
+      continue
     }
   }
 

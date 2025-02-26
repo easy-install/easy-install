@@ -190,7 +190,7 @@ export function getAssetNames(
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -484,6 +484,11 @@ export function installOutputFiles(files: OutputFile[]) {
 }
 
 export function nameNoExt(s: string) {
+  for (const i of [...ArchiveFmtList, ...WINDOWS_EXE_EXTS, ...INSTALLER_EXTS]) {
+    if (s.endsWith(i)) {
+      return s.slice(0, s.length - i.length)
+    }
+  }
   return s.split('.')[0]
 }
 

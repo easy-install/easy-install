@@ -9,7 +9,6 @@ import {
   guessName,
   installOutputFiles,
   isArchiveFile,
-  isExeFile,
   nameNoExt,
 } from '../tool'
 import { DistManifest, Output, OutputFile } from '../type'
