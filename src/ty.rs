@@ -147,7 +147,6 @@ impl Repo {
         let mut v = vec![];
         let local_target = get_local_target();
         if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
-            let mut filter = vec![];
             for i in artifacts.assets {
                 if is_skip(&i.browser_download_url) {
                     continue;
@@ -161,10 +160,7 @@ impl Repo {
                 let name = name_no_ext(&filename);
                 let guess = guess_target(&name);
                 if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
-                    if !filter.contains(&item.name) {
-                        v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
-                        filter.push(item.name.clone())
-                    }
+                    v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
                 }
             }
         }
@@ -187,5 +183,17 @@ impl Display for Repo {
             Some(t) => f.write_str(&format!("{}/{}@{}", self.owner, self.name, t)),
             None => f.write_str(&format!("{}/{}", self.owner, self.name)),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ty::Repo;
+
+    #[tokio::test]
+    async fn test() {
+        let repo = Repo::try_from("https://github.com/AlistGo/alist").unwrap();
+        let url = repo.get_artifact_url().await;
+        println!("{:?}", url);
     }
 }
