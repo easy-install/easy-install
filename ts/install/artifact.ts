@@ -6,6 +6,7 @@ import {
   endsWithExe,
   getCommonPrefixLen,
   getFilename,
+  guessName,
   installOutputFiles,
   isArchiveFile,
   isExeFile,
@@ -32,8 +33,7 @@ async function downloadAndInstall(
   ) {
     return {}
   }
-  const guess = guessTarget(filename)
-  const subDirName = guess.find((i) => localTarget.includes(i.target))?.name ??
+  const subDirName = guessName(nameNoExt(filename))?.name ??
     nameNoExt(filename)
 
   const list = files.filter((i) => !i.isDir)

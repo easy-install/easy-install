@@ -1,15 +1,14 @@
-
 use easy_archive::tool::{human_size, mode_to_string};
 use easy_archive::ty::Fmt;
 use guess_target::{get_local_target, guess_target, Os};
 use std::path::Path;
 
-#[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
 use regex::Regex;
+#[cfg(unix)]
+use std::os::unix::prelude::PermissionsExt;
 use std::str::FromStr;
 
 pub fn get_bin_name(s: &str) -> String {
@@ -202,6 +201,11 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                 .collect::<Vec<_>>()
                 .as_slice(),
         ) {
+            if let Some(kind) = &art.kind {
+                if !["executable-zip"].contains(&kind.as_str()) {
+                    continue;
+                }
+            }
             if !is_url(key) {
                 v.push((name_no_ext(&filename), replace_filename(url, key)));
             } else {

@@ -3,6 +3,7 @@ import { Repo } from './repo'
 import {
   detectTargets,
   getFilename,
+  guessName,
   isHashFile,
   isMsiFile,
   isUrl,
@@ -48,11 +49,7 @@ export function getArtifactUrlFromManfiest(
       continue
     }
     const art = dist.artifacts[key]
-
-    const localTarget = getLocalTarget()
-    const guess = guessTarget(filename)
-    const name = guess.find((i) => localTarget.includes(i.target))?.name
-
+    const name = guessName?.name
     if (name && !filter.includes(name)) {
       if (!isUrl(key) && url) {
         v.push(replaceFilename(url, key))

@@ -7,6 +7,7 @@ import {
   endsWithExe,
   getCommonPrefixLen,
   getFilename,
+  guessName,
   installOutputFiles,
   isExeFile,
   nameNoExt,
@@ -60,10 +61,8 @@ export async function repoInstall(
       ) {
         continue
       }
-      const guess = guessTarget(filename)
-      const subDirName = guess.find((i) =>
-        localTarget.includes(i.target)
-      )?.name ?? nameNoExt(filename)
+      const subDirName = guessName(nameNoExt(filename))?.name ??
+        nameNoExt(filename)
 
       if (list.length > 1) {
         installDir = join(installDir, subDirName).replaceAll('\\', '/')

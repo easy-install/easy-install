@@ -6,6 +6,7 @@ import {
   endsWithExe,
   getBinName,
   getFilename,
+  guessName,
   installOutputFiles,
   nameNoExt,
   showSuccess,
@@ -42,8 +43,7 @@ export async function fileInstall(
     endsWithExe(downloadUrl) &&
     localTarget.some((i) => targetGetOs(i) !== Os.Windows)
   ) return {}
-  const guess = guessTarget(nameNoExt(filename))
-  const binName = guess.find((i) => localTarget.includes(i.target))?.name ??
+  const binName = guessName(nameNoExt(filename))?.name ??
     nameNoExt(filename)
 
   const mode = 0o755
