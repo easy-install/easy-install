@@ -97,7 +97,7 @@ export async function runEi(
   try {
     execFileSync(EI_BIN_PATH, args, {
       stdio: quiet ? 'ignore' : 'inherit',
-      cwd: __dirname,
+      cwd: process.cwd(),
     })
   } catch (e) {
     // FIXME: Ignore js errors

@@ -15,7 +15,10 @@ export async function run(
     await install(url, installDir, true)
   }
   try {
-    execFileSync(binPath, args, { stdio: 'inherit', cwd: __dirname })
+    execFileSync(binPath, args, {
+      stdio: 'inherit',
+      cwd: process.cwd()
+    })
   } catch (e) {
     // FIXME: Ignore js errors
   }
