@@ -123,13 +123,6 @@ pub fn add_output_to_path(output: &Output) {
                 add_to_path(&dir);
             }
         }
-
-        #[cfg(unix)]
-        if v.files.len() == 1 {
-            let i = &v.files[0];
-            crate::tool::add_execute_permission(&i.install_path)
-                .expect("failed to add_execute_permission");
-        }
     }
 }
 
@@ -312,6 +305,12 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
     {
         write_to_file(install_path, buffer, mode);
     }
+    #[cfg(unix)]
+    if files.len() == 1 {
+        let i = &files[0];
+        crate::tool::add_execute_permission(&i.install_path)
+            .expect("failed to add_execute_permission");
+    }
 }
 
 pub fn name_no_ext(s: &str) -> String {
@@ -410,7 +409,7 @@ mod test {
         ty::Repo,
     };
 
-    use super::{get_bin_name, get_common_prefix_len, which};
+    use super::{get_bin_name, get_common_prefix_len};
 
     #[test]
     fn test_is_file() {

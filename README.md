@@ -57,6 +57,9 @@ cargo run -- ./dist-manifest/mpv-easy.json -d c:/mpv-easy
 
 # install to custom directory name (~/.easy-install/custom-name)
 cargo run -- ./dist-manifest/mpv-easy.json -d custom-name
+
+# only install qjs
+cargo run -- https://github.com/quickjs-ng/quickjs --bin=qjs
 ```
 
 ## dist-manifest.json

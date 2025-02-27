@@ -15,7 +15,7 @@ use crate::ty::{Output, Repo};
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
-pub async fn install(url: &str, dir: Option<String>) -> Output {
+pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
     trace!("install {}", url);
     let repo = Repo::try_from(url);
 
@@ -25,7 +25,7 @@ pub async fn install(url: &str, dir: Option<String>) -> Output {
         } else {
             read_dist_manfiest(url)
         } {
-            return install_from_manfiest(manfiest, dir, url).await;
+            return install_from_manfiest(manfiest, dir, url, bin).await;
         }
     }
     if is_url(url) {
@@ -46,7 +46,7 @@ pub async fn install(url: &str, dir: Option<String>) -> Output {
     }
 
     if let Ok(repo) = repo {
-        return install_from_github(&repo, dir).await;
+        return install_from_github(&repo, dir,bin).await;
     }
 
     Output::new()

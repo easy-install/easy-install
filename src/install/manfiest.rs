@@ -8,6 +8,7 @@ pub async fn install_from_manfiest(
     manfiest: DistManifest,
     dir: Option<String>,
     url: &str,
+    bin: &[String],
 ) -> Output {
     trace!("install_from_manfiest {}", url);
     let mut v: std::collections::HashMap<String, crate::ty::OutputItem> = Output::new();
@@ -18,6 +19,9 @@ pub async fn install_from_manfiest(
     }
     for (name, art_url) in art_url_list {
         trace!("install_from_manfiest art_url {}", art_url);
+        if !bin.is_empty() && !bin.contains(&name) {
+          continue;
+        }
         v.extend(install_from_artifact_url(&art_url, &name, dir.clone()).await);
     }
     v
