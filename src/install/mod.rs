@@ -46,7 +46,7 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
     }
 
     if let Ok(repo) = repo {
-        return install_from_github(&repo, dir,bin).await;
+        return install_from_github(&repo, dir, bin).await;
     }
 
     Output::new()

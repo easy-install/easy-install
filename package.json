@@ -35,7 +35,7 @@
     "build:esm": "tsc --outDir esm --module esnext",
     "build": "npm run build:cjs && npm run build:esm",
     "pre-check": "npm run clippy && npm run format",
-    "clippy": "cargo clippy --fix --allow-dirty --allow-staged",
+    "clippy": "cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
     "format": "deno fmt --ignore=node_modules,dist,bundle,target --indent-width=2 --no-semicolons --single-quote",
     "clear": "rm -rf node_modules dist bundle cjs esm",
     "bump": "pnpm up --latest --force",

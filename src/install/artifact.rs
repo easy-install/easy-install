@@ -70,11 +70,7 @@ pub async fn install_from_download_file(url: &str, name: &str, dir: Option<Strin
     output
 }
 
-pub async fn install_from_artifact_url(
-    art_url: &str,
-    name: &str,
-    dir: Option<String>,
-) -> Output {
+pub async fn install_from_artifact_url(art_url: &str, name: &str, dir: Option<String>) -> Output {
     trace!("install_from_artifact_url {}", art_url);
     let mut v = Output::new();
     println!("download {}", art_url);

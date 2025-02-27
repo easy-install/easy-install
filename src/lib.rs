@@ -32,7 +32,7 @@ pub async fn run_main(args: Args) {
         install_only,
         bin,
     } = args;
-    let output = install::install(&url,&bin, dir).await;
+    let output = install::install(&url, &bin, dir).await;
     if !install_only {
         add_output_to_path(&output);
     }

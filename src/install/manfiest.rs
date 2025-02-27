@@ -20,7 +20,7 @@ pub async fn install_from_manfiest(
     for (name, art_url) in art_url_list {
         trace!("install_from_manfiest art_url {}", art_url);
         if !bin.is_empty() && !bin.contains(&name) {
-          continue;
+            continue;
         }
         v.extend(install_from_artifact_url(&art_url, &name, dir.clone()).await);
     }
