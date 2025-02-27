@@ -94,7 +94,7 @@ jobs:
         run: |
           for file in dist-manifest/*.json; do
             echo $file
-            node cli/cli.js $file
+            node cli/cli.js "$file"
             source ~/.bashrc
           done
 

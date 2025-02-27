@@ -165,15 +165,21 @@ impl Repo {
             }
         }
         let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
-        v.into_iter()
-            .filter_map(|i| {
-                if i.0 < max_rank {
-                    None
-                } else {
-                    Some((i.1, i.2))
-                }
-            })
-            .collect()
+        let mut filter = vec![];
+        let mut list = vec![];
+        // FIXME: Need user to select eg: llrt-no-sdk llrt-full-sdk
+        for (rank, name, url) in v {
+            if rank < max_rank {
+                continue;
+            }
+            if filter.contains(&name) {
+                continue;
+            }
+
+            filter.push(name.clone());
+            list.push((name, url));
+        }
+        list
     }
 }
 

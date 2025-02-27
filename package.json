@@ -37,7 +37,7 @@
     "pre-check": "npm run clippy && npm run format",
     "clippy": "cargo clippy --fix --allow-dirty --allow-staged",
     "format": "deno fmt --ignore=node_modules,dist,bundle,target --indent-width=2 --no-semicolons --single-quote",
-    "clear": "rm -rf node_modules dist bundle",
+    "clear": "rm -rf node_modules dist bundle cjs esm",
     "bump": "pnpm up --latest --force",
     "release": "pnpm publish -r --access public",
     "release-alpha": "pnpm publish -r --access public --tag alpha"
