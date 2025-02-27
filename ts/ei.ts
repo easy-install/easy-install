@@ -101,7 +101,6 @@ export async function runEi(
     })
   } catch (e) {
     // FIXME: Ignore js errors
-    console.log(EI_BIN_PATH, EI_DIR)
-    console.log(e)
+    // console.log(e)
   }
 }
