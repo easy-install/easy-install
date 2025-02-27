@@ -315,9 +315,11 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
 }
 
 pub fn name_no_ext(s: &str) -> String {
-    for ext in Fmt::iter().flat_map(|i| i.extensions()) {
-        if s.ends_with(&ext) {
-            return s[0..s.len() - ext.len()].to_string();
+    for fmt in Fmt::iter() {
+        for ext in fmt.extensions() {
+            if s.ends_with(ext) {
+                return s[0..s.len() - ext.len()].to_string();
+            }
         }
     }
     let i = s.find(".").unwrap_or(s.len());
