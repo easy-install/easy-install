@@ -176,7 +176,7 @@ pub fn check(file: &OutputFile) -> bool {
             return true;
         }
     }
-    None
+    false
 }
 
 pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
