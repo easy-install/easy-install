@@ -11,7 +11,7 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "Node",
     "resolveJsonModule": true,
     "isolatedModules": false,
     "noEmit": false,
@@ -22,5 +22,5 @@
     "sourceMap": false,
     "declaration": true
   },
-  "include": ["ts", "test"]
+  "include": ["ts"]
 }

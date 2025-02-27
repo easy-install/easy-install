@@ -1,10 +1,13 @@
-pub mod artifact;
-pub mod download;
-pub mod env;
-pub mod install;
-pub mod manfiest;
-pub mod tool;
-pub mod ty;
+mod artifact;
+mod download;
+mod env;
+mod install;
+mod manfiest;
+mod tool;
+mod ty;
+
+use clap::Parser;
+use tool::add_output_to_path;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
@@ -12,18 +15,24 @@ pub struct Args {
     #[arg(short, long)]
     dir: Option<String>,
 
+    #[arg(long, default_value_t = false)]
+    install_only: bool,
+
     #[arg()]
-    pub name_or_url: String,
+    pub url: String,
 }
 
-use clap::Parser;
-use tool::add_output_to_path;
-
 pub async fn run_main(args: Args) {
-    let Args { name_or_url, dir } = args;
-    let output = install::install(&name_or_url, dir).await;
-    add_output_to_path(&output);
+    let Args {
+        url,
+        dir,
+        install_only,
+    } = args;
+    let output = install::install(&url, dir).await;
+    if !install_only {
+        add_output_to_path(&output);
+    }
     if output.is_empty() {
-        println!("No file installed from {}", name_or_url);
+        println!("No file installed from {}", url);
     }
 }

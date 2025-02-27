@@ -1,14 +1,8 @@
 {
   "artifacts": {
-    "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-.*?-git-.*?.zip": {
+    "https://github.com/mpv-easy/mpv-winbuild/releases/latest/download/mpv-x86_64-v3-20250221-git-e32beaa.zip": {
       "target_triples": ["x86_64-pc-windows-gnu"],
-      "assets": [
-        {
-          "name": "mpv",
-          "path": ".",
-          "kind": "executable-dir"
-        }
-      ]
+      "assets": []
     }
   }
 }

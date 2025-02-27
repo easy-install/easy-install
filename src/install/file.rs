@@ -1,17 +1,15 @@
 use crate::download::download_binary;
 use crate::env::get_install_dir;
-use crate::manfiest::DistManifest;
-use crate::tool::{display_output, get_bin_name, get_meta, path_to_str};
+use crate::tool::{
+    display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
+};
 use crate::ty::{Output, OutputFile, OutputItem};
+use guess_target::{get_local_target, Os};
 
-pub async fn install_from_single_file(
-    url: &str,
-    manfiest: Option<DistManifest>,
-    dir: Option<String>,
-) -> Output {
-    // let targets = detect_targets().await;
+pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Output {
     let mut install_dir = get_install_dir();
     let mut output = Output::new();
+
     if let Some(target_dir) = dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
@@ -20,39 +18,28 @@ pub async fn install_from_single_file(
         }
     }
 
+    let local_target = get_local_target();
+    if ends_with_exe(url) && local_target.iter().any(|t| t.os() != Os::Windows) {
+        return output;
+    }
+    let filename = get_filename(url);
     if let Some(bin) = download_binary(url).await {
-        let artifact = manfiest.and_then(|i| i.get_artifact_by_key(url));
-
-        let art_name = url
-            .split("/")
-            .last()
-            .map(|i| i.to_string())
-            .expect("can't get artifact name");
-        let name = artifact.and_then(|i| i.name).unwrap_or(art_name);
         let mut install_path = install_dir.clone();
-        install_path.push(get_bin_name(&name));
-
-        if let Some(dir) = install_path.parent() {
-            std::fs::create_dir_all(dir).expect("Failed to create_dir dir");
-        }
-        std::fs::write(&install_path, &bin).expect("write file failed");
-        let (mode, size, is_dir) = get_meta(&install_path);
+        install_path.push(get_bin_name(name));
         let install_path = path_to_str(&install_path);
-        println!("Installation Successful");
-        let origin_path = url.split("/").last().unwrap_or(name.as_str()).to_string();
-
         let files = vec![OutputFile {
-            mode,
-            size,
-            origin_path,
-            is_dir,
+            mode: None,
+            size: bin.len() as u32,
+            origin_path: filename,
+            is_dir: false,
             install_path,
+            buffer: bin,
         }];
-
+        install_output_files(&files);
+        println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
             install_dir: bin_dir_str.clone(),
-            bin_dir: bin_dir_str.clone(),
             files,
         };
 

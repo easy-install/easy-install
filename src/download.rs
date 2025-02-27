@@ -1,12 +1,7 @@
 use crate::manfiest::DistManifest;
-use binstalk::helpers::remote::Client;
-use easy_archive::ty::{Files, Fmt};
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    ClientBuilder,
-};
+use easy_archive::{File, Fmt};
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
-use std::num::NonZeroU16;
 use tracing::trace;
 
 fn get_headers() -> HeaderMap {
@@ -21,29 +16,13 @@ fn get_headers() -> HeaderMap {
     headers
 }
 
-pub async fn create_client() -> Client {
-    trace!("create_client");
-    let headers = get_headers();
-    Client::from_builder(
-        ClientBuilder::new().default_headers(headers),
-        NonZeroU16::new(10).unwrap(),
-        1.try_into().unwrap(),
-    )
-    .expect("failed to create_client")
-}
-
 pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
     let client = reqwest::Client::new();
     let response = client.get(url).headers(get_headers()).send().await.ok()?;
     response.json::<T>().await.ok()
 }
-pub async fn download_text(url: &str) -> Option<String> {
-    let client = reqwest::Client::new();
-    let response = client.get(url).headers(get_headers()).send().await.ok()?;
-    response.text().await.ok()
-}
 
-pub async fn download_extract(url: &str) -> Option<Files> {
+pub async fn download_extract(url: &str) -> Option<Vec<File>> {
     let fmt = Fmt::guess(url)?;
     let buffer = download_binary(url).await?;
     let files = fmt.decode(buffer)?;
@@ -83,8 +62,8 @@ mod test {
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
         let files = download_extract(url).await.unwrap();
-        assert!(files.get("mujs").is_some());
-        assert!(files.get("mujs-pp").is_some());
-        assert!(files.get("libmujs.a").is_some());
+        assert!(files.iter().any(|i| i.path == "mujs"));
+        assert!(files.iter().any(|i| i.path == "mujs-pp"));
+        assert!(files.iter().any(|i| i.path == "libmujs.a"));
     }
 }

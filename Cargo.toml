@@ -11,36 +11,30 @@ include = ["/src", "/Cargo.toml", "/README.md"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-binstalk = "0.28"
-binstalk-registry = "0.11"
+is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
+is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }
+crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }
+which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "0.1" }
 easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.1" }
-semver = { version = "1", features = ["serde"] }
+guess-target = { git = " https://github.com/ahaoboy/guess-target.git", version = "0.1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tempfile = "3.15"
-tokio = { version = "1.43", features = [
-  "rt",
-  "sync",
-], default-features = false }
+tokio = { version = "1", features = ["full"], default-features = false }
 tracing = "0.1"
-url = "2.5"
 dirs = "6.0"
 reqwest = { version = "0.12", features = ["json"] }
 regex = "1.11"
-binstalk-git-repo-api = "0.5"
-zeroize = "1.8"
-compact_str = "0.8"
-detect-targets = "0.1"
 tracing-subscriber = "0.3"
 cargo-dist-schema = "0.28"
 path-clean = "1.0"
-which-shell = "0.1"
-crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }
-is-admin = "0.1"
+
+
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-libc = "0.2"
 openssl = { version = "0.10", features = ["vendored"] }
 
 [profile.release]
-codegen-units = 1
+debug = false
 lto = true
+strip = true
+opt-level = 3
+codegen-units = 1

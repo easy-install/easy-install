@@ -8,7 +8,7 @@
       "name": "biome",
       "target_triples": ["x86_64-apple-darwin"]
     },
-    "https://github.com/biomejs/biome/releases/latest/download/biome-linux-arm64": {
+    "https://github.com/biomejs/biome/releases/latest/download/biome-darwin-arm64": {
       "name": "biome",
       "target_triples": ["aarch64-apple-darwin"]
     },
