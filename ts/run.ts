@@ -17,7 +17,7 @@ export async function run(
   try {
     execFileSync(binPath, args, {
       stdio: 'inherit',
-      cwd: process.cwd()
+      cwd: process.cwd(),
     })
   } catch (e) {
     // FIXME: Ignore js errors

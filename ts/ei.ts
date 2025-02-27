@@ -1,14 +1,18 @@
 import { detectTargets } from 'detect-targets'
 import { dirname, join } from 'path'
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { decode, guess } from '@easy-install/easy-archive'
 import { homedir } from 'os'
 
 export const NAME = 'ei'
 export const DIR_NAME = '.easy-install'
-export const CLI_DIR = join(__dirname, DIR_NAME).replaceAll('\\', '/')
+export const CLI_DIR = join(dirname(process.argv[1]), DIR_NAME).replaceAll(
+  '\\',
+  '/',
+)
 export const EI_DIR = join(homedir(), DIR_NAME).replaceAll('\\', '/')
+export const EI_BIN_PATH = join(CLI_DIR, getBinName(NAME)).replaceAll('\\', '/')
 
 export function getFetchOption() {
   const headers: HeadersInit = {
@@ -30,7 +34,7 @@ export async function downloadBinary(url: string) {
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -52,8 +56,6 @@ function getUrl(target: string) {
   }
   return `https://github.com/easy-install/easy-install/releases/latest/download/${v}`
 }
-
-const EI_BIN_PATH = join(CLI_DIR, getBinName(NAME)).replaceAll('\\', '/')
 
 export async function setupEi() {
   for (const t of detectTargets()) {
