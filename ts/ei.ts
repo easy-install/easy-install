@@ -28,10 +28,9 @@ export async function downloadBinary(url: string) {
   return await response.arrayBuffer()
 }
 
-
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-    !bin.includes('.')
+      !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -84,7 +83,7 @@ export async function setupEi() {
 
 export async function runEi(
   args = process.argv.slice(2),
-  quiet: boolean = false
+  quiet: boolean = false,
 ) {
   if (!existsSync(EI_BIN_PATH)) {
     const r = await setupEi()
@@ -93,7 +92,10 @@ export async function runEi(
     }
   }
   try {
-    execFileSync(EI_BIN_PATH, args, { stdio: quiet ? 'ignore' : 'inherit', cwd: __dirname })
+    execFileSync(EI_BIN_PATH, args, {
+      stdio: quiet ? 'ignore' : 'inherit',
+      cwd: __dirname,
+    })
   } catch (e) {
     // FIXME: Ignore js errors
   }

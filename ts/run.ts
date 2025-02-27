@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { CLI_DIR, getBinName, } from './ei'
+import { CLI_DIR, getBinName } from './ei'
 import { existsSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { install } from './install'
