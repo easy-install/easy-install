@@ -30,7 +30,7 @@ export async function downloadBinary(url: string) {
 
 export function getBinName(bin: string) {
   return process.platform === 'win32' && !bin.endsWith('.exe') &&
-      !bin.includes('.')
+    !bin.includes('.')
     ? `${bin}.exe`
     : bin
 }
@@ -98,5 +98,7 @@ export async function runEi(
     })
   } catch (e) {
     // FIXME: Ignore js errors
+    console.log(EI_BIN_PATH, EI_DIR)
+    console.log(e)
   }
 }
