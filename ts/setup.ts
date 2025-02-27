@@ -1,6 +1,6 @@
 import { CLI_DIR } from './ei'
 import { install } from './install'
 
-export function setup(url: string, installDir: string = CLI_DIR) {
-  install(url, installDir, true)
+export function setup(url: string, bin: string, installDir: string = CLI_DIR) {
+  install(url, bin, installDir, true)
 }

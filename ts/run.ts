@@ -6,13 +6,13 @@ import { install } from './install'
 
 export async function run(
   url: string,
-  name: string,
+  bin: string,
   args = process.argv.slice(2),
   installDir: string = CLI_DIR,
 ) {
-  const binPath = join(installDir, getBinName(name)).replaceAll('\\', '/')
+  const binPath = join(installDir, getBinName(bin)).replaceAll('\\', '/')
   if (!existsSync(binPath)) {
-    await install(url, installDir, true)
+    await install(url, bin, installDir, true)
   }
   try {
     execFileSync(binPath, args, {
