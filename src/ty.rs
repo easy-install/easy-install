@@ -189,11 +189,10 @@ impl Display for Repo {
 #[cfg(test)]
 mod test {
     use crate::ty::Repo;
-
     #[tokio::test]
     async fn test() {
         let repo = Repo::try_from("https://github.com/AlistGo/alist").unwrap();
-        let url = repo.get_artifact_url().await;
-        println!("{:?}", url);
+        let v = repo.get_artifact_url().await;
+        assert_eq!(v.len(), 1);
     }
 }
