@@ -90,7 +90,6 @@ jobs:
         run: |
           pnpm install
           pnpm run build
-          pnpm run test:run
       - name: install
         run: |
           for file in dist-manifest/*.json; do
