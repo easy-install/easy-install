@@ -118,7 +118,9 @@ pub fn add_output_to_path(output: &Output) {
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
-            if deep <= DEEP && ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0) {
+            let is_exe = ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0);
+            if deep <= DEEP && is_exe
+            {
                 let dir = dirname(&f.install_path);
                 add_to_path(&dir);
             }
