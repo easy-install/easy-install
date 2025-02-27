@@ -62,23 +62,23 @@ export async function setupEi() {
       continue
     }
 
-    const buffer = new Uint8Array(await downloadBinary(url))
+    const bin = new Uint8Array(await downloadBinary(url))
     const fmt = guess(url)
-    if (!fmt) {
+    if (fmt === undefined) {
       continue
     }
-    const file = decode(fmt, buffer)?.[0]
+    const file = decode(fmt, bin)?.[0]
     if (!file) {
       continue
     }
-    const ei = file.buffer
+    const { mode = 0, buffer } = file
     const dir = dirname(EI_BIN_PATH)
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
     }
-    writeFileSync(EI_BIN_PATH, ei)
-    if (file.mode) {
-      chmodSync(EI_BIN_PATH, file.mode)
+    writeFileSync(EI_BIN_PATH, buffer)
+    if (mode) {
+      chmodSync(EI_BIN_PATH, mode)
     }
     return EI_BIN_PATH
   }
