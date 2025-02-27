@@ -71,6 +71,7 @@ jobs:
           }
 
   js-test:
+    if: "!startsWith(github.ref, 'refs/tags/')"
     strategy:
       fail-fast: false
       matrix:
