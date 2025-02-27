@@ -12,7 +12,7 @@ export async function run(
 ) {
   const binPath = join(installDir, getBinName(bin)).replaceAll('\\', '/')
   if (!existsSync(binPath)) {
-    await install(url, bin, installDir, true)
+    await install(url, bin, true, installDir, true)
   }
   try {
     execFileSync(binPath, args, {
