@@ -146,7 +146,7 @@ pub fn which(name: &str) -> Option<String> {
         .ok()?;
     String::from_utf8(cmd.stdout)
         .ok()
-        .map(|i| i.trim().replace("\\", "/"))
+        .map(|i| i.trim().replace("\\", "/").replace("//", "/"))
 }
 
 #[cfg(unix)]
@@ -157,7 +157,7 @@ pub fn which(name: &str) -> Option<String> {
         .ok()?;
     String::from_utf8(cmd.stdout)
         .ok()
-        .map(|i| i.trim().to_string())
+        .map(|i| i.trim().to_string().replace("\\", "/").replace("//", "/"))
 }
 
 const EXEC_MASK: u32 = 0o111;
@@ -369,7 +369,6 @@ pub fn is_exe_file(s: &str) -> bool {
     for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
         if let Some(cap) = re.captures(s) {
             if let Some(name) = cap.get(n) {
-                println!("name {}", name.as_str());
                 if is_archive_file(name.as_str()) {
                     return false;
                 }
@@ -411,7 +410,7 @@ mod test {
         ty::Repo,
     };
 
-    use super::{get_bin_name, get_common_prefix_len};
+    use super::{get_bin_name, get_common_prefix_len, which};
 
     #[test]
     fn test_is_file() {

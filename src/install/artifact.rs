@@ -26,13 +26,6 @@ pub async fn install_from_download_file(url: &str, name: &str, dir: Option<Strin
         if let Some(download_files) = download_extract(url).await {
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
-                // let local_target = get_local_target();
-                // let filename = get_filename(url);
-                // let guess = guess_target(&filename);
-                // let name = guess
-                //     .iter()
-                //     .find(|i| local_target.contains(&i.target))
-                //     .map_or(name_no_ext(&filename), |i| i.name.clone());
                 install_dir.push(name);
             }
 
