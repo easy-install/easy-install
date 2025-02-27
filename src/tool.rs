@@ -119,8 +119,7 @@ pub fn add_output_to_path(output: &Output) {
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
             let is_exe = ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0);
-            if deep <= DEEP && is_exe
-            {
+            if deep <= DEEP && is_exe {
                 let dir = dirname(&f.install_path);
                 add_to_path(&dir);
             }
@@ -177,7 +176,9 @@ pub fn check(file: &OutputFile) -> bool {
 pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     let Ok(d) = std::path::PathBuf::from_str(src);
     if let Some(p) = d.parent() {
-        std::fs::create_dir_all(p).expect("failed to create_dir_all");
+        if !std::fs::exists(p).unwrap_or(false) {
+            std::fs::create_dir_all(p).expect("failed to create_dir_all");
+        }
     }
 
     std::fs::write(src, buffer).expect("failed to write file");
