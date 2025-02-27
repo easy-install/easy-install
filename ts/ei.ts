@@ -1,6 +1,6 @@
 import { detectTargets } from 'detect-targets'
 import { dirname, join } from 'path'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { decode, guess } from '@easy-install/easy-archive'
 import { homedir } from 'os'
@@ -67,16 +67,19 @@ export async function setupEi() {
     if (!fmt) {
       continue
     }
-    const ret = decode(fmt, buffer)
-    if (!ret) {
+    const file = decode(fmt, buffer)?.[0]
+    if (!file) {
       continue
     }
-    const ei = ret[0].buffer
+    const ei = file.buffer
     const dir = dirname(EI_BIN_PATH)
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
     }
     writeFileSync(EI_BIN_PATH, ei)
+    if (file.mode) {
+      chmodSync(EI_BIN_PATH, file.mode)
+    }
     return EI_BIN_PATH
   }
 }
