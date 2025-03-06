@@ -5,6 +5,7 @@ use easy_archive::{human_size, mode_to_string};
 use easy_archive::{Fmt, IntoEnumIterator};
 use guess_target::{get_local_target, guess_target, Os};
 use regex::Regex;
+use std::collections::HashSet;
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
@@ -113,15 +114,18 @@ pub fn add_output_to_path(output: &Output) {
             }
         }
     }
+
+    let mut filter = HashSet::new();
     for v in output.values() {
         add_to_path(&v.install_dir);
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
             let is_exe = ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0);
-            if deep <= DEEP && is_exe {
-                let dir = dirname(&f.install_path);
+            let dir = dirname(&f.install_path);
+            if deep <= DEEP && is_exe && !filter.contains(&dir) {
                 add_to_path(&dir);
+                filter.insert(dir);
             }
         }
     }
