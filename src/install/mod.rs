@@ -12,6 +12,7 @@ use crate::tool::{
     get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_url, name_no_ext,
 };
 use crate::ty::{Output, Repo};
+use artifact::install_from_download_file;
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
@@ -28,14 +29,14 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
             return install_from_manfiest(manfiest, dir, url, bin).await;
         }
     }
-    if is_url(url) {
-        let filename = get_filename(url);
-        let name = name_no_ext(&filename);
-        let guess = guess_target(&name);
-        let local = get_local_target();
-        let item = guess.iter().find(|i| local.contains(&i.target));
-        let name = item.map_or(filename, |i| i.name.clone());
+    let filename = get_filename(url);
+    let name = name_no_ext(&filename);
+    let guess = guess_target(&name);
+    let local = get_local_target();
+    let item = guess.iter().find(|i| local.contains(&i.target));
+    let name = item.map_or(filename, |i| i.name.clone());
 
+    if is_url(url) {
         if is_archive_file(url) {
             return install_from_artifact_url(url, &name, dir).await;
         }
@@ -43,6 +44,10 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
         if is_exe_file(url) {
             return install_from_single_file(url, &name, dir).await;
         }
+    }
+
+    if std::fs::exists(url).unwrap_or(false) && is_archive_file(url) {
+        return install_from_download_file(url, &name, dir).await;
     }
 
     if let Ok(repo) = repo {

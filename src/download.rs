@@ -1,4 +1,4 @@
-use crate::manfiest::DistManifest;
+use crate::{manfiest::DistManifest, tool::is_url};
 use easy_archive::{File, Fmt};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
@@ -24,7 +24,11 @@ pub async fn download_json<T: DeserializeOwned>(url: &str) -> Option<T> {
 
 pub async fn download_extract(url: &str) -> Option<Vec<File>> {
     let fmt = Fmt::guess(url)?;
-    let buffer = download_binary(url).await?;
+    let buffer = if is_url(url) {
+        download_binary(url).await?
+    } else {
+        std::fs::read(url).ok()?.to_vec()
+    };
     let files = fmt.decode(buffer)?;
     Some(files)
 }
