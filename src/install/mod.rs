@@ -34,7 +34,7 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
     let guess = guess_target(&name);
     let local = get_local_target();
     let item = guess.iter().find(|i| local.contains(&i.target));
-    let name = item.map_or(filename, |i| i.name.clone());
+    let name = item.map_or(name, |i| i.name.clone());
 
     if is_url(url) {
         if is_archive_file(url) {

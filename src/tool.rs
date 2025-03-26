@@ -321,11 +321,11 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
 }
 
 pub fn name_no_ext(s: &str) -> String {
-    for fmt in Fmt::iter() {
-        for ext in fmt.extensions() {
-            if s.ends_with(ext) {
-                return s[0..s.len() - ext.len()].to_string();
-            }
+    let mut exts: Vec<_> = Fmt::iter().flat_map(|i| i.extensions().to_vec()).collect();
+    exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
+    for ext in exts {
+        if s.ends_with(ext) {
+            return s[0..s.len() - ext.len()].to_string();
         }
     }
     let i = s.find(".").unwrap_or(s.len());
