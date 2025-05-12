@@ -15,6 +15,8 @@ curl -fsSL https://github.com/easy-install/easy-install/releases/latest/download
 ### cargo
 
 ```bash
+cargo install --git https://github.com/easy-install/easy-install.git
+
 cargo binstall easy-install
 
 cargo install easy-install
