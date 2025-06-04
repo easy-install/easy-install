@@ -57,7 +57,7 @@ ei "./dist-manifest/screentogif.json"
 # install to custom directory
 cargo run -- ./dist-manifest/mpv-easy.json -d c:/mpv-easy
 
-# install to custom directory name (~/.easy-install/custom-name)
+# install to custom directory name (~/.ei/custom-name)
 cargo run -- ./dist-manifest/mpv-easy.json -d custom-name
 
 # only install qjs

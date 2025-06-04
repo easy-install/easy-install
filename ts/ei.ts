@@ -6,7 +6,7 @@ import { decode, guess } from '@easy-install/easy-archive'
 import { homedir } from 'os'
 
 export const NAME = 'ei'
-export const DIR_NAME = '.easy-install'
+export const DIR_NAME = '.ei'
 export const CLI_DIR = join(dirname(process.argv[1]), DIR_NAME).replaceAll(
   '\\',
   '/',

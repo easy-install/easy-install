@@ -22,7 +22,7 @@ pub fn add_to_path(dir: &str) {
 
 pub fn get_install_dir() -> PathBuf {
     let mut home = dirs::home_dir().expect("Failed to get home_dir");
-    home.push(".easy-install");
+    home.push(".ei");
 
     if !home.exists() {
         std::fs::create_dir_all(&home).expect("Failed to create_dir home_dir");

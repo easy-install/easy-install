@@ -55,7 +55,7 @@ jobs:
       - name: test which
         if: matrix.os != 'windows-latest'
         run: |
-          ls -lh ~/.easy-install
+          ls -lh ~/.ei
           cat assets/${{ matrix.os }}.txt | while read line
           do
               echo $line
@@ -110,7 +110,7 @@ jobs:
       - name: test which
         if: matrix.os != 'windows-latest'
         run: |
-          ls -lh ~/.easy-install
+          ls -lh ~/.ei
 
           cat assets/${{ matrix.os }}.txt | while read line
           do
