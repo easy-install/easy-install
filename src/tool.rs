@@ -1,9 +1,9 @@
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
-use easy_archive::{human_size, mode_to_string};
 use easy_archive::{Fmt, IntoEnumIterator};
-use guess_target::{get_local_target, guess_target, Os};
+use easy_archive::{human_size, mode_to_string};
+use guess_target::{Os, get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
@@ -109,8 +109,10 @@ pub fn add_output_to_path(output: &Output) {
     for v in output.values() {
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
-            if deep <= DEEP && check(f) {
-                println!("Warning: file exists at {}", f.install_path);
+            if deep <= DEEP {
+                if let Some(p) = check(f) {
+                    println!("Warning: file exists at {}", p);
+                }
             }
         }
     }
@@ -163,18 +165,18 @@ pub fn executable(name: &str, mode: &Option<u32>) -> bool {
     ends_with_exe(name) || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
 }
 
-pub fn check(file: &OutputFile) -> bool {
+pub fn check(file: &OutputFile) -> Option<String> {
     let file_path = &file.install_path;
     let name = get_filename(file_path);
     if !executable(&name, &file.mode) {
-        return false;
+        return None;
     }
     if let Some(p) = which(&name) {
         if !p.is_empty() && file_path != &p {
-            return true;
+            return Some(p);
         }
     }
-    false
+    None
 }
 
 pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
@@ -428,8 +430,12 @@ mod test {
         assert!(!is_archive_file(
             "https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11"
         ));
-        assert!(is_archive_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz"));
-        assert!(is_archive_file("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip"));
+        assert!(is_archive_file(
+            "https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz"
+        ));
+        assert!(is_archive_file(
+            "https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip"
+        ));
     }
 
     #[test]
@@ -539,8 +545,7 @@ mod test {
 
     #[tokio::test]
     async fn test_cargo_dist() {
-        let url =
-            "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
+        let url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
@@ -565,19 +570,43 @@ mod test {
 
     #[test]
     fn test_is_exe_file() {
-        for (a,b) in [
-          ("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", true),
-        ("https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe", true),
-        ("https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64", true),
-        ("https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz", false),
-        ("https://github.com/easy-install/easy-install", false),
-        ("https://github.com/easy-install/easy-install/releases/tag/v0.1.5", false),
-        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64", true),
-        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.zip", false),
-        ("https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.msi", false)
-      ]{
-        assert_eq!(is_exe_file(a),b);
-      }
+        for (a, b) in [
+            (
+                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe",
+                true,
+            ),
+            (
+                "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64.exe",
+                true,
+            ),
+            (
+                "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-win-x64",
+                true,
+            ),
+            (
+                "https://github.com/easy-install/easy-install/releases/download/v0.1.5/ei-x86_64-apple-darwin.tar.gz",
+                false,
+            ),
+            ("https://github.com/easy-install/easy-install", false),
+            (
+                "https://github.com/easy-install/easy-install/releases/tag/v0.1.5",
+                false,
+            ),
+            (
+                "https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64",
+                true,
+            ),
+            (
+                "https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.zip",
+                false,
+            ),
+            (
+                "https://github.com/biomejs/biome/releases/download/cli/v1.9.4/biome-darwin-arm64.msi",
+                false,
+            ),
+        ] {
+            assert_eq!(is_exe_file(a), b);
+        }
     }
 
     #[test]

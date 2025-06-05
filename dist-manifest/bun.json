@@ -1,44 +1,20 @@
 {
   "artifacts": {
     "https://github.com/oven-sh/bun/releases/latest/download/bun-darwin-aarch64.zip": {
-      "target_triples": ["aarch64-apple-darwin"],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-darwin-aarch64/bun",
-          "kind": "executable"
-        }
-      ]
+      "name": "bun",
+      "target_triples": ["aarch64-apple-darwin"]
     },
     "https://github.com/oven-sh/bun/releases/latest/download/bun-darwin-x64.zip": {
-      "target_triples": ["x86_64-apple-darwin"],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-darwin-x64/bun",
-          "kind": "executable"
-        }
-      ]
+      "name": "bun",
+      "target_triples": ["x86_64-apple-darwin"]
     },
     "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip": {
-      "target_triples": ["x86_64-unknown-linux-gnu"],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-linux-x64-baseline/bun",
-          "kind": "executable"
-        }
-      ]
+      "name": "bun",
+      "target_triples": ["x86_64-unknown-linux-gnu"]
     },
     "https://github.com/oven-sh/bun/releases/latest/download/bun-windows-x64.zip": {
-      "target_triples": ["x86_64-pc-windows-gnu"],
-      "assets": [
-        {
-          "name": "bun",
-          "path": "bun-windows-x64/bun.exe",
-          "kind": "executable"
-        }
-      ]
+      "name": "bun",
+      "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }
 }
