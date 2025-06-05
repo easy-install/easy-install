@@ -314,11 +314,24 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
     {
         write_to_file(install_path, buffer, mode);
     }
+
     #[cfg(unix)]
-    if files.len() == 1 {
-        let i = &files[0];
-        crate::tool::add_execute_permission(&i.install_path)
-            .expect("failed to add_execute_permission");
+    {
+        let maybe_exe = files
+            .iter()
+            .filter(|i| {
+                !i.origin_path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or_default()
+                    .starts_with('.')
+            })
+            .collect::<Vec<_>>();
+
+        if let [single_exe] = maybe_exe.as_slice() {
+            crate::tool::add_execute_permission(&single_exe.install_path)
+                .expect("failed to add_execute_permission");
+        }
     }
 }
 
