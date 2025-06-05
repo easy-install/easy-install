@@ -29,7 +29,12 @@ pub async fn download_extract(url: &str) -> Option<Vec<File>> {
     } else {
         std::fs::read(url).ok()?.to_vec()
     };
-    let files = fmt.decode(buffer)?;
+    let files = fmt
+        .decode(buffer)?
+        .into_iter()
+        // FIXME: remove __MACOSX
+        .filter(|i| !i.path.starts_with("__MACOSX"))
+        .collect();
     Some(files)
 }
 

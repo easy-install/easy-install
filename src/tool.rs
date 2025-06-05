@@ -309,13 +309,18 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
         install_path,
         buffer,
         mode,
+        origin_path,
         ..
     } in files
     {
+        // FIXME: skip __MACOSX
+        if origin_path.starts_with("__MACOSX") {
+            continue;
+        }
         write_to_file(install_path, buffer, mode);
     }
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     {
         let maybe_exe = files
             .iter()
@@ -347,7 +352,7 @@ pub fn name_no_ext(s: &str) -> String {
     s[0..i].to_string()
 }
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 pub fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let metadata = std::fs::metadata(file_path)?;

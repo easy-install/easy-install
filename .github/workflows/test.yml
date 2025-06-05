@@ -30,17 +30,17 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: cargo test
+      - name: cargo -q  test
         run: |
-          cargo test
-      - name: cargo run
+          cargo -q  test
+      - name: cargo -q  run
         run: |
-          cargo run -- --version
+          cargo -q  run -- --version
       - name: install
         run: |
           for file in dist-manifest/*.json; do
             echo $file
-            cargo run -- $file
+            cargo -q  run -- $file
             source ~/.bashrc
           done
 
@@ -49,7 +49,7 @@ jobs:
           cat assets/url-list.txt | while read line
           do
               echo $line
-              cargo run -- $line
+              cargo -q  run -- $line
           done
 
       - name: test which
@@ -59,6 +59,7 @@ jobs:
           cat assets/${{ matrix.os }}.txt | while read line
           do
               echo $line
+              # ls -lh ~/.ei/$line
               which $line
           done
       - name: test which on windows
@@ -115,6 +116,7 @@ jobs:
           cat assets/${{ matrix.os }}.txt | while read line
           do
               echo $line
+              # ls -lh ~/.ei/$line
               which $line
           done
       - name: test which on windows

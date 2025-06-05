@@ -73,24 +73,24 @@ jobs:
       #     echo "CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc" >> $GITHUB_ENV
       #     echo "CXX_aarch64_unknown_linux_musl=aarch64-linux-musl-g++" >> $GITHUB_ENV
       #     echo "AR_aarch64_unknown_linux_musl=aarch64-linux-musl-ar" >> $GITHUB_ENV
-      #     echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc" >> $GITHUB_ENV
-      #     echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER=qemu-aarch64" >> $GITHUB_ENV
+      #     echo "cargo -q _TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc" >> $GITHUB_ENV
+      #     echo "cargo -q _TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER=qemu-aarch64" >> $GITHUB_ENV
 
       #     echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
       #     echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
       #     echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar" >> $GITHUB_ENV
-      #     echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-      #     echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER=qemu-aarch64" >> $GITHUB_ENV
+      #     echo "cargo -q _TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+      #     echo "cargo -q _TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER=qemu-aarch64" >> $GITHUB_ENV
 
       #     echo "LD_LIBRARY_PATH=/usr/aarch64-linux-gnu/lib" >> $GITHUB_ENV
 
       #     sudo ln -s /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 /lib/ld-linux-aarch64.so.1
 
-      #     mkdir -p ~/.cargo/
-      #     echo "[target.aarch64-unknown-linux-musl]" >> ~/.cargo/config.toml
-      #     echo 'rustflags = ["-C", "link-self-contained=yes","-C", "linker=rust-lld"]' >> ~/.cargo/config.toml
-      #     echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
-      #     echo 'rustflags = ["-C", "linker=aarch64-linux-gnu-gcc"]' >> ~/.cargo/config.toml
+      #     mkdir -p ~/.cargo -q /
+      #     echo "[target.aarch64-unknown-linux-musl]" >> ~/.cargo -q /config.toml
+      #     echo 'rustflags = ["-C", "link-self-contained=yes","-C", "linker=rust-lld"]' >> ~/.cargo -q /config.toml
+      #     echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo -q /config.toml
+      #     echo 'rustflags = ["-C", "linker=aarch64-linux-gnu-gcc"]' >> ~/.cargo -q /config.toml
 
       #     echo "/musl/bin" >> $GITHUB_PATH
 
@@ -112,7 +112,7 @@ jobs:
           if [[ -z "${target}" ]]; then
             host=$(rustc -vV | grep -E '^host:' | cut -d' ' -f2)
             printf '%s\n' "artifact-target=${host}" >>"${GITHUB_OUTPUT}"
-          elif [[ "${{ matrix.build-tool }}" == 'cargo-zigbuild' ]]; then
+          elif [[ "${{ matrix.build-tool }}" == 'cargo -q -zigbuild' ]]; then
             printf '%s\n' "artifact-target=${target%%.*}" >>"${GITHUB_OUTPUT}"
           else
             printf '%s\n' "artifact-target=${target}" >>"${GITHUB_OUTPUT}"
