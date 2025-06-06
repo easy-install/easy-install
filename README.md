@@ -66,6 +66,8 @@ cargo run -- https://github.com/quickjs-ng/quickjs --bin=qjs
 
 ## dist-manifest.json
 
+### mujs
+
 When the release package contains many files, add a dist-manifest.json file to
 define the format of each file
 
@@ -114,6 +116,32 @@ Taking mujs as an example, it contains the following files
     }
   ]
 },
+```
+
+### zig
+
+```json
+{
+  "artifacts": {
+    "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz": {
+      "name": "zig",
+      "target_triples": ["x86_64-unknown-linux-gnu"]
+    },
+    "https://ziglang.org/download/0.13.0/zig-macos-x86_64-0.13.0.tar.xz": {
+      "name": "zig",
+      "target_triples": ["x86_64-apple-darwin"]
+    },
+    "https://ziglang.org/download/0.13.0/zig-macos-aarch64-0.13.0.tar.xz": {
+      "name": "zig",
+      "target_triples": ["aarch64-apple-darwin"]
+    },
+    "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip": {
+      "name": "zig",
+      "target_triples": ["x86_64-pc-windows-gnu"]
+    }
+  }
+}
+
 ```
 
 ## zoo
