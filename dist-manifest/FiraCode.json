@@ -7,13 +7,7 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
-      "assets": [
-        {
-          "name": "FiraCode",
-          "path": ".",
-          "kind": "executable-dir"
-        }
-      ]
+      "name": "FiraCode"
     }
   }
 }

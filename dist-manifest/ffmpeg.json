@@ -1,29 +1,15 @@
 {
   "artifacts": {
     "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip": {
+      "name": "ffmpeg",
       "target_triples": [
         "x86_64-pc-windows-gnu"
-      ],
-      "assets": [
-        {
-          "name": "ffmpeg",
-          "path": "ffmpeg-n7.1-latest-win64-gpl-7.1",
-          "kind": "executable-dir",
-          "executable_dir": "bin"
-        }
       ]
     },
     "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz": {
+      "name": "ffmpeg",
       "target_triples": [
         "x86_64-unknown-linux-gnu"
-      ],
-      "assets": [
-        {
-          "name": "ffmpeg",
-          "path": "ffmpeg-n7.1-latest-linux64-gpl-7.1",
-          "kind": "executable-dir",
-          "executable_dir": "bin"
-        }
       ]
     }
   }

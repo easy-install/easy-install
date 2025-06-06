@@ -1,47 +1,20 @@
 {
   "artifacts": {
     "https://nodejs.org/dist/v23.7.0/node-v23.7.0-linux-x64.tar.xz": {
-      "target_triples": ["x86_64-unknown-linux-gnu"],
-      "assets": [
-        {
-          "name": "node",
-          "path": "node-v23.7.0-linux-x64",
-          "executable_dir": "bin",
-          "kind": "executable-dir"
-        }
-      ]
+      "name": "node",
+      "target_triples": ["x86_64-unknown-linux-gnu"]
     },
     "https://nodejs.org/dist/v23.7.0/node-v23.7.0-darwin-x64.tar.gz": {
-      "target_triples": ["x86_64-apple-darwin"],
-      "assets": [
-        {
-          "name": "node",
-          "path": "node-v23.7.0-darwin-x64",
-          "executable_dir": "bin",
-          "kind": "executable-dir"
-        }
-      ]
+      "name": "node",
+      "target_triples": ["x86_64-apple-darwin"]
     },
     "https://nodejs.org/dist/v23.7.0/node-v23.7.0-darwin-arm64.tar.gz": {
-      "target_triples": ["aarch64-apple-darwin"],
-      "assets": [
-        {
-          "name": "node",
-          "path": "node-v23.7.0-darwin-arm64",
-          "executable_dir": "bin",
-          "kind": "executable-dir"
-        }
-      ]
+      "name": "node",
+      "target_triples": ["aarch64-apple-darwin"]
     },
     "https://nodejs.org/dist/v23.7.0/node-v23.7.0-win-x64.zip": {
-      "target_triples": ["x86_64-pc-windows-gnu"],
-      "assets": [
-        {
-          "name": "node",
-          "path": "node-v23.7.0-win-x64",
-          "kind": "executable-dir"
-        }
-      ]
+      "name": "node",
+      "target_triples": ["x86_64-pc-windows-gnu"]
     }
   }
 }
