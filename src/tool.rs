@@ -111,7 +111,9 @@ pub fn add_output_to_path(output: &Output) {
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP {
                 if let Some(p) = check(f) {
-                    println!("Warning: file exists at {}", p);
+                    if p != f.install_path {
+                        println!("Warning: file exists at {}", p);
+                    }
                 }
             }
         }
