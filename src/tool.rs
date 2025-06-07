@@ -187,6 +187,16 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
         }
     }
 
+    if std::fs::exists(src).unwrap_or(false) {
+        if let Ok(meta) = std::fs::metadata(src) {
+            if meta.is_file() {
+                std::fs::remove_file(src).expect("failed to remove file");
+            } else {
+                std::fs::remove_dir_all(src).expect("failed to remove dir");
+            }
+        }
+    }
+
     std::fs::write(src, buffer).expect("failed to write file");
 
     #[cfg(unix)]

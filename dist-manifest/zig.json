@@ -1,18 +1,18 @@
 {
   "artifacts": {
-    "https://ziglang.org/download/0.14.1/zig-linux-x86_64-0.14.1.tar.xz": {
+    "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz": {
       "name": "zig",
       "target_triples": ["x86_64-unknown-linux-gnu"]
     },
-    "https://ziglang.org/download/0.14.1/zig-macos-x86_64-0.14.1.tar.xz": {
+    "https://ziglang.org/download/0.14.1/zig-x86_64-macos-0.14.1.tar.xz": {
       "name": "zig",
       "target_triples": ["x86_64-apple-darwin"]
     },
-    "https://ziglang.org/download/0.14.1/zig-macos-aarch64-0.14.1.tar.xz": {
+    "https://ziglang.org/download/0.14.1/zig-aarch64-macos-0.14.1.tar.xz": {
       "name": "zig",
       "target_triples": ["aarch64-apple-darwin"]
     },
-    "https://ziglang.org/download/0.14.1/zig-windows-x86_64-0.14.1.zip": {
+    "https://ziglang.org/download/0.14.1/zig-x86_64-windows-0.14.1.zip": {
       "name": "zig",
       "target_triples": ["x86_64-pc-windows-gnu"]
     }

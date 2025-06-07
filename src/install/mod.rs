@@ -28,6 +28,8 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
         } {
             return install_from_manfiest(manfiest, dir, url, bin).await;
         }
+        println!("failed to read dist-manifest from {url}");
+        return Output::new();
     }
     let filename = get_filename(url);
     let name = name_no_ext(&filename);
