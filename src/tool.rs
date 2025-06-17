@@ -50,11 +50,12 @@ const SKIP_FMT_LIST: [&str; 16] = [
 ];
 
 pub fn is_skip(s: &str) -> bool {
-    INSTALLER_EXTS
-        .iter()
-        .chain(TEXT_FILE_EXTS.iter())
-        .chain(SKIP_FMT_LIST.iter())
-        .any(|&ext| s.to_ascii_lowercase().ends_with(&ext.to_ascii_lowercase()))
+    s.rsplit('/').next().unwrap_or_default().starts_with('.')
+        || INSTALLER_EXTS
+            .iter()
+            .chain(TEXT_FILE_EXTS.iter())
+            .chain(SKIP_FMT_LIST.iter())
+            .any(|&ext| s.to_ascii_lowercase().ends_with(&ext.to_ascii_lowercase()))
 }
 
 pub fn get_bin_name(s: &str) -> String {
@@ -106,8 +107,12 @@ fn dirname(s: &str) -> String {
 }
 
 pub fn add_output_to_path(output: &Output) {
+    let mut maybe_exe = HashSet::new();
     for v in output.values() {
         for f in &v.files {
+            if !is_skip(&f.install_path) {
+                maybe_exe.insert(f.install_path.clone());
+            }
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP {
                 if let Some(p) = check(f) {
@@ -125,7 +130,9 @@ pub fn add_output_to_path(output: &Output) {
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
-            let is_exe = ends_with_exe(&f.origin_path) || (f.mode.unwrap_or(0) & 0o111 != 0);
+            let is_exe = (maybe_exe.len() == 1 && maybe_exe.contains(&f.install_path))
+                || ends_with_exe(&f.origin_path)
+                || (f.mode.unwrap_or(0) & 0o111 != 0);
             let dir = dirname(&f.install_path);
             if deep <= DEEP && is_exe && !filter.contains(&dir) {
                 add_to_path(&dir);
@@ -336,13 +343,7 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
     {
         let maybe_exe = files
             .iter()
-            .filter(|i| {
-                !i.origin_path
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or_default()
-                    .starts_with('.')
-            })
+            .filter(|i| !is_skip(&i.origin_path))
             .collect::<Vec<_>>();
 
         if let [single_exe] = maybe_exe.as_slice() {
