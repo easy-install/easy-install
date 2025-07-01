@@ -130,7 +130,15 @@ download() {
   fi
 }
 
+add_to_github(){
+  if [ "$GITHUB_ACTIONS" = "true" ]; then
+      echo $INSTALL_DIR >> "$GITHUB_PATH"
+      echo "Added $INSTALL_DIR to GITHUB_PATH"
+  fi
+}
+
 set_filename
 check_dependencies
 ensure_containing_dir_exists
 download
+add_to_github
