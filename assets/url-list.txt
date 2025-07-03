@@ -27,3 +27,5 @@ https://github.com/houseabsolute/ubi
 https://github.com/zyedidia/eget
 ahaoboy/ansi2
 nushell/nushell
+ahaoboy/heart-rate
+https://github.com/easy-install/easy-install

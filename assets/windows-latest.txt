@@ -20,3 +20,5 @@ xst
 mpv
 esbuild
 rcedit
+heart-rate
+ei

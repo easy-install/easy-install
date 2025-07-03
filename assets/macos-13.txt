@@ -13,3 +13,5 @@ qjsc
 hermes
 xst
 esbuild
+heart-rate
+ei
