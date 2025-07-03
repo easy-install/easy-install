@@ -109,42 +109,41 @@ pub struct StaticLibraryAsset {
     pub symbols_artifact: Option<ArtifactId>,
 }
 
-/// A kind of Artifact
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[non_exhaustive]
-pub enum ArtifactKind {
-    /// A zip or a tarball
-    #[serde(rename = "executable-zip")]
-    ExecutableZip,
-    /// Standalone Symbols/Debuginfo for a build
-    #[serde(rename = "symbols")]
-    Symbols,
-    /// Installer
-    #[serde(rename = "installer")]
-    Installer,
-    /// A checksum of another artifact
-    #[serde(rename = "checksum")]
-    Checksum,
-    /// The checksums of many artifacts
-    #[serde(rename = "unified-checksum")]
-    UnifiedChecksum,
-    /// A tarball containing the source code
-    #[serde(rename = "source-tarball")]
-    SourceTarball,
-    /// Some form of extra artifact produced by a sidecar build
-    #[serde(rename = "extra-artifact")]
-    ExtraArtifact,
-    /// An updater executable
-    #[serde(rename = "updater")]
-    Updater,
-    /// A file that already exists
-    // #[serde(rename = "sbom")]
-    // SBOM,
-    /// Unknown to this version of cargo-dist-schema
-    ///
-    /// This is a fallback for forward/backward-compat
-    #[serde(other)]
-    #[serde(rename = "unknown")]
-    Unknown,
-}
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// #[serde(tag = "kind")]
+// #[non_exhaustive]
+// pub enum ArtifactKind {
+//     /// A zip or a tarball
+//     #[serde(rename = "executable-zip")]
+//     ExecutableZip,
+//     /// Standalone Symbols/Debuginfo for a build
+//     #[serde(rename = "symbols")]
+//     Symbols,
+//     /// Installer
+//     #[serde(rename = "installer")]
+//     Installer,
+//     /// A checksum of another artifact
+//     #[serde(rename = "checksum")]
+//     Checksum,
+//     /// The checksums of many artifacts
+//     #[serde(rename = "unified-checksum")]
+//     UnifiedChecksum,
+//     /// A tarball containing the source code
+//     #[serde(rename = "source-tarball")]
+//     SourceTarball,
+//     /// Some form of extra artifact produced by a sidecar build
+//     #[serde(rename = "extra-artifact")]
+//     ExtraArtifact,
+//     /// An updater executable
+//     #[serde(rename = "updater")]
+//     Updater,
+//     /// A file that already exists
+//     // #[serde(rename = "sbom")]
+//     // SBOM,
+//     /// Unknown to this version of cargo-dist-schema
+//     ///
+//     /// This is a fallback for forward/backward-compat
+//     #[serde(other)]
+//     #[serde(rename = "unknown")]
+//     Unknown,
+// }

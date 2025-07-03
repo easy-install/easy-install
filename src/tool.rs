@@ -117,7 +117,7 @@ pub fn add_output_to_path(output: &Output) {
             if deep <= DEEP {
                 if let Some(p) = check(f) {
                     if p != f.install_path {
-                        println!("Warning: file exists at {}", p);
+                        println!("Warning: file exists at {p}");
                     }
                 }
             }
@@ -587,7 +587,7 @@ mod test {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
         let artifact_url = repo.get_artifact_url().await;
-        println!("artifact_url{:?}", artifact_url);
+        println!("artifact_url{artifact_url:?}");
         assert_eq!(artifact_url.len(), 2);
     }
 
@@ -595,7 +595,7 @@ mod test {
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
         let artifact_url = repo.get_artifact_url().await;
-        println!("{:?}", artifact_url);
+        println!("{artifact_url:?}");
         assert_eq!(artifact_url.len(), 1);
     }
 
