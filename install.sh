@@ -95,8 +95,8 @@ ensure_containing_dir_exists() {
       powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode');\$newPath=\"\$currentPath;$INSTALL_DIR\"; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')"
     fi
   else
-    mkdir -p /usr/local/bin
-    INSTALL_DIR="/usr/local/bin"
+    mkdir -p $HOME/.ei
+    INSTALL_DIR=$HOME/.ei
   fi
 }
 
