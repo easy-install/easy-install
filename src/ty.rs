@@ -49,8 +49,8 @@ impl TryFrom<&str> for Repo {
 
         let re_short =
             Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
-        if let Some(captures) = re_gh_tag.captures(value) {
-            if let (Some(owner), Some(name), Some(tag)) = (
+        if let Some(captures) = re_gh_tag.captures(value)
+            && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
@@ -61,10 +61,9 @@ impl TryFrom<&str> for Repo {
                     tag: Some(tag.as_str().to_string()),
                 });
             }
-        }
 
-        if let Some(captures) = re_gh_download_tag.captures(value) {
-            if let (Some(owner), Some(name), Some(tag)) = (
+        if let Some(captures) = re_gh_download_tag.captures(value)
+            && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
@@ -75,20 +74,18 @@ impl TryFrom<&str> for Repo {
                     tag: Some(tag.as_str().to_string()),
                 });
             }
-        }
 
-        if let Some(captures) = re_gh_releases.captures(value) {
-            if let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo")) {
+        if let Some(captures) = re_gh_releases.captures(value)
+            && let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo")) {
                 return Ok(Repo {
                     owner: owner.as_str().to_string(),
                     name: name.as_str().to_string(),
                     tag: None,
                 });
             }
-        }
 
-        if let Some(captures) = re_short.captures(value) {
-            if let (Some(owner), Some(name), tag) = (
+        if let Some(captures) = re_short.captures(value)
+            && let (Some(owner), Some(name), tag) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
@@ -99,7 +96,6 @@ impl TryFrom<&str> for Repo {
                     tag: tag.map(|i| i.as_str().to_string()),
                 });
             }
-        }
         Err(())
     }
 }

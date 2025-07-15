@@ -48,8 +48,12 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
         }
     }
 
-    if std::fs::exists(url).unwrap_or(false) && is_archive_file(url) {
-        return install_from_download_file(url, &name, dir).await;
+    if std::fs::exists(url).unwrap_or(false) {
+        if is_archive_file(url) {
+            return install_from_download_file(url, &name, dir).await;
+        } else {
+            return install_from_single_file(url, &name, dir).await;
+        }
     }
 
     if let Ok(repo) = repo {

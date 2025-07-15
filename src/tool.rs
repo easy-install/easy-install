@@ -114,13 +114,11 @@ pub fn add_output_to_path(output: &Output) {
                 maybe_exe.insert(f.install_path.clone());
             }
             let deep = f.origin_path.split("/").count();
-            if deep <= DEEP {
-                if let Some(p) = check(f) {
-                    if p != f.install_path {
+            if deep <= DEEP
+                && let Some(p) = check(f)
+                    && p != f.install_path {
                         println!("Warning: file exists at {p}");
                     }
-                }
-            }
         }
     }
 
@@ -180,31 +178,28 @@ pub fn check(file: &OutputFile) -> Option<String> {
     if !executable(&name, &file.mode) {
         return None;
     }
-    if let Some(p) = which(&name) {
-        if !p.is_empty() && file_path != &p {
+    if let Some(p) = which(&name)
+        && !p.is_empty() && file_path != &p {
             return Some(p);
         }
-    }
     None
 }
 
 pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     let Ok(d) = std::path::PathBuf::from_str(src);
-    if let Some(p) = d.parent() {
-        if !std::fs::exists(p).unwrap_or(false) {
+    if let Some(p) = d.parent()
+        && !std::fs::exists(p).unwrap_or(false) {
             std::fs::create_dir_all(p).expect("failed to create_dir_all");
         }
-    }
 
-    if std::fs::exists(src).unwrap_or(false) {
-        if let Ok(meta) = std::fs::metadata(src) {
+    if std::fs::exists(src).unwrap_or(false)
+        && let Ok(meta) = std::fs::metadata(src) {
             if meta.is_file() {
                 std::fs::remove_file(src).expect("failed to remove file");
             } else {
                 std::fs::remove_dir_all(src).expect("failed to remove dir");
             }
         }
-    }
 
     std::fs::write(src, buffer).expect("failed to write file");
 
@@ -264,11 +259,10 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
                 .collect::<Vec<_>>()
                 .as_slice(),
         ) {
-            if let Some(kind) = &art.kind {
-                if !["executable-zip"].contains(&kind.as_str()) {
+            if let Some(kind) = &art.kind
+                && !["executable-zip"].contains(&kind.as_str()) {
                     continue;
                 }
-            }
             let name = name_no_ext(&filename);
             let name = guess_target(&name).pop().map_or(name, |i| i.name);
             if !is_url(key) {
@@ -406,8 +400,8 @@ pub fn is_exe_file(s: &str) -> bool {
     )
     .expect("failed to build github release regex");
     for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
-        if let Some(cap) = re.captures(s) {
-            if let Some(name) = cap.get(n) {
+        if let Some(cap) = re.captures(s)
+            && let Some(name) = cap.get(n) {
                 if is_archive_file(name.as_str()) {
                     return false;
                 }
@@ -415,7 +409,6 @@ pub fn is_exe_file(s: &str) -> bool {
                     return true;
                 }
             }
-        }
     }
 
     false

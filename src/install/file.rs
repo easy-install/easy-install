@@ -4,7 +4,7 @@ use crate::tool::{
     display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use guess_target::{get_local_target, Os};
+use guess_target::{Os, get_local_target};
 
 pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Output {
     let mut install_dir = get_install_dir();
@@ -23,7 +23,12 @@ pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>
         return output;
     }
     let filename = get_filename(url);
-    if let Some(bin) = download_binary(url).await {
+    let bin = if std::fs::exists(url).unwrap_or(false) {
+        std::fs::read(url).ok()
+    } else {
+        download_binary(url).await
+    };
+    if let Some(bin) = bin {
         let mut install_path = install_dir.clone();
         install_path.push(get_bin_name(name));
         let install_path = path_to_str(&install_path);
