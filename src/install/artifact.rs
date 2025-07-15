@@ -6,10 +6,11 @@ use crate::tool::{
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use tracing::trace;
+use anyhow::Result;
 
-pub async fn install_from_download_file(url: &str, name: &str, dir: Option<String>) -> Output {
+pub async fn install_from_download_file(url: &str, name: &str, dir: Option<String>) -> Result<Output> {
     trace!("install_from_download_file");
-    let mut install_dir = get_install_dir();
+    let mut install_dir = get_install_dir()?;
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
     let mut output = Output::new();
@@ -23,7 +24,7 @@ pub async fn install_from_download_file(url: &str, name: &str, dir: Option<Strin
         let install_dir_str = path_to_str(&install_dir);
         v.install_dir = install_dir_str;
 
-        if let Some(download_files) = download_extract(url).await {
+        if let Ok(download_files) = download_extract(url).await {
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
                 install_dir.push(name);
@@ -57,7 +58,7 @@ pub async fn install_from_download_file(url: &str, name: &str, dir: Option<Strin
 
             v.files = files;
             if !v.files.is_empty() {
-                install_output_files(&v.files);
+                install_output_files(&v.files)?;
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
@@ -67,18 +68,18 @@ pub async fn install_from_download_file(url: &str, name: &str, dir: Option<Strin
         println!("Maybe you should use -d to set the folder");
     }
 
-    output
+    Ok(output)
 }
 
-pub async fn install_from_artifact_url(art_url: &str, name: &str, dir: Option<String>) -> Output {
+pub async fn install_from_artifact_url(art_url: &str, name: &str, dir: Option<String>) -> Result<Output> {
     trace!("install_from_artifact_url {}", art_url);
     let mut v = Output::new();
     println!("download {art_url}");
     if !is_archive_file(art_url) {
-        let output = install_from_single_file(art_url, name, dir.clone()).await;
-        return output;
+        let output = install_from_single_file(art_url, name, dir.clone()).await?;
+        return Ok(output);
     }
-    let output = install_from_download_file(art_url, name, dir.clone()).await;
+    let output = install_from_download_file(art_url, name, dir.clone()).await?;
     v.extend(output);
-    v
+    Ok(v)
 }

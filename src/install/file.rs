@@ -5,9 +5,10 @@ use crate::tool::{
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use guess_target::{Os, get_local_target};
+use anyhow::Result;
 
-pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Output {
-    let mut install_dir = get_install_dir();
+pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Result<Output> {
+    let mut install_dir = get_install_dir()?;
     let mut output = Output::new();
 
     if let Some(target_dir) = dir {
@@ -20,13 +21,13 @@ pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>
 
     let local_target = get_local_target();
     if ends_with_exe(url) && local_target.iter().any(|t| t.os() != Os::Windows) {
-        return output;
+        return Ok(output);
     }
     let filename = get_filename(url);
     let bin = if std::fs::exists(url).unwrap_or(false) {
-        std::fs::read(url).ok()
+        Some(std::fs::read(url)?)
     } else {
-        download_binary(url).await
+        Some(download_binary(url).await?)
     };
     if let Some(bin) = bin {
         let mut install_path = install_dir.clone();
@@ -40,7 +41,7 @@ pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>
             install_path,
             buffer: bin,
         }];
-        install_output_files(&files);
+        install_output_files(&files)?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
@@ -53,5 +54,5 @@ pub async fn install_from_single_file(url: &str, name: &str, dir: Option<String>
     } else {
         println!("not found/download artifact for {url}")
     }
-    output
+    Ok(output)
 }

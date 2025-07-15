@@ -1,13 +1,18 @@
 use clap::Parser;
 use easy_install::{run_main, Args};
 use std::str::FromStr;
+use anyhow::Result;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     if let Ok(lv) = std::env::var("LOG_LEVEL")
         && let Ok(lv) = tracing::Level::from_str(&lv) {
             tracing_subscriber::fmt().with_max_level(lv).init();
         }
     let args = Args::parse();
-    run_main(args).await;
+    if let Err(e) = run_main(args).await {
+        eprintln!("Error: {e:?}");
+        std::process::exit(1);
+    }
+    Ok(())
 }

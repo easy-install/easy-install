@@ -2,7 +2,8 @@ use crate::artifact::GhArtifacts;
 use crate::download::{download_dist_manfiest, download_json};
 use crate::manfiest::DistManifest;
 use crate::tool::{ends_with_exe, get_filename, is_skip, name_no_ext};
-use guess_target::{get_local_target, guess_target, Os};
+use anyhow::Result;
+use guess_target::{Os, get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -33,70 +34,73 @@ pub struct Repo {
 }
 
 impl TryFrom<&str> for Repo {
-    type Error = ();
+    type Error = anyhow::Error;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self> {
         trace!("get_artifact_api {}", value);
         let re_gh_tag = Regex::new(
             r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)$",
-        )
-        .unwrap();
+        )?;
 
-        let re_gh_download_tag = Regex::new(r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$").unwrap();
+        let re_gh_download_tag = Regex::new(
+            r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$",
+        )?;
 
-        let re_gh_releases =
-            Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap();
+        let re_gh_releases = Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)")?;
 
-        let re_short =
-            Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap();
+        let re_short = Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$")?;
         if let Some(captures) = re_gh_tag.captures(value)
             && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
-            ) {
-                return Ok(Repo {
-                    owner: owner.as_str().to_string(),
-                    name: name.as_str().to_string(),
-                    tag: Some(tag.as_str().to_string()),
-                });
-            }
+            )
+        {
+            return Ok(Repo {
+                owner: owner.as_str().to_string(),
+                name: name.as_str().to_string(),
+                tag: Some(tag.as_str().to_string()),
+            });
+        }
 
         if let Some(captures) = re_gh_download_tag.captures(value)
             && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
-            ) {
-                return Ok(Repo {
-                    owner: owner.as_str().to_string(),
-                    name: name.as_str().to_string(),
-                    tag: Some(tag.as_str().to_string()),
-                });
-            }
+            )
+        {
+            return Ok(Repo {
+                owner: owner.as_str().to_string(),
+                name: name.as_str().to_string(),
+                tag: Some(tag.as_str().to_string()),
+            });
+        }
 
         if let Some(captures) = re_gh_releases.captures(value)
-            && let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo")) {
-                return Ok(Repo {
-                    owner: owner.as_str().to_string(),
-                    name: name.as_str().to_string(),
-                    tag: None,
-                });
-            }
+            && let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo"))
+        {
+            return Ok(Repo {
+                owner: owner.as_str().to_string(),
+                name: name.as_str().to_string(),
+                tag: None,
+            });
+        }
 
         if let Some(captures) = re_short.captures(value)
             && let (Some(owner), Some(name), tag) = (
                 captures.name("owner"),
                 captures.name("repo"),
                 captures.name("tag"),
-            ) {
-                return Ok(Repo {
-                    owner: owner.as_str().to_string(),
-                    name: name.as_str().to_string(),
-                    tag: tag.map(|i| i.as_str().to_string()),
-                });
-            }
-        Err(())
+            )
+        {
+            return Ok(Repo {
+                owner: owner.as_str().to_string(),
+                name: name.as_str().to_string(),
+                tag: tag.map(|i| i.as_str().to_string()),
+            });
+        }
+        Err(anyhow::anyhow!("Invalid repo string: {value}"))
     }
 }
 
@@ -133,16 +137,16 @@ impl Repo {
         }
     }
 
-    pub async fn get_manfiest(&self) -> Option<DistManifest> {
+    pub async fn get_manfiest(&self) -> Result<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub async fn get_artifact_url(&self) -> Vec<(String, String)> {
+    pub async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
         let mut v = vec![];
         let local_target = get_local_target();
-        if let Some(artifacts) = download_json::<GhArtifacts>(&api).await {
+        if let Ok(artifacts) = download_json::<GhArtifacts>(&api).await {
             for i in artifacts.assets {
                 if is_skip(&i.browser_download_url) {
                     continue;
@@ -175,7 +179,7 @@ impl Repo {
             filter.push(name.clone());
             list.push((name, url));
         }
-        list
+        Ok(list)
     }
 }
 
@@ -194,7 +198,7 @@ mod test {
     #[tokio::test]
     async fn test() {
         let repo = Repo::try_from("https://github.com/AlistGo/alist").unwrap();
-        let v = repo.get_artifact_url().await;
+        let v = repo.get_artifact_url().await.unwrap();
         assert_eq!(v.len(), 1);
     }
 }

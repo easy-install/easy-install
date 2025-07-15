@@ -8,6 +8,7 @@ mod ty;
 
 use clap::Parser;
 use tool::add_output_to_path;
+use anyhow::Result;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
@@ -25,18 +26,19 @@ pub struct Args {
     bin: Vec<String>,
 }
 
-pub async fn run_main(args: Args) {
+pub async fn run_main(args: Args) -> Result<()> {
     let Args {
         url,
         dir,
         install_only,
         bin,
     } = args;
-    let output = install::install(&url, &bin, dir).await;
+    let output = install::install(&url, &bin, dir).await?;
     if !install_only {
         add_output_to_path(&output);
     }
     if output.is_empty() {
         println!("No file installed from {url}");
     }
+    Ok(())
 }

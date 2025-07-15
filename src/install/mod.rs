@@ -15,13 +15,14 @@ use crate::ty::{Output, Repo};
 use artifact::install_from_download_file;
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
+use anyhow::Result;
 
-pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
+pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Result<Output> {
     trace!("install {}", url);
     let repo = Repo::try_from(url);
 
     if is_dist_manfiest(url) {
-        if let Some(manfiest) = if is_url(url) {
+        if let Ok(manfiest) = if is_url(url) {
             download_dist_manfiest(url).await
         } else {
             read_dist_manfiest(url)
@@ -29,7 +30,7 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
             return install_from_manfiest(manfiest, dir, url, bin).await;
         }
         println!("failed to read dist-manifest from {url}");
-        return Output::new();
+        return Ok(Output::new());
     }
     let filename = get_filename(url);
     let name = name_no_ext(&filename);
@@ -43,7 +44,7 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
             return install_from_artifact_url(url, &name, dir).await;
         }
 
-        if is_exe_file(url) {
+        if is_exe_file(url)? {
             return install_from_single_file(url, &name, dir).await;
         }
     }
@@ -60,5 +61,5 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Output {
         return install_from_github(&repo, dir, bin).await;
     }
 
-    Output::new()
+    Ok(Output::new())
 }

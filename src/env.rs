@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crud_path::{add_github_path, is_github};
+use anyhow::{Result, Context};
 
 pub fn add_to_path(dir: &str) {
     let dir = dir.trim_end_matches('/');
@@ -20,12 +21,12 @@ pub fn add_to_path(dir: &str) {
     }
 }
 
-pub fn get_install_dir() -> PathBuf {
-    let mut home = dirs::home_dir().expect("Failed to get home_dir");
+pub fn get_install_dir() -> Result<PathBuf> {
+    let mut home = dirs::home_dir().context("Failed to get home_dir")?;
     home.push(".ei");
 
     if !home.exists() {
-        std::fs::create_dir_all(&home).expect("Failed to create_dir home_dir");
+        std::fs::create_dir_all(&home).context("Failed to create_dir home_dir")?;
     }
-    home
+    Ok(home)
 }

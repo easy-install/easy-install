@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::str::FromStr;
+use anyhow::{Result, Context};
 
 const DEEP: usize = 3;
 const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
@@ -185,29 +186,29 @@ pub fn check(file: &OutputFile) -> Option<String> {
     None
 }
 
-pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
-    let Ok(d) = std::path::PathBuf::from_str(src);
+pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
+    let d = std::path::PathBuf::from_str(src).context("invalid path for write_to_file")?;
     if let Some(p) = d.parent()
         && !std::fs::exists(p).unwrap_or(false) {
-            std::fs::create_dir_all(p).expect("failed to create_dir_all");
+            std::fs::create_dir_all(p).context("failed to create_dir_all")?;
         }
 
     if std::fs::exists(src).unwrap_or(false)
         && let Ok(meta) = std::fs::metadata(src) {
             if meta.is_file() {
-                std::fs::remove_file(src).expect("failed to remove file");
+                std::fs::remove_file(src).context("failed to remove file")?;
             } else {
-                std::fs::remove_dir_all(src).expect("failed to remove dir");
+                std::fs::remove_dir_all(src).context("failed to remove dir")?;
             }
         }
 
-    std::fs::write(src, buffer).expect("failed to write file");
+    std::fs::write(src, buffer).context("failed to write file")?;
 
     #[cfg(unix)]
     if let Some(mode) = mode {
         if *mode > 0 {
             std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
-                .expect("failed to set_permissions");
+                .context("failed to set_permissions")?;
         }
     }
 
@@ -215,6 +216,7 @@ pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) {
     {
         _ = mode;
     }
+    Ok(())
 }
 
 fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
@@ -317,7 +319,7 @@ pub fn get_common_prefix_len(list: &[&str]) -> usize {
     parts[0][..p].join("/").len() + 1
 }
 
-pub fn install_output_files(files: &Vec<OutputFile>) {
+pub fn install_output_files(files: &Vec<OutputFile>) -> Result<()> {
     for OutputFile {
         install_path,
         buffer,
@@ -330,7 +332,7 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
         if origin_path.starts_with("__MACOSX") {
             continue;
         }
-        write_to_file(install_path, buffer, mode);
+        write_to_file(install_path, buffer, mode)?;
     }
 
     #[cfg(not(windows))]
@@ -341,10 +343,10 @@ pub fn install_output_files(files: &Vec<OutputFile>) {
             .collect::<Vec<_>>();
 
         if let [single_exe] = maybe_exe.as_slice() {
-            crate::tool::add_execute_permission(&single_exe.install_path)
-                .expect("failed to add_execute_permission");
+            add_execute_permission(&single_exe.install_path)?;
         }
     }
+    Ok(())
 }
 
 pub fn name_no_ext(s: &str) -> String {
@@ -360,9 +362,9 @@ pub fn name_no_ext(s: &str) -> String {
 }
 
 #[cfg(not(windows))]
-pub fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
+pub fn add_execute_permission(file_path: &str) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let metadata = std::fs::metadata(file_path)?;
+    let metadata = std::fs::metadata(file_path).context("metadata failed")?;
     if metadata.is_dir() {
         return Ok(());
     }
@@ -373,7 +375,7 @@ pub fn add_execute_permission(file_path: &str) -> std::io::Result<()> {
     let new_mode = current_mode | 0o111;
     permissions.set_mode(new_mode);
 
-    std::fs::set_permissions(file_path, permissions)?;
+    std::fs::set_permissions(file_path, permissions).context("set_permissions failed")?;
 
     Ok(())
 }
@@ -385,33 +387,29 @@ pub fn is_archive_file(s: &str) -> bool {
 pub fn ends_with_exe(s: &str) -> bool {
     WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i))
 }
-pub fn is_exe_file(s: &str) -> bool {
+pub fn is_exe_file(s: &str) -> Result<bool> {
     if ends_with_exe(s) {
-        return true;
+        return Ok(true);
     }
     let re_latest =
-        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/latest/download/([^/]+)$")
-            .expect("failed to build github latest release regex");
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/latest/download/([^/]+)$")?;
     let re_tag =
-        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")
-            .expect("failed to build github release regex");
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")?;
     let re_tag2 = Regex::new(
         r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$",
-    )
-    .expect("failed to build github release regex");
+    )?;
     for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
         if let Some(cap) = re.captures(s)
             && let Some(name) = cap.get(n) {
                 if is_archive_file(name.as_str()) {
-                    return false;
+                    return Ok(false);
                 }
                 if !name.as_str().contains(".") {
-                    return true;
+                    return Ok(true);
                 }
             }
     }
-
-    false
+    Ok(false)
 }
 
 pub fn is_url(s: &str) -> bool {
@@ -436,6 +434,8 @@ pub fn replace_filename(base_url: &str, name: &str) -> String {
 
 #[cfg(test)]
 mod test {
+    use anyhow::Context;
+
     use crate::{
         download::download_dist_manfiest,
         tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
@@ -447,7 +447,6 @@ mod test {
     #[test]
     fn test_is_file() {
         assert!(!is_archive_file("https://github.com/ahaoboy/ansi2"));
-
         assert!(!is_archive_file(
             "https://api.github.com/repos/ahaoboy/ansi2/releases/latest"
         ));
@@ -470,32 +469,32 @@ mod test {
             tag: None,
         };
         assert_eq!(
-            Repo::try_from("https://github.com/ahaoboy/ansi2").unwrap(),
+            Repo::try_from("https://github.com/ahaoboy/ansi2").context("failed to try_from").unwrap(),
             repo
         );
 
         assert!(
-            Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").is_err()
+            Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").context("failed to try_from").is_err()
         );
-        assert_eq!(Repo::try_from("ahaoboy/ansi2").unwrap(), repo);
+        assert_eq!(Repo::try_from("ahaoboy/ansi2").context("failed to try_from").unwrap(), repo);
         let repo = Repo {
             owner: "ahaoboy".to_string(),
             name: "ansi2".to_string(),
             tag: Some("v0.2.11".to_string()),
         };
-        assert_eq!(Repo::try_from("ahaoboy/ansi2@v0.2.11").unwrap(), repo);
+        assert_eq!(Repo::try_from("ahaoboy/ansi2@v0.2.11").context("failed to try_from").unwrap(), repo);
         assert_eq!(
-            Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").unwrap(),
+            Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").context("failed to try_from").unwrap(),
             repo
         );
 
         assert_eq!(
-          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz").unwrap(),
+          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-unknown-linux-musl.tar.gz").context("failed to try_from").unwrap(),
           repo
         );
 
         assert_eq!(
-          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip").unwrap(),
+          Repo::try_from("https://github.com/ahaoboy/ansi2/releases/download/v0.2.11/ansi2-x86_64-pc-windows-msvc.zip").context("failed to try_from").unwrap(),
           repo
         );
 
@@ -505,7 +504,7 @@ mod test {
             tag: Some("1.2.78".to_string()),
         };
         assert_eq!(
-          Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").unwrap(),
+          Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").context("failed to try_from").unwrap(),
           repo
         );
     }
@@ -523,7 +522,7 @@ mod test {
         assert_eq!(
             url,
             "https://api.github.com/repos/axodotdev/cargo-dist/releases/latest"
-        )
+        );
     }
     #[tokio::test]
     async fn test_get_manfiest() {
@@ -533,7 +532,7 @@ mod test {
             url,
             "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
         );
-        assert!(repo.get_manfiest().await.is_some());
+        assert!(repo.get_manfiest().await.is_ok());
 
         let repo =
             Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
@@ -562,7 +561,7 @@ mod test {
     async fn test_install_from_manfiest() {
         let url =
             "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
-        let manfiest = download_dist_manfiest(url).await.unwrap();
+        let manfiest = download_dist_manfiest(url).await.context("failed to download_dist_manfiest").unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
     }
@@ -579,7 +578,7 @@ mod test {
     async fn test_deno() {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
-        let artifact_url = repo.get_artifact_url().await;
+        let artifact_url = repo.get_artifact_url().await.unwrap();
         println!("artifact_url{artifact_url:?}");
         assert_eq!(artifact_url.len(), 2);
     }
@@ -587,7 +586,7 @@ mod test {
     #[tokio::test]
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
-        let artifact_url = repo.get_artifact_url().await;
+        let artifact_url = repo.get_artifact_url().await.unwrap();
         println!("{artifact_url:?}");
         assert_eq!(artifact_url.len(), 1);
     }
@@ -629,7 +628,7 @@ mod test {
                 false,
             ),
         ] {
-            assert_eq!(is_exe_file(a), b);
+            assert_eq!(is_exe_file(a).context("failed to check is_exe_file").unwrap(), b);
         }
     }
 
