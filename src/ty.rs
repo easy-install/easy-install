@@ -38,6 +38,11 @@ impl TryFrom<&str> for Repo {
 
     fn try_from(value: &str) -> Result<Self> {
         trace!("get_artifact_api {}", value);
+        let value = if value.ends_with(".git") {
+            &value[0..value.len() - 4]
+        } else {
+            value
+        };
         let re_gh_tag = Regex::new(
             r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)$",
         )?;
@@ -197,8 +202,13 @@ mod test {
     use crate::ty::Repo;
     #[tokio::test]
     async fn test() {
-        let repo = Repo::try_from("https://github.com/AlistGo/alist").unwrap();
-        let v = repo.get_artifact_url().await.unwrap();
-        assert_eq!(v.len(), 1);
+        for i in [
+            "https://github.com/AlistGo/alist",
+            "https://github.com/ahaoboy/bloaty-metafile.git",
+        ] {
+            let repo = Repo::try_from(i).unwrap();
+            let v = repo.get_artifact_url().await.unwrap();
+            assert_eq!(v.len(), 1);
+        }
     }
 }
