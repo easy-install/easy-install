@@ -20,7 +20,7 @@ fn get_headers() -> Result<HeaderMap> {
 pub async fn download_json<T: DeserializeOwned>(url: &str) -> Result<T> {
     let client = reqwest::Client::new();
     let response = client.get(url).headers(get_headers()?).send().await.context("send failed")?;
-    Ok(response.json::<T>().await.context("json parse failed")?)
+    response.json::<T>().await.context("json parse failed")
 }
 
 pub async fn download_extract(url: &str) -> Result<Vec<File>> {
@@ -43,13 +43,13 @@ pub async fn download(url: &str) -> Result<reqwest::Response> {
     trace!("download {}", url);
     let client = reqwest::Client::new();
     let headers = get_headers()?;
-    Ok(client.get(url).headers(headers).send().await.context("send failed")?)
+    client.get(url).headers(headers).send().await.context("send failed")
 }
 
 pub async fn download_dist_manfiest(url: &str) -> Result<DistManifest> {
     trace!("download_dist_manfiest {}", url);
     let response = download(url).await?;
-    Ok(response.json().await.context("json parse failed")?)
+    response.json().await.context("json parse failed")
 }
 
 pub async fn download_binary(url: &str) -> Result<Vec<u8>> {
@@ -62,7 +62,7 @@ pub async fn download_binary(url: &str) -> Result<Vec<u8>> {
 pub fn read_dist_manfiest(url: &str) -> Result<DistManifest> {
     trace!("read_dist_manfiest {}", url);
     let s = std::fs::read_to_string(url).context(format!("read file error: {url}"))?;
-    Ok(serde_json::from_str(&s).context("json parse failed")?)
+    serde_json::from_str(&s).context("json parse failed")
 }
 
 #[cfg(test)]
