@@ -71,7 +71,7 @@ pub(crate) fn install_from_download_file(
 
             v.files = files;
             if !v.files.is_empty() {
-                install_output_files(&v.files)?;
+                install_output_files(&mut v.files)?;
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
