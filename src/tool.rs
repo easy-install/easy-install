@@ -1,6 +1,7 @@
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
+use anyhow::{Context, Result};
 use easy_archive::{Fmt, IntoEnumIterator};
 use easy_archive::{human_size, mode_to_string};
 use guess_target::{Os, get_local_target, guess_target};
@@ -10,7 +11,6 @@ use std::collections::HashSet;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::str::FromStr;
-use anyhow::{Result, Context};
 
 const DEEP: usize = 3;
 const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
@@ -30,6 +30,7 @@ const INSTALLER_EXTS: [&str; 11] = [
 const TEXT_FILE_EXTS: [&str; 11] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
 ];
+const MAYBE_EXECUTABLE_EXTS: [&str; 7] = [".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js"];
 
 const SKIP_FMT_LIST: [&str; 16] = [
     ".sha256sum",
@@ -117,9 +118,10 @@ pub(crate) fn add_output_to_path(output: &Output) {
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP
                 && let Some(p) = check(f)
-                    && p != f.install_path {
-                        println!("Warning: file exists at {p}");
-                    }
+                && p != f.install_path
+            {
+                println!("Warning: file exists at {p}");
+            }
         }
     }
 
@@ -131,7 +133,7 @@ pub(crate) fn add_output_to_path(output: &Output) {
             let deep = f.origin_path.split("/").count();
             let is_exe = (maybe_exe.len() == 1 && maybe_exe.contains(&f.install_path))
                 || ends_with_exe(&f.origin_path)
-                || (f.mode.unwrap_or(0) & 0o111 != 0);
+                || (f.mode.unwrap_or(0) & EXEC_MASK != 0);
             let dir = dirname(&f.install_path);
             if deep <= DEEP && is_exe && !filter.contains(&dir) {
                 add_to_path(&dir);
@@ -142,6 +144,8 @@ pub(crate) fn add_output_to_path(output: &Output) {
 }
 
 pub(crate) fn get_filename(s: &str) -> String {
+    let s = s.replace("\\\\", "/");
+    let s = s.replace("\\", "/");
     let i = s.rfind("/").map_or(0, |i| i + 1);
     s[i..].to_string()
 }
@@ -180,27 +184,31 @@ pub(crate) fn check(file: &OutputFile) -> Option<String> {
         return None;
     }
     if let Some(p) = which(&name)
-        && !p.is_empty() && file_path != &p {
-            return Some(p);
-        }
+        && !p.is_empty()
+        && file_path != &p
+    {
+        return Some(p);
+    }
     None
 }
 
 pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
     let d = std::path::PathBuf::from_str(src).context("invalid path for write_to_file")?;
     if let Some(p) = d.parent()
-        && !std::fs::exists(p).unwrap_or(false) {
-            std::fs::create_dir_all(p).context("failed to create_dir_all")?;
-        }
+        && !std::fs::exists(p).unwrap_or(false)
+    {
+        std::fs::create_dir_all(p).context("failed to create_dir_all")?;
+    }
 
     if std::fs::exists(src).unwrap_or(false)
-        && let Ok(meta) = std::fs::metadata(src) {
-            if meta.is_file() {
-                std::fs::remove_file(src).context("failed to remove file")?;
-            } else {
-                std::fs::remove_dir_all(src).context("failed to remove dir")?;
-            }
+        && let Ok(meta) = std::fs::metadata(src)
+    {
+        if meta.is_file() {
+            std::fs::remove_file(src).context("failed to remove file")?;
+        } else {
+            std::fs::remove_dir_all(src).context("failed to remove dir")?;
         }
+    }
 
     std::fs::write(src, buffer).context("failed to write file")?;
 
@@ -223,7 +231,10 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
     arr1.iter().any(|x| arr2.contains(x))
 }
 
-pub(crate) fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<(String, String)> {
+pub(crate) fn get_artifact_url_from_manfiest(
+    url: &str,
+    manfiest: &DistManifest,
+) -> Vec<(String, String)> {
     let mut v = vec![];
     // let mut filter = vec![];
     let local_target = get_local_target();
@@ -262,9 +273,10 @@ pub(crate) fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest)
                 .as_slice(),
         ) {
             if let Some(kind) = &art.kind
-                && !["executable-zip"].contains(&kind.as_str()) {
-                    continue;
-                }
+                && !["executable-zip"].contains(&kind.as_str())
+            {
+                continue;
+            }
             let name = name_no_ext(&filename);
             let name = guess_target(&name).pop().map_or(name, |i| i.name);
             if !is_url(key) {
@@ -319,7 +331,50 @@ pub(crate) fn get_common_prefix_len(list: &[&str]) -> usize {
     parts[0][..p].join("/").len() + 1
 }
 
-pub(crate) fn install_output_files(files: &Vec<OutputFile>) -> Result<()> {
+pub(crate) fn is_executable(mode: u32) -> bool {
+    const S_IXUSR: u32 = 0o100; // owner execute
+    const S_IXGRP: u32 = 0o010; // group execute
+    const S_IXOTH: u32 = 0o001; // others execute
+
+    mode & (S_IXUSR | S_IXGRP | S_IXOTH) != 0
+}
+
+pub(crate) fn maybe_executable(name: &str) -> bool {
+    MAYBE_EXECUTABLE_EXTS.iter().any(|i| name.ends_with(i))
+}
+
+// if no executable file is found, then the only possible executable program is set to executable
+pub(crate) fn guess_executable(files: &mut [OutputFile]) {
+    let exe_files: Vec<_> = files
+        .iter()
+        .filter(|i| is_executable(i.mode.unwrap_or(0)))
+        .collect();
+
+    if !exe_files.is_empty() {
+        return;
+    }
+
+    let mut no_ext_files: Vec<_> = files
+        .iter_mut()
+        .filter(|i| get_filename(&i.origin_path).contains("."))
+        .collect();
+
+    if let &mut [first] = &mut no_ext_files.as_mut_slice() {
+        first.mode = Some(0o755);
+        return;
+    }
+
+    let mut maybe_executable: Vec<_> = files
+        .iter_mut()
+        .filter(|i| maybe_executable(&i.origin_path))
+        .collect();
+    if let &mut [first] = &mut maybe_executable.as_mut_slice() {
+        first.mode = Some(0o755);
+    }
+}
+
+pub(crate) fn install_output_files(files: &mut Vec<OutputFile>) -> Result<()> {
+    guess_executable(files);
     for OutputFile {
         install_path,
         buffer,
@@ -372,7 +427,7 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     let mut permissions = metadata.permissions();
     let current_mode = permissions.mode();
 
-    let new_mode = current_mode | 0o111;
+    let new_mode = current_mode | EXEC_MASK;
     permissions.set_mode(new_mode);
 
     std::fs::set_permissions(file_path, permissions).context("set_permissions failed")?;
@@ -400,14 +455,15 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
     )?;
     for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
         if let Some(cap) = re.captures(s)
-            && let Some(name) = cap.get(n) {
-                if is_archive_file(name.as_str()) {
-                    return Ok(false);
-                }
-                if !name.as_str().contains(".") {
-                    return Ok(true);
-                }
+            && let Some(name) = cap.get(n)
+        {
+            if is_archive_file(name.as_str()) {
+                return Ok(false);
             }
+            if !name.as_str().contains(".") {
+                return Ok(true);
+            }
+        }
     }
     Ok(false)
 }
@@ -469,22 +525,38 @@ mod test {
             tag: None,
         };
         assert_eq!(
-            Repo::try_from("https://github.com/ahaoboy/ansi2").context("failed to try_from").unwrap(),
+            Repo::try_from("https://github.com/ahaoboy/ansi2")
+                .context("failed to try_from")
+                .unwrap(),
             repo
         );
 
         assert!(
-            Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest").context("failed to try_from").is_err()
+            Repo::try_from("https://api.github.com/repos/ahaoboy/ansi2/releases/latest")
+                .context("failed to try_from")
+                .is_err()
         );
-        assert_eq!(Repo::try_from("ahaoboy/ansi2").context("failed to try_from").unwrap(), repo);
+        assert_eq!(
+            Repo::try_from("ahaoboy/ansi2")
+                .context("failed to try_from")
+                .unwrap(),
+            repo
+        );
         let repo = Repo {
             owner: "ahaoboy".to_string(),
             name: "ansi2".to_string(),
             tag: Some("v0.2.11".to_string()),
         };
-        assert_eq!(Repo::try_from("ahaoboy/ansi2@v0.2.11").context("failed to try_from").unwrap(), repo);
         assert_eq!(
-            Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11").context("failed to try_from").unwrap(),
+            Repo::try_from("ahaoboy/ansi2@v0.2.11")
+                .context("failed to try_from")
+                .unwrap(),
+            repo
+        );
+        assert_eq!(
+            Repo::try_from("https://github.com/ahaoboy/ansi2/releases/tag/v0.2.11")
+                .context("failed to try_from")
+                .unwrap(),
             repo
         );
 
@@ -561,7 +633,10 @@ mod test {
     async fn test_install_from_manfiest() {
         let url =
             "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
-        let manfiest = download_dist_manfiest(url).await.context("failed to download_dist_manfiest").unwrap();
+        let manfiest = download_dist_manfiest(url)
+            .await
+            .context("failed to download_dist_manfiest")
+            .unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
     }
@@ -628,7 +703,12 @@ mod test {
                 false,
             ),
         ] {
-            assert_eq!(is_exe_file(a).context("failed to check is_exe_file").unwrap(), b);
+            assert_eq!(
+                is_exe_file(a)
+                    .context("failed to check is_exe_file")
+                    .unwrap(),
+                b
+            );
         }
     }
 

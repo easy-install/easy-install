@@ -26,10 +26,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-latest
           - target: aarch64-apple-darwin
-            os: macos-latest
+            os: macos-15
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             RUSTFLAGS: -C target-feature=+crt-static
@@ -85,7 +83,7 @@ jobs:
     needs: ["create-release", "upload-assets"]
     strategy:
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-14, macos-13]
+        os: [ubuntu-24.04, windows-latest, macos-15]
     runs-on: ${{ matrix.os }}
     if: startsWith(github.ref, 'refs/tags/')
     steps:

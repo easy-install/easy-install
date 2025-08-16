@@ -33,7 +33,7 @@ pub(crate) async fn install_from_single_file(url: &str, name: &str, dir: Option<
         let mut install_path = install_dir.clone();
         install_path.push(get_bin_name(name));
         let install_path = path_to_str(&install_path);
-        let files = vec![OutputFile {
+        let mut files = vec![OutputFile {
             mode: None,
             size: bin.len() as u32,
             origin_path: filename,
@@ -41,7 +41,7 @@ pub(crate) async fn install_from_single_file(url: &str, name: &str, dir: Option<
             install_path,
             buffer: bin,
         }];
-        install_output_files(&files)?;
+        install_output_files(&mut files)?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
