@@ -373,7 +373,7 @@ pub(crate) fn guess_executable(files: &mut [OutputFile]) {
     }
 }
 
-pub(crate) fn install_output_files(files: &mut Vec<OutputFile>) -> Result<()> {
+pub(crate) fn install_output_files(files: &mut [OutputFile]) -> Result<()> {
     guess_executable(files);
     for OutputFile {
         install_path,
@@ -381,7 +381,7 @@ pub(crate) fn install_output_files(files: &mut Vec<OutputFile>) -> Result<()> {
         mode,
         origin_path,
         ..
-    } in files
+    } in files.iter()
     {
         // FIXME: skip __MACOSX
         if origin_path.starts_with("__MACOSX") {
