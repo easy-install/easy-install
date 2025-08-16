@@ -50,7 +50,7 @@ const SKIP_FMT_LIST: [&str; 16] = [
     ".asc",
 ];
 
-pub fn is_skip(s: &str) -> bool {
+pub(crate) fn is_skip(s: &str) -> bool {
     s.rsplit('/').next().unwrap_or_default().starts_with('.')
         || INSTALLER_EXTS
             .iter()
@@ -59,7 +59,7 @@ pub fn is_skip(s: &str) -> bool {
             .any(|&ext| s.to_ascii_lowercase().ends_with(&ext.to_ascii_lowercase()))
 }
 
-pub fn get_bin_name(s: &str) -> String {
+pub(crate) fn get_bin_name(s: &str) -> String {
     if cfg!(windows) && !WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) && !s.contains(".") {
         return s.to_string() + ".exe";
     }
@@ -67,7 +67,7 @@ pub fn get_bin_name(s: &str) -> String {
 }
 
 const MAX_FILE_COUNT: usize = 16;
-pub fn display_output(output: &Output) -> String {
+pub(crate) fn display_output(output: &Output) -> String {
     let mut v = vec![];
     for i in output.values() {
         if i.files.len() > MAX_FILE_COUNT {
@@ -107,7 +107,7 @@ fn dirname(s: &str) -> String {
     s[0..i].to_string()
 }
 
-pub fn add_output_to_path(output: &Output) {
+pub(crate) fn add_output_to_path(output: &Output) {
     let mut maybe_exe = HashSet::new();
     for v in output.values() {
         for f in &v.files {
@@ -141,13 +141,13 @@ pub fn add_output_to_path(output: &Output) {
     }
 }
 
-pub fn get_filename(s: &str) -> String {
+pub(crate) fn get_filename(s: &str) -> String {
     let i = s.rfind("/").map_or(0, |i| i + 1);
     s[i..].to_string()
 }
 
 #[cfg(windows)]
-pub fn which(name: &str) -> Option<String> {
+pub(crate) fn which(name: &str) -> Option<String> {
     let cmd = std::process::Command::new("powershell")
         .args(["-c", &format!("(get-command {name}).Source")])
         .output()
@@ -158,7 +158,7 @@ pub fn which(name: &str) -> Option<String> {
 }
 
 #[cfg(unix)]
-pub fn which(name: &str) -> Option<String> {
+pub(crate) fn which(name: &str) -> Option<String> {
     let cmd = std::process::Command::new("which")
         .arg(name)
         .output()
@@ -169,11 +169,11 @@ pub fn which(name: &str) -> Option<String> {
 }
 
 const EXEC_MASK: u32 = 0o111;
-pub fn executable(name: &str, mode: &Option<u32>) -> bool {
+pub(crate) fn executable(name: &str, mode: &Option<u32>) -> bool {
     ends_with_exe(name) || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
 }
 
-pub fn check(file: &OutputFile) -> Option<String> {
+pub(crate) fn check(file: &OutputFile) -> Option<String> {
     let file_path = &file.install_path;
     let name = get_filename(file_path);
     if !executable(&name, &file.mode) {
@@ -186,7 +186,7 @@ pub fn check(file: &OutputFile) -> Option<String> {
     None
 }
 
-pub fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
+pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
     let d = std::path::PathBuf::from_str(src).context("invalid path for write_to_file")?;
     if let Some(p) = d.parent()
         && !std::fs::exists(p).unwrap_or(false) {
@@ -223,7 +223,7 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
     arr1.iter().any(|x| arr2.contains(x))
 }
 
-pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<(String, String)> {
+pub(crate) fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec<(String, String)> {
     let mut v = vec![];
     // let mut filter = vec![];
     let local_target = get_local_target();
@@ -288,7 +288,7 @@ pub fn get_artifact_url_from_manfiest(url: &str, manfiest: &DistManifest) -> Vec
     v
 }
 
-pub fn get_common_prefix_len(list: &[&str]) -> usize {
+pub(crate) fn get_common_prefix_len(list: &[&str]) -> usize {
     if list.is_empty() {
         return 0;
     }
@@ -319,7 +319,7 @@ pub fn get_common_prefix_len(list: &[&str]) -> usize {
     parts[0][..p].join("/").len() + 1
 }
 
-pub fn install_output_files(files: &Vec<OutputFile>) -> Result<()> {
+pub(crate) fn install_output_files(files: &Vec<OutputFile>) -> Result<()> {
     for OutputFile {
         install_path,
         buffer,
@@ -349,7 +349,7 @@ pub fn install_output_files(files: &Vec<OutputFile>) -> Result<()> {
     Ok(())
 }
 
-pub fn name_no_ext(s: &str) -> String {
+pub(crate) fn name_no_ext(s: &str) -> String {
     let mut exts: Vec<_> = Fmt::iter().flat_map(|i| i.extensions().to_vec()).collect();
     exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
     for ext in exts {
@@ -362,7 +362,7 @@ pub fn name_no_ext(s: &str) -> String {
 }
 
 #[cfg(not(windows))]
-pub fn add_execute_permission(file_path: &str) -> Result<()> {
+pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let metadata = std::fs::metadata(file_path).context("metadata failed")?;
     if metadata.is_dir() {
@@ -380,14 +380,14 @@ pub fn add_execute_permission(file_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn is_archive_file(s: &str) -> bool {
+pub(crate) fn is_archive_file(s: &str) -> bool {
     Fmt::guess(s).is_some()
 }
 
-pub fn ends_with_exe(s: &str) -> bool {
+pub(crate) fn ends_with_exe(s: &str) -> bool {
     WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i))
 }
-pub fn is_exe_file(s: &str) -> Result<bool> {
+pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
     if ends_with_exe(s) {
         return Ok(true);
     }
@@ -412,19 +412,19 @@ pub fn is_exe_file(s: &str) -> Result<bool> {
     Ok(false)
 }
 
-pub fn is_url(s: &str) -> bool {
+pub(crate) fn is_url(s: &str) -> bool {
     s.starts_with("http://") || s.starts_with("https://")
 }
 
-pub fn is_dist_manfiest(s: &str) -> bool {
+pub(crate) fn is_dist_manfiest(s: &str) -> bool {
     s.ends_with(".json")
 }
 
-pub fn path_to_str(p: &Path) -> String {
+pub(crate) fn path_to_str(p: &Path) -> String {
     p.to_str().unwrap().replace("\\", "/")
 }
 
-pub fn replace_filename(base_url: &str, name: &str) -> String {
+pub(crate) fn replace_filename(base_url: &str, name: &str) -> String {
     if let Some(pos) = base_url.rfind('/') {
         format!("{}{}", &base_url[..pos + 1], name)
     } else {

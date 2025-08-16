@@ -29,3 +29,4 @@ ahaoboy/ansi2
 nushell/nushell
 ahaoboy/heart-rate
 https://github.com/easy-install/easy-install
+https://nightly.link/ahaoboy/cross-env/workflows/release/main?preview

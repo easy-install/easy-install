@@ -5,7 +5,7 @@ use crate::ty::Output;
 use tracing::trace;
 use anyhow::Result;
 
-pub async fn install_from_manfiest(
+pub(crate) async fn install_from_manfiest(
     manfiest: DistManifest,
     dir: Option<String>,
     url: &str,

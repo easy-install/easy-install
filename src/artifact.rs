@@ -2,9 +2,9 @@ use serde::Deserialize;
 use std::hash::Hash;
 use std::{collections::HashSet, hash::Hasher};
 #[derive(Eq, Deserialize, Debug)]
-pub struct GhArtifact {
-    pub name: String,
-    pub browser_download_url: String,
+pub(crate) struct GhArtifact {
+    pub(crate) name: String,
+    pub(crate) browser_download_url: String,
 }
 
 // Manually implement PartialEq and Hash to ensure it will always produce the
@@ -28,6 +28,6 @@ impl Hash for GhArtifact {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub struct GhArtifacts {
-    pub assets: HashSet<GhArtifact>,
+pub(crate) struct GhArtifacts {
+    pub(crate) assets: HashSet<GhArtifact>,
 }

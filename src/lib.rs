@@ -6,15 +6,15 @@ mod manfiest;
 mod tool;
 mod ty;
 
+use anyhow::Result;
 use clap::Parser;
 use tool::add_output_to_path;
-use anyhow::Result;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     #[arg()]
-    pub url: String,
+    pub(crate) url: String,
 
     #[arg(short, long)]
     dir: Option<String>,

@@ -2,60 +2,60 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-pub type RelPath = String;
-pub type ArtifactId = String;
-pub type TripleName = String;
+pub(crate) type RelPath = String;
+pub(crate) type ArtifactId = String;
+pub(crate) type TripleName = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DistManifest {
+pub(crate) struct DistManifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub artifacts: BTreeMap<ArtifactId, Artifact>,
+    pub(crate) artifacts: BTreeMap<ArtifactId, Artifact>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Artifact {
+pub(crate) struct Artifact {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub kind: Option<ArtifactId>,
+    pub(crate) kind: Option<ArtifactId>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub name: Option<ArtifactId>,
+    pub(crate) name: Option<ArtifactId>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
-    pub target_triples: Vec<TripleName>,
+    pub(crate) target_triples: Vec<TripleName>,
     /// Assets included in the bundle (like executables and READMEs)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
-    pub assets: Vec<Asset>,
+    pub(crate) assets: Vec<Asset>,
 }
 /// An asset contained in an artifact (executable, license, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Asset {
+pub(crate) struct Asset {
     /// The executable_name name of the asset
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub executable_name: Option<String>,
+    pub(crate) executable_name: Option<String>,
 
     /// The high-level name of the asset
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub(crate) name: Option<String>,
     /// The path of the asset relative to the root of the artifact
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<RelPath>,
+    pub(crate) path: Option<RelPath>,
     /// The kind of asset this is
     #[serde(flatten)]
-    pub kind: AssetKind,
+    pub(crate) kind: AssetKind,
 }
 
 /// An artifact included in a Distributable
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 #[non_exhaustive]
-pub enum AssetKind {
+pub(crate) enum AssetKind {
     /// An executable artifact
     #[serde(rename = "executable")]
     Executable(ExecutableAsset),
@@ -84,35 +84,35 @@ pub enum AssetKind {
 
 /// An executable artifact (exe/binary)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExecutableAsset {
+pub(crate) struct ExecutableAsset {
     /// The name of the Artifact containing symbols for this executable
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub symbols_artifact: Option<ArtifactId>,
+    pub(crate) symbols_artifact: Option<ArtifactId>,
 }
 
 /// A C dynamic library artifact (so/dylib/dll)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DynamicLibraryAsset {
+pub(crate) struct DynamicLibraryAsset {
     /// The name of the Artifact containing symbols for this library
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub symbols_artifact: Option<ArtifactId>,
+    pub(crate) symbols_artifact: Option<ArtifactId>,
 }
 
 /// A C static library artifact (a/lib)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaticLibraryAsset {
+pub(crate) struct StaticLibraryAsset {
     /// The name of the Artifact containing symbols for this library
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub symbols_artifact: Option<ArtifactId>,
+    pub(crate) symbols_artifact: Option<ArtifactId>,
 }
 
 // #[derive(Debug, Clone, Serialize, Deserialize)]
 // #[serde(tag = "kind")]
 // #[non_exhaustive]
-// pub enum ArtifactKind {
+// pub(crate) enum ArtifactKind {
 //     /// A zip or a tarball
 //     #[serde(rename = "executable-zip")]
 //     ExecutableZip,

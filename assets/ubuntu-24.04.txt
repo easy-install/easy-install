@@ -21,3 +21,4 @@ xst
 esbuild
 heart-rate
 ei
+cross-env

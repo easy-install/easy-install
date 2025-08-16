@@ -10,27 +10,27 @@ use std::fmt::Display;
 use tracing::trace;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
-pub struct OutputFile {
-    pub install_path: String,
-    pub mode: Option<u32>,
-    pub size: u32,
-    pub origin_path: String,
-    pub is_dir: bool,
-    pub buffer: Vec<u8>,
+pub(crate) struct OutputFile {
+    pub(crate) install_path: String,
+    pub(crate) mode: Option<u32>,
+    pub(crate) size: u32,
+    pub(crate) origin_path: String,
+    pub(crate) is_dir: bool,
+    pub(crate) buffer: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct OutputItem {
-    pub install_dir: String,
-    pub files: Vec<OutputFile>,
+pub(crate) struct OutputItem {
+    pub(crate) install_dir: String,
+    pub(crate) files: Vec<OutputFile>,
 }
 
-pub type Output = HashMap<String, OutputItem>;
+pub(crate) type Output = HashMap<String, OutputItem>;
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Repo {
-    pub owner: String,
-    pub name: String,
-    pub tag: Option<String>,
+pub(crate) struct Repo {
+    pub(crate) owner: String,
+    pub(crate) name: String,
+    pub(crate) tag: Option<String>,
 }
 
 impl TryFrom<&str> for Repo {
@@ -110,11 +110,11 @@ impl TryFrom<&str> for Repo {
 }
 
 impl Repo {
-    pub fn get_gh_url(&self) -> String {
+    pub(crate) fn get_gh_url(&self) -> String {
         format!("https://github.com/{}/{}", self.owner, self.name)
     }
 
-    pub fn get_artifact_api(&self) -> String {
+    pub(crate) fn get_artifact_api(&self) -> String {
         trace!("get_artifact_api {}/{}", self.owner, self.name);
         if let Some(tag) = &self.tag {
             return format!(
@@ -129,7 +129,7 @@ impl Repo {
         )
     }
 
-    pub fn get_manfiest_url(&self) -> String {
+    pub(crate) fn get_manfiest_url(&self) -> String {
         match &self.tag {
             Some(t) => format!(
                 "https://github.com/{}/{}/releases/download/{}/dist-manifest.json",
@@ -142,10 +142,10 @@ impl Repo {
         }
     }
 
-    pub async fn get_manfiest(&self) -> Result<DistManifest> {
+    pub(crate) async fn get_manfiest(&self) -> Result<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
+    pub(crate) async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);

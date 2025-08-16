@@ -3,7 +3,7 @@ mod file;
 mod manfiest;
 mod repo;
 
-use crate::download::{download_dist_manfiest, read_dist_manfiest};
+use crate::download::{download_dist_manfiest, get_bytes, read_dist_manfiest};
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::file::install_from_single_file;
 use crate::install::manfiest::install_from_manfiest;
@@ -12,12 +12,12 @@ use crate::tool::{
     get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_url, name_no_ext,
 };
 use crate::ty::{Output, Repo};
+use anyhow::Result;
 use artifact::install_from_download_file;
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
-use anyhow::Result;
 
-pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Result<Output> {
+pub(crate) async fn install(url: &str, bin: &[String], dir: Option<String>) -> Result<Output> {
     trace!("install {}", url);
     let repo = Repo::try_from(url);
 
@@ -51,7 +51,9 @@ pub async fn install(url: &str, bin: &[String], dir: Option<String>) -> Result<O
 
     if std::fs::exists(url).unwrap_or(false) {
         if is_archive_file(url) {
-            return install_from_download_file(url, &name, dir).await;
+            if let Ok(bytes) = get_bytes(url).await {
+                return install_from_download_file(bytes, url, &name, dir);
+            }
         } else {
             return install_from_single_file(url, &name, dir).await;
         }

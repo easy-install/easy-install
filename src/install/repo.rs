@@ -4,7 +4,7 @@ use crate::ty::{Output, Repo};
 use tracing::trace;
 use anyhow::Result;
 
-pub async fn install_from_github(repo: &Repo, dir: Option<String>, bin: &[String]) -> Result<Output> {
+pub(crate) async fn install_from_github(repo: &Repo, dir: Option<String>, bin: &[String]) -> Result<Output> {
     trace!("install_from_git {}", repo);
     if let Ok(man) = repo.get_manfiest().await {
         return install_from_manfiest(man, dir, &repo.get_manfiest_url(), bin).await;
