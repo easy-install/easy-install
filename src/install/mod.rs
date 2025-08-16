@@ -14,6 +14,7 @@ use crate::tool::{
 use crate::ty::{Output, Repo};
 use anyhow::Result;
 use artifact::install_from_download_file;
+use easy_archive::Fmt;
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
@@ -51,8 +52,10 @@ pub(crate) async fn install(url: &str, bin: &[String], dir: Option<String>) -> R
 
     if std::fs::exists(url).unwrap_or(false) {
         if is_archive_file(url) {
-            if let Ok(bytes) = get_bytes(url).await {
-                return install_from_download_file(bytes, url, &name, dir);
+            if let Ok(bytes) = get_bytes(url).await
+                && let Some(fmt) = Fmt::guess(url)
+            {
+                return install_from_download_file(bytes, fmt, url, &name, dir);
             }
         } else {
             return install_from_single_file(url, &name, dir).await;

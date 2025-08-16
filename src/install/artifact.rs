@@ -6,12 +6,13 @@ use crate::tool::{
     path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use easy_archive::Fmt;
 use tracing::trace;
 
 pub(crate) fn install_from_download_file(
     bytes: Vec<u8>,
+    fmt: Fmt,
     url: &str,
     name: &str,
     dir: Option<String>,
@@ -31,12 +32,12 @@ pub(crate) fn install_from_download_file(
         let install_dir_str = path_to_str(&install_dir);
         v.install_dir = install_dir_str;
 
-        if let Ok(download_files) = extract_bytes(bytes, url) {
+        if let Ok(download_files) = extract_bytes(bytes, fmt) {
             if let &[first] = &download_files.as_slice()
-                && let Some(_) = Fmt::guess(&first.path)
+                && let Some(fmt) = Fmt::guess(&first.path)
             {
                 let name = get_filename(&first.path);
-                return install_from_download_file(first.buffer.clone(), url, &name, dir);
+                return install_from_download_file(first.buffer.clone(), fmt, url, &name, dir);
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
@@ -98,7 +99,8 @@ pub(crate) async fn install_from_artifact_url(
     }
 
     let bytes = get_bytes(art_url).await?;
-    let output = install_from_download_file(bytes, art_url, name, dir.clone())?;
+    let fmt = Fmt::guess(art_url).context("fmt guess error")?;
+    let output = install_from_download_file(bytes, fmt, art_url, name, dir.clone())?;
     v.extend(output);
     Ok(v)
 }

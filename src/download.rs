@@ -38,8 +38,7 @@ pub(crate) async fn get_bytes(url: &str) -> Result<Vec<u8>> {
     Ok(bin)
 }
 
-pub(crate) fn extract_bytes(bytes: Vec<u8>, url: &str) -> Result<Vec<File>> {
-    let fmt = Fmt::guess(url).context("Fmt guess failed")?;
+pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
     let files = fmt
         .decode(bytes)
         .context("decode failed")?
@@ -84,13 +83,16 @@ pub(crate) fn read_dist_manfiest(url: &str) -> Result<DistManifest> {
 
 #[cfg(test)]
 mod test {
+    use easy_archive::Fmt;
+
     use crate::download::{extract_bytes, get_bytes};
 
     #[tokio::test]
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
         let bytes = get_bytes(url).await.expect("donwload error");
-        let files = extract_bytes(bytes, url).expect("extract_bytes failed");
+        let fmt = Fmt::guess(url).expect("fmt error");
+        let files = extract_bytes(bytes, fmt).expect("extract_bytes failed");
         assert!(files.iter().any(|i| i.path == "mujs"));
         assert!(files.iter().any(|i| i.path == "mujs-pp"));
         assert!(files.iter().any(|i| i.path == "libmujs.a"));

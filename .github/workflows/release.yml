@@ -26,6 +26,8 @@ jobs:
     strategy:
       matrix:
         include:
+          - target: x86_64-apple-darwin
+            os: macos-15
           - target: aarch64-apple-darwin
             os: macos-15
           - target: x86_64-pc-windows-msvc
@@ -78,6 +80,15 @@ jobs:
         with:
           name: ei-${{ steps.artifact-target.outputs.artifact-target }}
           path: ei-${{ steps.artifact-target.outputs.artifact-target }}.*
+
+      - name: release nightly
+        uses: ncipollo/release-action@v1
+        with:
+          # tag: ${{ steps.build.outputs.tag }}
+          tag: nightly
+          artifacts: "ei-${{ steps.artifact-target.outputs.artifact-target }}.*"
+          allowUpdates: true
+          makeLatest: false
 
   test-release:
     needs: ["create-release", "upload-assets"]
