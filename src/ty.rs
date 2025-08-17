@@ -1,11 +1,10 @@
-use crate::artifact::GhArtifacts;
-use crate::download::{download_dist_manfiest, download_json};
+use crate::artifact::{GhArtifact, GhArtifacts};
+use crate::download::{download, download_dist_manfiest, download_json};
 use crate::manfiest::DistManifest;
-use crate::tool::{ends_with_exe, get_filename, is_skip, name_no_ext};
+use crate::tool::get_artifact_url;
 use anyhow::Result;
-use guess_target::{Os, get_local_target, guess_target};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use tracing::trace;
 
@@ -149,42 +148,9 @@ impl Repo {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
-        let mut v = vec![];
-        let local_target = get_local_target();
-        if let Ok(artifacts) = download_json::<GhArtifacts>(&api).await {
-            for i in artifacts.assets {
-                if is_skip(&i.browser_download_url) {
-                    continue;
-                }
-                if ends_with_exe(&i.browser_download_url)
-                    && local_target.iter().any(|t| t.os() != Os::Windows)
-                {
-                    continue;
-                }
-                let filename = get_filename(&i.browser_download_url);
-                let name = name_no_ext(&filename);
-                let guess = guess_target(&name);
-                if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
-                    v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
-                }
-            }
-        }
-        let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
-        let mut filter = vec![];
-        let mut list = vec![];
-        // FIXME: Need user to select eg: llrt-no-sdk llrt-full-sdk
-        for (rank, name, url) in v {
-            if rank < max_rank {
-                continue;
-            }
-            if filter.contains(&name) {
-                continue;
-            }
 
-            filter.push(name.clone());
-            list.push((name, url));
-        }
-        Ok(list)
+        let artifacts = download_json::<GhArtifacts>(&api).await?;
+        get_artifact_url(artifacts)
     }
 }
 
@@ -197,9 +163,59 @@ impl Display for Repo {
     }
 }
 
+pub(crate) struct Nightly {
+    pub(crate) url: String,
+}
+
+impl Nightly {
+    pub(crate) async fn get_artifact(&self) -> Result<GhArtifacts> {
+        let html = download(&self.url).await?.text().await?;
+        let re = Regex::new(r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#).unwrap();
+        let mut assets = HashSet::new();
+
+        // Iterate over all matches in the HTML
+        for cap in re.captures_iter(&html) {
+            let name = cap[1].to_string();
+            let browser_download_url = cap[2].to_string();
+            assets.insert(GhArtifact {
+                name,
+                browser_download_url,
+            });
+        }
+
+        Ok(GhArtifacts { assets })
+    }
+    pub(crate) async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
+        let artifacts = self.get_artifact().await?;
+        get_artifact_url(artifacts)
+    }
+}
+
+impl Display for Nightly {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.url.to_string())
+    }
+}
+impl TryFrom<&str> for Nightly {
+    type Error = anyhow::Error;
+
+    fn try_from(url: &str) -> std::result::Result<Self, Self::Error> {
+        let re =
+            Regex::new(r"^https://nightly\.link/[^/]+/[^/]+/workflows/[^/]+/[^/?]+(\?preview)?$")?;
+        let v = re.is_match(url);
+        if v {
+            Ok(Self {
+                url: url.to_string(),
+            })
+        } else {
+            Err(anyhow::anyhow!("Invalid nightly.link string: {url}"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::ty::Repo;
+    use crate::ty::{Nightly, Repo};
     #[tokio::test]
     async fn test() {
         for i in [
@@ -209,6 +225,18 @@ mod test {
             let repo = Repo::try_from(i).unwrap();
             let v = repo.get_artifact_url().await.unwrap();
             assert_eq!(v.len(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_nighty() {
+        for i in [
+            "https://nightly.link/ahaoboy/cross-env/workflows/release/main",
+            "https://nightly.link/ahaoboy/cross-env/workflows/release/main?preview",
+        ] {
+            let nightly = Nightly::try_from(i).unwrap();
+            let v = nightly.get_artifact_url().await.unwrap();
+            assert!(!v.is_empty())
         }
     }
 }

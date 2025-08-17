@@ -22,3 +22,4 @@ esbuild
 rcedit
 heart-rate
 ei
+cross-env

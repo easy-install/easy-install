@@ -1,3 +1,4 @@
+use crate::artifact::GhArtifacts;
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
@@ -488,6 +489,43 @@ pub(crate) fn replace_filename(base_url: &str, name: &str) -> String {
     }
 }
 
+pub(crate) fn get_artifact_url(artifacts: GhArtifacts) -> Result<Vec<(String, String)>> {
+    let mut v = vec![];
+    let local_target = get_local_target();
+
+    for i in artifacts.assets {
+        if is_skip(&i.browser_download_url) {
+            continue;
+        }
+        if ends_with_exe(&i.browser_download_url)
+            && local_target.iter().any(|t| t.os() != Os::Windows)
+        {
+            continue;
+        }
+        let filename = get_filename(&i.browser_download_url);
+        let name = name_no_ext(&filename);
+        let guess = guess_target(&name);
+        if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+            v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
+        }
+    }
+    let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
+    let mut filter = vec![];
+    let mut list = vec![];
+    // FIXME: Need user to select eg: llrt-no-sdk llrt-full-sdk
+    for (rank, name, url) in v {
+        if rank < max_rank {
+            continue;
+        }
+        if filter.contains(&name) {
+            continue;
+        }
+
+        filter.push(name.clone());
+        list.push((name, url));
+    }
+    Ok(list)
+}
 #[cfg(test)]
 mod test {
     use anyhow::Context;

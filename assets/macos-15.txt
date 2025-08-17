@@ -15,3 +15,4 @@ esbuild
 heart-rate
 ei
 d8
+cross-env
