@@ -36,7 +36,7 @@ set_filename() {
     esac
     echo "Downloading the latest binary for macOS ($FILENAME) from GitHub..."
   elif [ "$OS" = "Windows" ] ; then
-    FILENAME="ei-x86_64-pc-windows-mscv.zip"
+    FILENAME="ei-x86_64-pc-windows-msvc.zip"
     echo "Downloading the latest binary from GitHub..."
   else
     echo "OS $OS is not supported."

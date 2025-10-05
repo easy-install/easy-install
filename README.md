@@ -9,7 +9,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/easy-install/easy-
 ### linux/macos
 
 ```bash
-curl -fsSL https://github.com/easy-install/easy-install/raw/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | bash
 ```
 
 ### cargo
