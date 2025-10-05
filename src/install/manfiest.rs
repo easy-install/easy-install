@@ -2,8 +2,8 @@ use crate::install::artifact::install_from_artifact_url;
 use crate::manfiest::DistManifest;
 use crate::tool::get_artifact_url_from_manfiest;
 use crate::ty::Output;
-use tracing::trace;
 use anyhow::Result;
+use tracing::trace;
 
 pub(crate) async fn install_from_manfiest(
     manfiest: DistManifest,

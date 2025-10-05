@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use anyhow::{Context, Result};
 use crud_path::{add_github_path, is_github};
-use anyhow::{Result, Context};
 
 pub(crate) fn add_to_path(dir: &str) {
     let dir = dir.trim_end_matches('/');

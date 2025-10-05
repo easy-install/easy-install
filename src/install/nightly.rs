@@ -1,9 +1,13 @@
 use crate::install::artifact::install_from_artifact_url;
 use crate::ty::{Nightly, Output};
-use tracing::trace;
 use anyhow::Result;
+use tracing::trace;
 
-pub(crate) async fn install_from_nightly(repo: &Nightly, dir: Option<String>, bin: &[String]) -> Result<Output> {
+pub(crate) async fn install_from_nightly(
+    repo: &Nightly,
+    dir: Option<String>,
+    bin: &[String],
+) -> Result<Output> {
     trace!("install_from_nightly {}", repo);
 
     let artifact_url = repo.get_artifact_url().await?;

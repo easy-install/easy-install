@@ -4,10 +4,14 @@ use crate::tool::{
     display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use guess_target::{Os, get_local_target};
 use anyhow::Result;
+use guess_target::{Os, get_local_target};
 
-pub(crate) async fn install_from_single_file(url: &str, name: &str, dir: Option<String>) -> Result<Output> {
+pub(crate) async fn install_from_single_file(
+    url: &str,
+    name: &str,
+    dir: Option<String>,
+) -> Result<Output> {
     let mut install_dir = get_install_dir()?;
     let mut output = Output::new();
 
