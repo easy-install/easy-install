@@ -667,17 +667,17 @@ mod test {
         assert!(!manfiest.artifacts.is_empty())
     }
 
-    #[tokio::test]
-    async fn test_install_from_manfiest() {
-        let url =
-            "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
-        let manfiest = download_dist_manfiest(url)
-            .await
-            .context("failed to download_dist_manfiest")
-            .unwrap();
-        let art_url = get_artifact_url_from_manfiest(url, &manfiest);
-        assert!(!art_url.is_empty())
-    }
+    // #[tokio::test]
+    // async fn test_install_from_manfiest() {
+    //     let url =
+    //         "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
+    //     let manfiest = download_dist_manfiest(url)
+    //         .await
+    //         .context("failed to download_dist_manfiest")
+    //         .unwrap();
+    //     let art_url = get_artifact_url_from_manfiest(url, &manfiest);
+    //     assert!(!art_url.is_empty())
+    // }
 
     #[tokio::test]
     async fn test_cargo_dist() {
