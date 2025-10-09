@@ -14,18 +14,14 @@ use crate::tool::{
     get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_url, name_no_ext,
 };
 use crate::ty::{Nightly, Output, Repo};
+use crate::InstallConfig;
 use anyhow::Result;
 use artifact::install_from_download_file;
 use easy_archive::Fmt;
 use guess_target::{get_local_target, guess_target};
 use tracing::trace;
 
-pub(crate) async fn install(
-    url: &str,
-    bin: &[String],
-    dir: Option<String>,
-    alias: Option<String>,
-) -> Result<Output> {
+pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output> {
     trace!("install {}", url);
     let repo = Repo::try_from(url);
 
@@ -35,7 +31,7 @@ pub(crate) async fn install(
         } else {
             read_dist_manfiest(url)
         } {
-            return install_from_manfiest(manfiest, dir, url, bin, alias).await;
+            return install_from_manfiest(manfiest, url, config).await;
         }
         println!("failed to read dist-manifest from {url}");
         return Ok(Output::new());
@@ -49,11 +45,11 @@ pub(crate) async fn install(
 
     if is_url(url) {
         if is_archive_file(url) {
-            return install_from_artifact_url(url, &name, dir, alias).await;
+            return install_from_artifact_url(url, &name, config).await;
         }
 
         if is_exe_file(url)? {
-            return install_from_single_file(url, &name, dir, alias).await;
+            return install_from_single_file(url, &name, config).await;
         }
     }
 
@@ -62,19 +58,19 @@ pub(crate) async fn install(
             if let Ok(bytes) = get_bytes(url).await
                 && let Some(fmt) = Fmt::guess(url)
             {
-                return install_from_download_file(bytes, fmt, url, &name, dir, alias);
+                return install_from_download_file(bytes, fmt, url, &name, config);
             }
         } else {
-            return install_from_single_file(url, &name, dir, alias).await;
+            return install_from_single_file(url, &name, config).await;
         }
     }
 
     if let Ok(repo) = repo {
-        return install_from_github(&repo, dir, bin, alias).await;
+        return install_from_github(&repo, config).await;
     }
 
     if let Ok(nightly) = Nightly::try_from(url) {
-        return install_from_nightly(&nightly, dir, bin, alias.clone()).await;
+        return install_from_nightly(&nightly, config).await;
     }
     Ok(Output::new())
 }

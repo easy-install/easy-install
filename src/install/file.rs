@@ -4,19 +4,19 @@ use crate::tool::{
     display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
+use crate::InstallConfig;
 use anyhow::Result;
 use guess_target::{Os, get_local_target};
 
 pub(crate) async fn install_from_single_file(
     url: &str,
     name: &str,
-    dir: Option<String>,
-    alias: Option<String>,
+    config: &InstallConfig,
 ) -> Result<Output> {
     let mut install_dir = get_install_dir()?;
     let mut output = Output::new();
 
-    if let Some(target_dir) = dir {
+    if let Some(target_dir) = &config.dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
         } else {
@@ -47,7 +47,7 @@ pub(crate) async fn install_from_single_file(
             install_path,
             buffer: bin,
         }];
-        install_output_files(&mut files, alias)?;
+        install_output_files(&mut files, config.alias.clone())?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {

@@ -6,6 +6,7 @@ use crate::tool::{
     path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
+use crate::InstallConfig;
 use anyhow::{Context, Result};
 use easy_archive::Fmt;
 use tracing::trace;
@@ -15,15 +16,14 @@ pub(crate) fn install_from_download_file(
     fmt: Fmt,
     url: &str,
     name: &str,
-    dir: Option<String>,
-    alias: Option<String>,
+    config: &InstallConfig,
 ) -> Result<Output> {
     trace!("install_from_download_file");
     let mut install_dir = get_install_dir()?;
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
     let mut output = Output::new();
-    if let Some(target_dir) = dir.clone().or(Some(path_to_str(&install_dir).to_string())) {
+    if let Some(target_dir) = config.dir.clone().or(Some(path_to_str(&install_dir).to_string())) {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
         } else {
@@ -43,8 +43,7 @@ pub(crate) fn install_from_download_file(
                     fmt,
                     url,
                     &name,
-                    dir,
-                    alias,
+                    config,
                 );
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
@@ -80,7 +79,7 @@ pub(crate) fn install_from_download_file(
 
             v.files = files;
             if !v.files.is_empty() {
-                install_output_files(&mut v.files, alias)?;
+                install_output_files(&mut v.files, config.alias.clone())?;
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
@@ -96,20 +95,19 @@ pub(crate) fn install_from_download_file(
 pub(crate) async fn install_from_artifact_url(
     art_url: &str,
     name: &str,
-    dir: Option<String>,
-    alias: Option<String>,
+    config: &InstallConfig,
 ) -> Result<Output> {
     trace!("install_from_artifact_url {}", art_url);
     let mut v = Output::new();
     println!("download {art_url}");
     if !is_archive_file(art_url) {
-        let output = install_from_single_file(art_url, name, dir.clone(), alias).await?;
+        let output = install_from_single_file(art_url, name, config).await?;
         return Ok(output);
     }
 
     let bytes = get_bytes(art_url).await?;
     let fmt = Fmt::guess(art_url).context("fmt guess error")?;
-    let output = install_from_download_file(bytes, fmt, art_url, name, dir.clone(), alias)?;
+    let output = install_from_download_file(bytes, fmt, art_url, name, config)?;
     v.extend(output);
     Ok(v)
 }

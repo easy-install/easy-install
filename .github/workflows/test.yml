@@ -53,6 +53,10 @@ jobs:
               cargo -q  run -- $line
           done
 
+      - name: install alias qjs-next
+        run: |
+          cargo -q  run -- https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
+
       - name: test which
         if: matrix.os != 'windows-latest'
         run: |
@@ -110,6 +114,10 @@ jobs:
               [[ -z "$line" ]] && continue
               node cli/cli.js "$line"
           done
+
+      # - name: install alias qjs-next
+      #   run: |
+      #     cr -- https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
 
       - name: test which
         if: matrix.os != 'windows-latest'
