@@ -23,3 +23,5 @@ heart-rate
 ei
 cross-env
 jsc
+qjs-next
+ladybird

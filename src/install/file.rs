@@ -1,3 +1,4 @@
+use crate::InstallConfig;
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::tool::{
@@ -10,12 +11,12 @@ use guess_target::{Os, get_local_target};
 pub(crate) async fn install_from_single_file(
     url: &str,
     name: &str,
-    dir: Option<String>,
+    config: &InstallConfig,
 ) -> Result<Output> {
     let mut install_dir = get_install_dir()?;
     let mut output = Output::new();
 
-    if let Some(target_dir) = dir {
+    if let Some(target_dir) = &config.dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
         } else {
@@ -35,7 +36,8 @@ pub(crate) async fn install_from_single_file(
     };
     if let Some(bin) = bin {
         let mut install_path = install_dir.clone();
-        install_path.push(get_bin_name(name));
+        let target_name = get_bin_name(name);
+        install_path.push(target_name);
         let install_path = path_to_str(&install_path);
         let mut files = vec![OutputFile {
             mode: None,
@@ -45,7 +47,7 @@ pub(crate) async fn install_from_single_file(
             install_path,
             buffer: bin,
         }];
-        install_output_files(&mut files)?;
+        install_output_files(&mut files, config.alias.clone())?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {

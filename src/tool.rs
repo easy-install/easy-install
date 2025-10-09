@@ -3,7 +3,7 @@ use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::ty::{Output, OutputFile};
 use anyhow::{Context, Result};
-use easy_archive::{Fmt, IntoEnumIterator};
+use easy_archive::{Fmt, IntoEnumIterator, clean};
 use easy_archive::{human_size, mode_to_string};
 use guess_target::{Os, get_local_target, guess_target};
 use regex::Regex;
@@ -119,9 +119,13 @@ pub(crate) fn add_output_to_path(output: &Output) {
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP
                 && let Some(p) = check(f)
-                && p != f.install_path
             {
-                println!("Warning: file exists at {p}");
+                let msg = if p != f.install_path {
+                    format!("Warning: file exists at {p}")
+                } else {
+                    format!("Warning: file updated at {p}")
+                };
+                println!("{msg}");
             }
         }
     }
@@ -214,12 +218,11 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
     std::fs::write(src, buffer).context("failed to write file")?;
 
     #[cfg(unix)]
-    if let Some(mode) = mode {
-        if *mode > 0 {
+    if let Some(mode) = mode
+        && *mode > 0 {
             std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
                 .context("failed to set_permissions")?;
         }
-    }
 
     #[cfg(windows)]
     {
@@ -374,7 +377,40 @@ pub(crate) fn guess_executable(files: &mut [OutputFile]) {
     }
 }
 
-pub(crate) fn install_output_files(files: &mut [OutputFile]) -> Result<()> {
+fn rename_alias(files: &mut [OutputFile], alias: &str) {
+    let file = if files.len() == 1 {
+        Some(&mut files[0])
+    } else {
+        let mut iter = files.iter_mut().filter(|i| {
+            let name = get_filename(&i.origin_path);
+            executable(&name, &i.mode)
+        });
+
+        let first = iter.next();
+        if first.is_some() && iter.next().is_none() {
+            first
+        } else {
+            None
+        }
+    };
+
+      let Some(first) = file else{
+        return
+      };
+
+    let filename = get_filename(&first.install_path);
+    let bin = name_no_ext(&filename);
+    let alias_name = filename.replace(&bin, alias);
+    let d = dirname(&first.install_path);
+
+    first.install_path = clean(&(d + "/" + &alias_name));
+}
+
+pub(crate) fn install_output_files(files: &mut [OutputFile], alias: Option<String>) -> Result<()> {
+    if let Some(alias) = alias {
+        rename_alias(files, &alias);
+    }
+
     guess_executable(files);
     for OutputFile {
         install_path,

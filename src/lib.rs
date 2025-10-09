@@ -10,6 +10,19 @@ use anyhow::Result;
 use clap::Parser;
 use tool::add_output_to_path;
 
+#[derive(Debug, Clone)]
+pub struct InstallConfig {
+    pub dir: Option<String>,
+    pub name: Vec<String>,
+    pub alias: Option<String>,
+}
+
+impl InstallConfig {
+    pub fn new(dir: Option<String>, name: Vec<String>, alias: Option<String>) -> Self {
+        Self { dir, name, alias }
+    }
+}
+
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
@@ -23,17 +36,24 @@ pub struct Args {
     install_only: bool,
 
     #[arg(long, value_delimiter = ',')]
-    bin: Vec<String>,
+    name: Vec<String>,
+
+    #[arg(long)]
+    alias: Option<String>,
+}
+
+impl Args {
+    pub fn to_install_config(&self) -> InstallConfig {
+        InstallConfig::new(self.dir.clone(), self.name.clone(), self.alias.clone())
+    }
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
-    let Args {
-        url,
-        dir,
-        install_only,
-        bin,
-    } = args;
-    let output = install::install(&url, &bin, dir).await?;
+    let url = args.url.clone();
+    let install_only = args.install_only;
+    let config = args.to_install_config();
+
+    let output = install::install(&url, &config).await?;
     if !install_only {
         add_output_to_path(&output);
     }
