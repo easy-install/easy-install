@@ -16,6 +16,7 @@ pub(crate) fn install_from_download_file(
     url: &str,
     name: &str,
     dir: Option<String>,
+    alias: Option<String>,
 ) -> Result<Output> {
     trace!("install_from_download_file");
     let mut install_dir = get_install_dir()?;
@@ -37,7 +38,14 @@ pub(crate) fn install_from_download_file(
                 && let Some(fmt) = Fmt::guess(&first.path)
             {
                 let name = get_filename(&first.path);
-                return install_from_download_file(first.buffer.clone(), fmt, url, &name, dir);
+                return install_from_download_file(
+                    first.buffer.clone(),
+                    fmt,
+                    url,
+                    &name,
+                    dir,
+                    alias,
+                );
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
@@ -72,7 +80,7 @@ pub(crate) fn install_from_download_file(
 
             v.files = files;
             if !v.files.is_empty() {
-                install_output_files(&mut v.files)?;
+                install_output_files(&mut v.files, alias)?;
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
                 println!("{}", display_output(&output));
@@ -89,18 +97,19 @@ pub(crate) async fn install_from_artifact_url(
     art_url: &str,
     name: &str,
     dir: Option<String>,
+    alias: Option<String>,
 ) -> Result<Output> {
     trace!("install_from_artifact_url {}", art_url);
     let mut v = Output::new();
     println!("download {art_url}");
     if !is_archive_file(art_url) {
-        let output = install_from_single_file(art_url, name, dir.clone()).await?;
+        let output = install_from_single_file(art_url, name, dir.clone(), alias).await?;
         return Ok(output);
     }
 
     let bytes = get_bytes(art_url).await?;
     let fmt = Fmt::guess(art_url).context("fmt guess error")?;
-    let output = install_from_download_file(bytes, fmt, art_url, name, dir.clone())?;
+    let output = install_from_download_file(bytes, fmt, art_url, name, dir.clone(), alias)?;
     v.extend(output);
     Ok(v)
 }

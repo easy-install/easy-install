@@ -8,10 +8,11 @@ pub(crate) async fn install_from_github(
     repo: &Repo,
     dir: Option<String>,
     bin: &[String],
+    alias: Option<String>,
 ) -> Result<Output> {
     trace!("install_from_git {}", repo);
     if let Ok(man) = repo.get_manfiest().await {
-        return install_from_manfiest(man, dir, &repo.get_manfiest_url(), bin).await;
+        return install_from_manfiest(man, dir, &repo.get_manfiest_url(), bin, alias).await;
     }
 
     let artifact_url = repo.get_artifact_url().await?;
@@ -22,7 +23,7 @@ pub(crate) async fn install_from_github(
             if !bin.is_empty() && !bin.contains(&name) {
                 continue;
             }
-            v.extend(install_from_artifact_url(&i, &name, dir.clone()).await?);
+            v.extend(install_from_artifact_url(&i, &name, dir.clone(), alias.clone()).await?);
         }
     } else {
         println!(

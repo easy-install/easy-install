@@ -23,7 +23,13 @@ pub struct Args {
     install_only: bool,
 
     #[arg(long, value_delimiter = ',')]
-    bin: Vec<String>,
+    name: Vec<String>,
+
+    // #[arg(long)]
+    // bin: String,
+
+    #[arg(long)]
+    alias: Option<String>,
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
@@ -31,9 +37,11 @@ pub async fn run_main(args: Args) -> Result<()> {
         url,
         dir,
         install_only,
-        bin,
+        name,
+        alias,
+        // bin
     } = args;
-    let output = install::install(&url, &bin, dir).await?;
+    let output = install::install(&url, &name, dir, alias).await?;
     if !install_only {
         add_output_to_path(&output);
     }

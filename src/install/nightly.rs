@@ -7,6 +7,7 @@ pub(crate) async fn install_from_nightly(
     repo: &Nightly,
     dir: Option<String>,
     bin: &[String],
+    alias: Option<String>,
 ) -> Result<Output> {
     trace!("install_from_nightly {}", repo);
 
@@ -18,7 +19,7 @@ pub(crate) async fn install_from_nightly(
             if !bin.is_empty() && !bin.contains(&name) {
                 continue;
             }
-            v.extend(install_from_artifact_url(&i, &name, dir.clone()).await?);
+            v.extend(install_from_artifact_url(&i, &name, dir.clone(), alias.clone()).await?);
         }
     } else {
         println!(
