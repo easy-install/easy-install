@@ -218,12 +218,11 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
     std::fs::write(src, buffer).context("failed to write file")?;
 
     #[cfg(unix)]
-    if let Some(mode) = mode {
-        if *mode > 0 {
+    if let Some(mode) = mode
+        && *mode > 0 {
             std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
                 .context("failed to set_permissions")?;
         }
-    }
 
     #[cfg(windows)]
     {
@@ -379,15 +378,27 @@ pub(crate) fn guess_executable(files: &mut [OutputFile]) {
 }
 
 fn rename_alias(files: &mut [OutputFile], alias: &str) {
-    let mut v: Vec<_> = files
-        .iter_mut()
-        .filter(|i| {
+    let file = if files.len() == 1 {
+        Some(&mut files[0])
+    } else {
+        let mut iter = files.iter_mut().filter(|i| {
             let name = get_filename(&i.origin_path);
-            return executable(&name, &i.mode);
-        })
-        .collect();
+            println!("{:?} {}", i.mode, executable(&name, &i.mode));
+            executable(&name, &i.mode)
+        });
 
-    let [first] = v.as_mut_slice() else { return };
+        let first = iter.next();
+        if first.is_some() && iter.next().is_none() {
+            first
+        } else {
+            None
+        }
+    };
+
+    let first = match file {
+        Some(f) => f,
+        None => return,
+    };
 
     let filename = get_filename(&first.install_path);
     let bin = name_no_ext(&filename);

@@ -4,6 +4,7 @@ mod manfiest;
 mod nightly;
 mod repo;
 
+use crate::InstallConfig;
 use crate::download::{download_dist_manfiest, get_bytes, read_dist_manfiest};
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::file::install_from_single_file;
@@ -14,7 +15,6 @@ use crate::tool::{
     get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_url, name_no_ext,
 };
 use crate::ty::{Nightly, Output, Repo};
-use crate::InstallConfig;
 use anyhow::Result;
 use artifact::install_from_download_file;
 use easy_archive::Fmt;

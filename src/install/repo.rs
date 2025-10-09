@@ -1,7 +1,7 @@
+use crate::InstallConfig;
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::manfiest::install_from_manfiest;
 use crate::ty::{Output, Repo};
-use crate::InstallConfig;
 use anyhow::Result;
 use tracing::trace;
 

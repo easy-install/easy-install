@@ -1,3 +1,4 @@
+use crate::InstallConfig;
 use crate::download::{extract_bytes, get_bytes};
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
@@ -6,7 +7,6 @@ use crate::tool::{
     path_to_str,
 };
 use crate::ty::{Output, OutputFile, OutputItem};
-use crate::InstallConfig;
 use anyhow::{Context, Result};
 use easy_archive::Fmt;
 use tracing::trace;
@@ -23,7 +23,11 @@ pub(crate) fn install_from_download_file(
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
     let mut output = Output::new();
-    if let Some(target_dir) = config.dir.clone().or(Some(path_to_str(&install_dir).to_string())) {
+    if let Some(target_dir) = config
+        .dir
+        .clone()
+        .or(Some(path_to_str(&install_dir).to_string()))
+    {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = target_dir.into();
         } else {
@@ -38,13 +42,7 @@ pub(crate) fn install_from_download_file(
                 && let Some(fmt) = Fmt::guess(&first.path)
             {
                 let name = get_filename(&first.path);
-                return install_from_download_file(
-                    first.buffer.clone(),
-                    fmt,
-                    url,
-                    &name,
-                    config,
-                );
+                return install_from_download_file(first.buffer.clone(), fmt, url, &name, config);
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
