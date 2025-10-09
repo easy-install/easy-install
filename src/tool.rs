@@ -383,7 +383,6 @@ fn rename_alias(files: &mut [OutputFile], alias: &str) {
     } else {
         let mut iter = files.iter_mut().filter(|i| {
             let name = get_filename(&i.origin_path);
-            println!("{:?} {}", i.mode, executable(&name, &i.mode));
             executable(&name, &i.mode)
         });
 
@@ -395,10 +394,9 @@ fn rename_alias(files: &mut [OutputFile], alias: &str) {
         }
     };
 
-    let first = match file {
-        Some(f) => f,
-        None => return,
-    };
+      let Some(first) = file else{
+        return
+      };
 
     let filename = get_filename(&first.install_path);
     let bin = name_no_ext(&filename);
