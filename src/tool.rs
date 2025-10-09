@@ -120,7 +120,7 @@ pub(crate) fn add_output_to_path(output: &Output) {
             if deep <= DEEP
                 && let Some(p) = check(f)
             {
-                let msg = if p != f.install_path  {
+                let msg = if p != f.install_path {
                     format!("Warning: file exists at {p}")
                 } else {
                     format!("Warning: file updated at {p}")
@@ -379,7 +379,15 @@ pub(crate) fn guess_executable(files: &mut [OutputFile]) {
 }
 
 fn rename_alias(files: &mut [OutputFile], alias: &str) {
-    let [first] = files else { return };
+    let mut v: Vec<_> = files
+        .iter_mut()
+        .filter(|i| {
+            let name = get_filename(&i.origin_path);
+            return executable(&name, &i.mode);
+        })
+        .collect();
+
+    let [first] = v.as_mut_slice() else { return };
 
     let filename = get_filename(&first.install_path);
     let bin = name_no_ext(&filename);

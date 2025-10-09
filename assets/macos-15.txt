@@ -18,3 +18,4 @@ d8
 cross-env
 jsc
 qjs-next
+ladybird
