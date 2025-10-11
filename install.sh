@@ -3,27 +3,63 @@
 set -e
 
 RELEASE="latest"
-OS="$(uname -s)"
 
-case "${OS}" in
-   MINGW* | Win*) OS="Windows" ;;
-esac
+# Parse optional arguments for OS and ARCH
+if [ $# -ge 1 ]; then
+  OS_ARG="$1"
+fi
+if [ $# -ge 2 ]; then
+  ARCH_ARG="$2"
+fi
+
+# Detect OS if not provided
+if [ -z "$OS_ARG" ]; then
+  OS="$(uname -s)"
+  case "${OS}" in
+    MINGW* | Win*) OS="Windows" ;;
+  esac
+else
+  OS="$OS_ARG"
+fi
+
+# Detect ARCH if not provided
+if [ -z "$ARCH_ARG" ]; then
+  ARCH="$(uname -m)"
+else
+  ARCH="$ARCH_ARG"
+fi
 
 set_filename() {
-  if [ "$OS" = "Linux" ]; then
-    # Based on https://stackoverflow.com/a/45125525
-    case "$(uname -m)" in
-      arm | armv7*)
-        FILENAME="ei-aarch32-unknown-linux-musl.tar.gz"
-        ;;
-      aarch* | armv8*)
-        FILENAME="ei-aarch64-unknown-linux-musl.tar.gz"
-        ;;
-      *)
-        FILENAME="ei-x86_64-unknown-linux-musl.tar.gz"
-    esac
+  if [ "$OS" = "Linux" ] || [ "$OS" = "Android" ]; then
+    # Detect Android specifically if OS is Linux and not overridden
+    if [ "$OS" = "Linux" ] && [ -z "$OS_ARG" ] && [ "$(uname -o 2>/dev/null)" = "Android" ]; then
+      OS="Android"
+    fi
+
+    if [ "$OS" = "Android" ]; then
+      case "$ARCH" in
+        aarch64)
+          FILENAME="ei-aarch64-linux-android.tar.gz"
+          ;;
+        *)
+          echo "Unsupported architecture on Android: $ARCH"
+          exit 1
+      esac
+    else
+      # Standard Linux
+      case "$ARCH" in
+        arm | armv7*)
+          FILENAME="ei-aarch32-unknown-linux-musl.tar.gz"
+          ;;
+        aarch* | armv8*)
+          FILENAME="ei-aarch64-unknown-linux-musl.tar.gz"
+          ;;
+        *)
+          FILENAME="ei-x86_64-unknown-linux-musl.tar.gz"
+      esac
+    fi
   elif [ "$OS" = "Darwin" ] ; then
-    case "$(uname -m)" in
+    case "$ARCH" in
       arm64)
         FILENAME="ei-aarch64-apple-darwin.tar.gz"
         ;;
@@ -31,13 +67,11 @@ set_filename() {
         FILENAME="ei-x86_64-apple-darwin.tar.gz"
         ;;
       *)
-        echo "Unsupported architecture on macOS: $(uname -m)"
+        echo "Unsupported architecture on macOS: $ARCH"
         exit 1
     esac
-    echo "Downloading the latest binary for macOS ($FILENAME) from GitHub..."
   elif [ "$OS" = "Windows" ] ; then
     FILENAME="ei-x86_64-pc-windows-msvc.zip"
-    echo "Downloading the latest binary from GitHub..."
   else
     echo "OS $OS is not supported."
     echo "If you think that's a bug - please file an issue to https://github.com/easy-install/easy-install/issues"
@@ -100,7 +134,6 @@ ensure_containing_dir_exists() {
   fi
 }
 
-
 download() {
   if [ "$RELEASE" = "latest" ]; then
     URL="https://github.com/easy-install/easy-install/releases/latest/download/$FILENAME"
@@ -113,7 +146,7 @@ download() {
   echo "Downloading $URL"
 
   if ! curl --progress-bar --fail -L "$URL" -o "$DOWNLOAD_DIR/$FILENAME"; then
-    echo "Download failed.  Check that the release/filename are correct."
+    echo "Download failed. Check that the release/filename are correct."
     exit 1
   fi
 
@@ -121,12 +154,12 @@ download() {
     unzip -q "$DOWNLOAD_DIR/$FILENAME" -d "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei.exe"
     chmod u+x "$INSTALL_DIR/ei.exe"
-    echo "successfully installed to $INSTALL_DIR/ei.exe"
+    echo "Successfully installed to $INSTALL_DIR/ei.exe"
   else
     tar -xzf "$DOWNLOAD_DIR/$FILENAME" -C "$DOWNLOAD_DIR"
     mv "$DOWNLOAD_DIR/ei" "$INSTALL_DIR/ei"
     chmod u+x "$INSTALL_DIR/ei"
-    echo "successfully installed to $INSTALL_DIR/ei"
+    echo "Successfully installed to $INSTALL_DIR/ei"
   fi
 }
 
