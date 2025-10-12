@@ -35,6 +35,7 @@ npm i @easy-install/easy-install -g
 ei https://github.com/ahaoboy/mujs-build
 
 ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
+ei https://github.com/ip7z/7zip --name 7z2501 --alias 7z
 
 # install v0.0.1
 ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
