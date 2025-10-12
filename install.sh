@@ -141,7 +141,11 @@ download() {
     URL="https://github.com/easy-install/easy-install/releases/download/$RELEASE/$FILENAME"
   fi
 
-  DOWNLOAD_DIR=$(mktemp -d)
+  if command -v mktemp >/dev/null 2>&1; then
+      DOWNLOAD_DIR=$(mktemp -d)
+  else
+      DOWNLOAD_DIR="."
+  fi
 
   echo "Downloading $URL"
 
