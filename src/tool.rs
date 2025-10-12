@@ -6,7 +6,7 @@ use crate::ty::{Output, OutputFile};
 use anyhow::{Context, Result};
 use easy_archive::{Fmt, IntoEnumIterator, clean};
 use easy_archive::{human_size, mode_to_string};
-use guess_target::{Os, get_local_target, guess_target};
+use guess_target::{Abi, Arch, Os, get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
@@ -549,7 +549,16 @@ pub(crate) fn get_artifact_url(
         {
             v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
         } else if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
-            v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
+            // HACK: Prioritize using musl on the arm platform
+            let hack_musl = match (item.target.arch(), item.target.abi()) {
+                (Arch::Aarch64, Some(Abi::Musl)) => 10,
+                _ => 0,
+            };
+            v.push((
+                item.rank + hack_musl,
+                item.name.clone(),
+                i.browser_download_url.clone(),
+            ));
         }
     }
     let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));

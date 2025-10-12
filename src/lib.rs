@@ -63,7 +63,7 @@ impl Args {
             self.dir.clone(),
             self.name.clone(),
             self.alias.clone(),
-            self.target.clone(),
+            self.target,
         )
     }
 }
