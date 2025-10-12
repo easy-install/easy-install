@@ -6,7 +6,7 @@ use crate::ty::{Output, OutputFile};
 use anyhow::{Context, Result};
 use easy_archive::{Fmt, IntoEnumIterator, clean};
 use easy_archive::{human_size, mode_to_string};
-use guess_target::{Os, Target, get_local_target, guess_target};
+use guess_target::{Os, get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
@@ -531,10 +531,6 @@ pub(crate) fn get_artifact_url(
 ) -> Result<Vec<(String, String)>> {
     let mut v = vec![];
     let local_target = get_local_target();
-    let config_target = config
-        .target
-        .clone()
-        .and_then(|i| Target::from_str(&i).ok());
 
     for i in artifacts.assets {
         if is_skip(&i.browser_download_url) {
@@ -548,7 +544,7 @@ pub(crate) fn get_artifact_url(
         let filename = get_filename(&i.browser_download_url);
         let name = name_no_ext(&filename);
         let guess = guess_target(&name);
-        if let Some(t) = config_target
+        if let Some(t) = config.target
             && let Some(item) = guess.iter().find(|i| t == i.target)
         {
             v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));

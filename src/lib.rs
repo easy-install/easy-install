@@ -8,6 +8,7 @@ mod ty;
 
 use anyhow::Result;
 use clap::Parser;
+use guess_target::Target;
 use tool::add_output_to_path;
 
 #[derive(Debug, Clone, Default)]
@@ -15,7 +16,7 @@ pub struct InstallConfig {
     pub dir: Option<String>,
     pub name: Vec<String>,
     pub alias: Option<String>,
-    pub target: Option<String>,
+    pub target: Option<Target>,
 }
 
 impl InstallConfig {
@@ -23,7 +24,7 @@ impl InstallConfig {
         dir: Option<String>,
         name: Vec<String>,
         alias: Option<String>,
-        target: Option<String>,
+        target: Option<Target>,
     ) -> Self {
         Self {
             dir,
@@ -53,7 +54,7 @@ pub struct Args {
     alias: Option<String>,
 
     #[arg(long)]
-    target: Option<String>,
+    target: Option<Target>,
 }
 
 impl Args {
