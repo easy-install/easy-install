@@ -34,6 +34,8 @@ npm i @easy-install/easy-install -g
 # install latest
 ei https://github.com/ahaoboy/mujs-build
 
+ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
+
 # install v0.0.1
 ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
 

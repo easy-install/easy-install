@@ -1,3 +1,4 @@
+use crate::InstallConfig;
 use crate::artifact::{GhArtifact, GhArtifacts};
 use crate::download::{download, download_dist_manfiest, download_json};
 use crate::manfiest::DistManifest;
@@ -144,13 +145,16 @@ impl Repo {
     pub(crate) async fn get_manfiest(&self) -> Result<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url()).await
     }
-    pub(crate) async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
+    pub(crate) async fn get_artifact_url(
+        &self,
+        config: &InstallConfig,
+    ) -> Result<Vec<(String, String)>> {
         trace!("get_artifact_url {}/{}", self.owner, self.name);
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
         let artifacts = download_json::<GhArtifacts>(&api).await?;
-        get_artifact_url(artifacts)
+        get_artifact_url(artifacts, config)
     }
 }
 
@@ -185,9 +189,12 @@ impl Nightly {
 
         Ok(GhArtifacts { assets })
     }
-    pub(crate) async fn get_artifact_url(&self) -> Result<Vec<(String, String)>> {
+    pub(crate) async fn get_artifact_url(
+        &self,
+        config: &InstallConfig,
+    ) -> Result<Vec<(String, String)>> {
         let artifacts = self.get_artifact().await?;
-        get_artifact_url(artifacts)
+        get_artifact_url(artifacts, config)
     }
 }
 
@@ -223,7 +230,7 @@ mod test {
             "https://github.com/ahaoboy/bloaty-metafile.git",
         ] {
             let repo = Repo::try_from(i).unwrap();
-            let v = repo.get_artifact_url().await.unwrap();
+            let v = repo.get_artifact_url(&Default::default()).await.unwrap();
             assert_eq!(v.len(), 1);
         }
     }
@@ -235,7 +242,7 @@ mod test {
             "https://nightly.link/ahaoboy/cross-env/workflows/release/main?preview",
         ] {
             let nightly = Nightly::try_from(i).unwrap();
-            let v = nightly.get_artifact_url().await.unwrap();
+            let v = nightly.get_artifact_url(&Default::default()).await.unwrap();
             assert!(!v.is_empty())
         }
     }

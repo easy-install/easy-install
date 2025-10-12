@@ -10,16 +10,27 @@ use anyhow::Result;
 use clap::Parser;
 use tool::add_output_to_path;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InstallConfig {
     pub dir: Option<String>,
     pub name: Vec<String>,
     pub alias: Option<String>,
+    pub target: Option<String>,
 }
 
 impl InstallConfig {
-    pub fn new(dir: Option<String>, name: Vec<String>, alias: Option<String>) -> Self {
-        Self { dir, name, alias }
+    pub fn new(
+        dir: Option<String>,
+        name: Vec<String>,
+        alias: Option<String>,
+        target: Option<String>,
+    ) -> Self {
+        Self {
+            dir,
+            name,
+            alias,
+            target,
+        }
     }
 }
 
@@ -40,11 +51,19 @@ pub struct Args {
 
     #[arg(long)]
     alias: Option<String>,
+
+    #[arg(long)]
+    target: Option<String>,
 }
 
 impl Args {
     pub fn to_install_config(&self) -> InstallConfig {
-        InstallConfig::new(self.dir.clone(), self.name.clone(), self.alias.clone())
+        InstallConfig::new(
+            self.dir.clone(),
+            self.name.clone(),
+            self.alias.clone(),
+            self.target.clone(),
+        )
     }
 }
 
