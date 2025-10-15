@@ -7,7 +7,7 @@ use tracing::trace;
 pub(crate) async fn install_from_nightly(repo: &Nightly, config: &InstallConfig) -> Result<Output> {
     trace!("install_from_nightly {}", repo);
 
-    let artifact_url = repo.get_artifact_url().await?;
+    let artifact_url = repo.get_artifact_url(config).await?;
     let mut v = Output::new();
     if !artifact_url.is_empty() {
         for (name, i) in artifact_url {

@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   create-release:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: release-dist-manifest
@@ -27,9 +27,9 @@ jobs:
       matrix:
         include:
           - target: x86_64-apple-darwin
-            os: macos-15
+            os: macos-latest
           - target: aarch64-apple-darwin
-            os: macos-15
+            os: macos-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             RUSTFLAGS: -C target-feature=+crt-static
@@ -38,13 +38,15 @@ jobs:
           # - target: arm64ec-pc-windows-msvc
           #   os: windows-latest
           - target: aarch64-unknown-linux-musl
-            os: ubuntu-24.04
+            os: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04
+            os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
-            os: ubuntu-24.04
+            os: ubuntu-latest
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-24.04
+            os: ubuntu-latest
+          - target: aarch64-linux-android
+            os: ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +54,53 @@ jobs:
         with:
           rustflags: "-A warnings"
           toolchain: "stable"
+
+      - name: Setup musl aarch64
+        if: startsWith(matrix.target, 'aarch64-unknown-linux')
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            curl \
+            libc6-arm64-cross \
+            libc6-dev-arm64-cross \
+            crossbuild-essential-arm64 \
+            clang \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            qemu-user
+
+          curl -L https://github.com/ahaoboy/aarch64-linux-musl-cross-build/releases/latest/download/aarch64-linux-musl-cross.tgz | tar xzf -
+          sudo mv aarch64-linux-musl-cross /musl
+
+          echo "CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_musl=aarch64-linux-musl-g++" >> $GITHUB_ENV
+          echo "AR_aarch64_unknown_linux_musl=aarch64-linux-musl-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER=qemu-aarch64" >> $GITHUB_ENV
+
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER=qemu-aarch64" >> $GITHUB_ENV
+
+          echo "LD_LIBRARY_PATH=/usr/aarch64-linux-gnu/lib" >> $GITHUB_ENV
+
+          sudo ln -s /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 /lib/ld-linux-aarch64.so.1
+
+          mkdir -p ~/.cargo/
+          echo "[target.aarch64-unknown-linux-musl]" >> ~/.cargo/config.toml
+          echo 'rustflags = ["-C", "link-self-contained=yes","-C", "linker=rust-lld"]' >> ~/.cargo/config.toml
+          echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
+          echo 'rustflags = ["-C", "linker=aarch64-linux-gnu-gcc"]' >> ~/.cargo/config.toml
+
+          echo "/musl/bin" >> $GITHUB_PATH
+
+      - name: install cross
+        run: |
+          cargo install -q cross --git https://github.com/cross-rs/cross
+          cargo clean
 
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
@@ -94,7 +143,7 @@ jobs:
     needs: ["create-release", "upload-assets"]
     strategy:
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-15]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     if: startsWith(github.ref, 'refs/tags/')
     steps:

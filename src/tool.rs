@@ -1,3 +1,4 @@
+use crate::InstallConfig;
 use crate::artifact::GhArtifacts;
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
@@ -5,7 +6,7 @@ use crate::ty::{Output, OutputFile};
 use anyhow::{Context, Result};
 use easy_archive::{Fmt, IntoEnumIterator, clean};
 use easy_archive::{human_size, mode_to_string};
-use guess_target::{Os, get_local_target, guess_target};
+use guess_target::{Abi, Arch, Os, get_local_target, guess_target};
 use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
@@ -219,10 +220,11 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
 
     #[cfg(unix)]
     if let Some(mode) = mode
-        && *mode > 0 {
-            std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
-                .context("failed to set_permissions")?;
-        }
+        && *mode > 0
+    {
+        std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
+            .context("failed to set_permissions")?;
+    }
 
     #[cfg(windows)]
     {
@@ -394,9 +396,7 @@ fn rename_alias(files: &mut [OutputFile], alias: &str) {
         }
     };
 
-      let Some(first) = file else{
-        return
-      };
+    let Some(first) = file else { return };
 
     let filename = get_filename(&first.install_path);
     let bin = name_no_ext(&filename);
@@ -525,7 +525,10 @@ pub(crate) fn replace_filename(base_url: &str, name: &str) -> String {
     }
 }
 
-pub(crate) fn get_artifact_url(artifacts: GhArtifacts) -> Result<Vec<(String, String)>> {
+pub(crate) fn get_artifact_url(
+    artifacts: GhArtifacts,
+    config: &InstallConfig,
+) -> Result<Vec<(String, String)>> {
     let mut v = vec![];
     let local_target = get_local_target();
 
@@ -541,8 +544,21 @@ pub(crate) fn get_artifact_url(artifacts: GhArtifacts) -> Result<Vec<(String, St
         let filename = get_filename(&i.browser_download_url);
         let name = name_no_ext(&filename);
         let guess = guess_target(&name);
-        if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+        if let Some(t) = config.target
+            && let Some(item) = guess.iter().find(|i| t == i.target)
+        {
             v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
+        } else if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+            // HACK: Prioritize using musl on the arm platform
+            let hack_musl = match (item.target.arch(), item.target.abi()) {
+                (Arch::Aarch64, Some(Abi::Musl)) => 10,
+                _ => 0,
+            };
+            v.push((
+                item.rank + hack_musl,
+                item.name.clone(),
+                i.browser_download_url.clone(),
+            ));
         }
     }
     let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
@@ -727,7 +743,7 @@ mod test {
     async fn test_deno() {
         let url = "https://github.com/denoland/deno";
         let repo = Repo::try_from(url).unwrap();
-        let artifact_url = repo.get_artifact_url().await.unwrap();
+        let artifact_url = repo.get_artifact_url(&Default::default()).await.unwrap();
         println!("artifact_url{artifact_url:?}");
         assert_eq!(artifact_url.len(), 2);
     }
@@ -735,7 +751,7 @@ mod test {
     #[tokio::test]
     async fn test_starship() {
         let repo = Repo::try_from("https://github.com/starship/starship").unwrap();
-        let artifact_url = repo.get_artifact_url().await.unwrap();
+        let artifact_url = repo.get_artifact_url(&Default::default()).await.unwrap();
         println!("{artifact_url:?}");
         assert_eq!(artifact_url.len(), 1);
     }
