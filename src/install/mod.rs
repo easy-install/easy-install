@@ -72,5 +72,6 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
     if let Ok(nightly) = Nightly::try_from(url) {
         return install_from_nightly(&nightly, config).await;
     }
-    Ok(Output::new())
+
+    return install_from_single_file(url, &name, config).await;
 }
