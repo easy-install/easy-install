@@ -174,8 +174,23 @@ add_to_github(){
   fi
 }
 
+add_to_profile() {
+  local profile="/etc/profile"
+
+  if grep -q "$INSTALL_DIR" "$profile"; then
+    echo "$INSTALL_DIR already in PATH"
+  else
+    echo "" >> "$profile"
+    echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$profile"
+    echo "" >> "$profile"
+    echo "Added $INSTALL_DIR to $profile"
+  fi
+}
+
+
 set_filename
 check_dependencies
 ensure_containing_dir_exists
 download
 add_to_github
+add_to_profile
