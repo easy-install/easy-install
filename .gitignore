@@ -6,3 +6,5 @@ bundle
 dist
 esm
 cjs
+/meta.csv
+/meta.json
