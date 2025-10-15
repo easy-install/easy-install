@@ -40,6 +40,7 @@
     "clear": "rm -rf node_modules dist bundle cjs esm",
     "bump": "pnpm up --latest --force",
     "release": "pnpm publish -r --access public",
+    "bloaty": "cargo build --profile bloaty && bloaty ./target/bloaty/ei -d sections,symbols -n 0 --csv > meta.csv && bloaty-metafile meta.csv > meta.json",
     "release-alpha": "pnpm publish -r --access public --tag alpha"
   },
   "dependencies": {

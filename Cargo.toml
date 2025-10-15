@@ -25,7 +25,7 @@ dirs = "6"
 reqwest = { version = "0.12", features = ["json"] }
 regex = "1"
 tracing-subscriber = "0.3"
-cargo-dist-schema = "0.29.0"
+cargo-dist-schema = "0.30"
 path-clean = "1"
 anyhow = "1"
 
@@ -39,3 +39,9 @@ lto = true
 strip = true
 opt-level = 3
 codegen-units = 1
+
+[profile.bloaty]
+debug = true
+lto = false
+strip = false
+inherits = 'release'
