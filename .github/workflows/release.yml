@@ -50,94 +50,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: run cross-build
+        uses: ahaoboy/cross-build@v1
         with:
-          rustflags: "-A warnings"
-          toolchain: "stable"
-
-      - name: Setup musl aarch64
-        if: startsWith(matrix.target, 'aarch64-unknown-linux')
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            curl \
-            libc6-arm64-cross \
-            libc6-dev-arm64-cross \
-            crossbuild-essential-arm64 \
-            clang \
-            qemu-system-arm \
-            qemu-efi-aarch64 \
-            qemu-utils \
-            qemu-user
-
-          curl -L https://github.com/ahaoboy/aarch64-linux-musl-cross-build/releases/latest/download/aarch64-linux-musl-cross.tgz | tar xzf -
-          sudo mv aarch64-linux-musl-cross /musl
-
-          echo "CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_musl=aarch64-linux-musl-g++" >> $GITHUB_ENV
-          echo "AR_aarch64_unknown_linux_musl=aarch64-linux-musl-ar" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER=qemu-aarch64" >> $GITHUB_ENV
-
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-          echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER=qemu-aarch64" >> $GITHUB_ENV
-
-          echo "LD_LIBRARY_PATH=/usr/aarch64-linux-gnu/lib" >> $GITHUB_ENV
-
-          sudo ln -s /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 /lib/ld-linux-aarch64.so.1
-
-          mkdir -p ~/.cargo/
-          echo "[target.aarch64-unknown-linux-musl]" >> ~/.cargo/config.toml
-          echo 'rustflags = ["-C", "link-self-contained=yes","-C", "linker=rust-lld"]' >> ~/.cargo/config.toml
-          echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
-          echo 'rustflags = ["-C", "linker=aarch64-linux-gnu-gcc"]' >> ~/.cargo/config.toml
-
-          echo "/musl/bin" >> $GITHUB_PATH
-
-      - name: install cross
-        run: |
-          cargo install -q cross --git https://github.com/cross-rs/cross
-          cargo clean
-
-      - uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          dry-run: ${{ !startsWith(github.ref, 'refs/tags/') }}
           bin: ei
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.target }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # ref: refs/tags/dummy
-          ref: ${{ startsWith(github.ref, 'refs/tags/')  && github.ref || 'refs/tags/dummy' }}
-          # features: cli
-        env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
-      - name: Get target name for artifact
-        id: artifact-target
-        run: |
-          target="${{ matrix.target }}"
-          if [[ -z "${target}" ]]; then
-            host=$(rustc -vV | grep -E '^host:' | cut -d' ' -f2)
-            printf '%s\n' "artifact-target=${host}" >>"${GITHUB_OUTPUT}"
-          elif [[ "${{ matrix.build-tool }}" == 'cargo -q -zigbuild' ]]; then
-            printf '%s\n' "artifact-target=${target%%.*}" >>"${GITHUB_OUTPUT}"
-          else
-            printf '%s\n' "artifact-target=${target}" >>"${GITHUB_OUTPUT}"
-          fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ei-${{ steps.artifact-target.outputs.artifact-target }}
-          path: ei-${{ steps.artifact-target.outputs.artifact-target }}.*
-
-      - name: release nightly
-        uses: ncipollo/release-action@v1
-        with:
-          # tag: ${{ steps.build.outputs.tag }}
           tag: nightly
-          artifacts: "ei-${{ steps.artifact-target.outputs.artifact-target }}.*"
           allowUpdates: true
-          makeLatest: false
 
   test-release:
     needs: ["create-release", "upload-assets"]
