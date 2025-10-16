@@ -176,16 +176,34 @@ add_to_github(){
 
 add_to_profile() {
   local profile="/etc/profile"
-
-  if grep -q "$INSTALL_DIR" "$profile"; then
-    echo "$INSTALL_DIR already in PATH"
-  else
-    echo "" >> "$profile"
-    echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$profile"
-    echo "" >> "$profile"
-    echo "Added $INSTALL_DIR to $profile"
+  if [ -z "$INSTALL_DIR" ]; then
+    echo "INSTALL_DIR is not set."
+    return 1
   fi
+
+  if grep -Fq "$INSTALL_DIR" "$profile" 2>/dev/null; then
+    echo "$INSTALL_DIR already in PATH"
+    return 0
+  fi
+
+  local content="\n# Added by installer\nexport PATH=\"\$PATH:$INSTALL_DIR\"\n"
+
+  if [ -w "$profile" ]; then
+    printf "%b" "$content" >> "$profile"
+    echo "Added $INSTALL_DIR to $profile"
+    return 0
+  fi
+
+  if command -v sudo >/dev/null 2>&1; then
+    printf "%b" "$content" | sudo tee -a "$profile" >/dev/null
+    echo "Added $INSTALL_DIR to $profile (via sudo)"
+    return 0
+  fi
+
+  echo "No permission to write $profile and sudo not available."
+  return 1
 }
+
 
 
 set_filename
