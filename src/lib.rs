@@ -39,22 +39,22 @@ impl InstallConfig {
 #[command(version, about, long_about = None)]
 pub struct Args {
     #[arg()]
-    pub(crate) url: String,
+    pub url: String,
 
     #[arg(short, long)]
-    dir: Option<String>,
+    pub dir: Option<String>,
 
     #[arg(long, default_value_t = false)]
-    install_only: bool,
+    pub install_only: bool,
 
     #[arg(long, value_delimiter = ',')]
-    name: Vec<String>,
+    pub name: Vec<String>,
 
     #[arg(long)]
-    alias: Option<String>,
+    pub alias: Option<String>,
 
     #[arg(long)]
-    target: Option<Target>,
+    pub target: Option<Target>,
 }
 
 impl Args {
