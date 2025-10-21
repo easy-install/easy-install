@@ -45,7 +45,7 @@ pub(crate) fn install_from_download_file(
                 return install_from_download_file(first.buffer.clone(), fmt, url, &name, config);
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
-            if file_list.len() > 1 {
+            if file_list.len() > 1 && config.dir.is_none() {
                 install_dir.push(name);
             }
 
