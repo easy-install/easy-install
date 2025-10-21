@@ -449,8 +449,24 @@ pub(crate) fn name_no_ext(s: &str) -> String {
             return s[0..s.len() - ext.len()].to_string();
         }
     }
-    let i = s.find(".").unwrap_or(s.len());
-    s[0..i].to_string()
+
+    let all: &[&[&str]] = &[
+        &WINDOWS_EXE_EXTS[..],
+        &INSTALLER_EXTS[..],
+        &TEXT_FILE_EXTS[..],
+        &MAYBE_EXECUTABLE_EXTS[..],
+        &SKIP_FMT_LIST[..],
+    ];
+
+    for i in all {
+        for ext in i.iter() {
+            if s.ends_with(ext) {
+                return s[0..s.len() - ext.len()].to_string();
+            }
+        }
+    }
+
+    s.to_string()
 }
 
 #[cfg(not(windows))]
