@@ -33,7 +33,7 @@ pub(crate) const TEXT_FILE_EXTS: [&str; 11] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
 ];
 pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
-    ".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js", "ts", ".jsx", ".tsx", ".wasm", ".fish",
+    ".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js", ".ts", ".jsx", ".tsx", ".wasm", ".fish",
     ".nu",
 ];
 
