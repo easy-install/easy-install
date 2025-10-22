@@ -14,9 +14,9 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::str::FromStr;
 
-const DEEP: usize = 3;
-const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
-const INSTALLER_EXTS: [&str; 11] = [
+pub(crate) const DEEP: usize = 3;
+pub(crate) const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
+pub(crate) const INSTALLER_EXTS: [&str; 11] = [
     ".msi",
     ".msix",
     ".appx",
@@ -29,12 +29,13 @@ const INSTALLER_EXTS: [&str; 11] = [
     ".ipa",
     ".appimage",
 ];
-const TEXT_FILE_EXTS: [&str; 11] = [
+pub(crate) const TEXT_FILE_EXTS: [&str; 11] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
 ];
-const MAYBE_EXECUTABLE_EXTS: [&str; 7] = [".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js"];
+pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 7] =
+    [".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js"];
 
-const SKIP_FMT_LIST: [&str; 16] = [
+pub(crate) const SKIP_FMT_LIST: [&str; 16] = [
     ".sha256sum",
     ".sha256",
     ".sha1",
@@ -52,6 +53,26 @@ const SKIP_FMT_LIST: [&str; 16] = [
     ".sig",
     ".asc",
 ];
+
+pub(crate) fn is_known_format(s: &str) -> bool {
+    let all: &[&[&str]] = &[
+        &WINDOWS_EXE_EXTS[..],
+        &INSTALLER_EXTS[..],
+        &TEXT_FILE_EXTS[..],
+        &MAYBE_EXECUTABLE_EXTS[..],
+        &SKIP_FMT_LIST[..],
+    ];
+
+    for i in all {
+        for ext in i.iter() {
+            if s.ends_with(ext) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
 
 pub(crate) fn is_skip(s: &str) -> bool {
     s.rsplit('/').next().unwrap_or_default().starts_with('.')

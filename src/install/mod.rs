@@ -12,7 +12,8 @@ use crate::install::manfiest::install_from_manfiest;
 use crate::install::nightly::install_from_nightly;
 use crate::install::repo::install_from_github;
 use crate::tool::{
-    get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_url, name_no_ext,
+    get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_known_format, is_url,
+    name_no_ext,
 };
 use crate::ty::{Nightly, Output, Repo};
 use anyhow::Result;
@@ -48,8 +49,8 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
             return install_from_artifact_url(url, &name, config).await;
         }
 
-        if is_exe_file(url)? {
-            return install_from_single_file(url, &name, config).await;
+        if is_exe_file(url).unwrap_or(false) || is_known_format(url) {
+            return install_from_single_file(url, &filename, config).await;
         }
     }
 
