@@ -9,6 +9,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -CeEuo pipefail {0}
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   create-release:
     runs-on: ubuntu-latest
