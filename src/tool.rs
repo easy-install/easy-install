@@ -32,8 +32,10 @@ pub(crate) const INSTALLER_EXTS: [&str; 11] = [
 pub(crate) const TEXT_FILE_EXTS: [&str; 11] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
 ];
-pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 7] =
-    [".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js"];
+pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
+    ".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js", "ts", ".jsx", ".tsx", ".wasm", ".fish",
+    ".nu",
+];
 
 pub(crate) const SKIP_FMT_LIST: [&str; 16] = [
     ".sha256sum",
