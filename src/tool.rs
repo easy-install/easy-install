@@ -846,3 +846,17 @@ mod test {
         }
     }
 }
+
+pub(crate) fn not_found_asset_message(url: &str) {
+    println!(
+        "Not found asset for os:{} arch:{} target:{} on {}",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        get_local_target()
+            .iter()
+            .map(|i| i.to_str().to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        url
+    );
+}

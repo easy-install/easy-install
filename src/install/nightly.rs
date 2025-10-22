@@ -1,5 +1,6 @@
 use crate::InstallConfig;
 use crate::install::artifact::install_from_artifact_url;
+use crate::tool::not_found_asset_message;
 use crate::ty::{Nightly, Output};
 use anyhow::Result;
 use tracing::trace;
@@ -18,12 +19,7 @@ pub(crate) async fn install_from_nightly(repo: &Nightly, config: &InstallConfig)
             v.extend(install_from_artifact_url(&i, &name, config).await?);
         }
     } else {
-        println!(
-            "not found asset for os:{} arch:{} on {}",
-            std::env::consts::OS,
-            std::env::consts::ARCH,
-            repo.url
-        );
+        not_found_asset_message(&repo.url);
     }
     Ok(v)
 }
