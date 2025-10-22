@@ -1,4 +1,4 @@
-https://github.com/ip7z/7zip
+https://github.com/ip7z/7zip/releases/tag/25.01
 https://github.com/AlistGo/alist
 https://github.com/biomejs/biome
 https://github.com/boa-dev/boa
