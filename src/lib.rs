@@ -10,6 +10,7 @@ use anyhow::Result;
 use clap::Parser;
 use guess_target::Target;
 use tool::add_output_to_path;
+use ty::Proxy;
 
 #[derive(Debug, Clone)]
 pub struct InstallConfig {
@@ -18,6 +19,7 @@ pub struct InstallConfig {
     pub alias: Option<String>,
     pub target: Option<Target>,
     pub retry: usize,
+    pub proxy: Proxy,
 }
 
 impl Default for InstallConfig {
@@ -28,6 +30,7 @@ impl Default for InstallConfig {
             alias: None,
             target: None,
             retry: 3,
+            proxy: Proxy::Github,
         }
     }
 }
@@ -39,6 +42,7 @@ impl InstallConfig {
         alias: Option<String>,
         target: Option<Target>,
         retry: usize,
+        proxy: Proxy,
     ) -> Self {
         Self {
             dir,
@@ -46,6 +50,7 @@ impl InstallConfig {
             alias,
             target,
             retry,
+            proxy,
         }
     }
 }
@@ -73,6 +78,9 @@ pub struct Args {
 
     #[arg(long, default_value_t = 3)]
     pub retry: usize,
+
+    #[arg(long, default_value = "github")]
+    pub proxy: Proxy,
 }
 
 impl Args {
@@ -83,6 +91,7 @@ impl Args {
             self.alias.clone(),
             self.target,
             self.retry,
+            self.proxy,
         )
     }
 }

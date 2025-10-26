@@ -7,7 +7,59 @@ use anyhow::Result;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::str::FromStr;
 use tracing::trace;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Proxy {
+    #[default]
+    Github,
+    Xget,
+    #[allow(clippy::enum_variant_names)]
+    GhProxy,
+}
+
+impl Proxy {
+    pub(crate) fn url(&self, release: RepoRelease) -> String {
+        match self {
+            Proxy::Github => format!(
+                "https://github.com/{}/{}/releases/download/{}/{}",
+                release.repo.owner, release.repo.name, release.tag, release.name
+            ),
+            Proxy::Xget => format!(
+                "https://xget.xi-xu.me/gh/{}/{}/releases/download/{}/{}",
+                release.repo.owner, release.repo.name, release.tag, release.name
+            ),
+            Proxy::GhProxy => format!(
+                "https://gh-proxy.com/https://github.com/{}/{}/releases/download/{}/{}",
+                release.repo.owner, release.repo.name, release.tag, release.name
+            ),
+        }
+    }
+}
+
+impl FromStr for Proxy {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "github" => Ok(Proxy::Github),
+            "xget" => Ok(Proxy::Xget),
+            "gh-proxy" | "ghproxy" => Ok(Proxy::GhProxy),
+            _ => Err(anyhow::anyhow!(
+                "Invalid proxy: {}. Valid options: github, xget, gh-proxy",
+                s
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RepoRelease {
+    pub name: String,
+    pub repo: Repo,
+    pub tag: String,
+}
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub(crate) struct OutputFile {
@@ -26,7 +78,7 @@ pub(crate) struct OutputItem {
 
 pub(crate) type Output = HashMap<String, OutputItem>;
 
-#[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub(crate) struct Repo {
     pub(crate) owner: String,
     pub(crate) name: String,
@@ -114,6 +166,37 @@ impl Repo {
         format!("https://github.com/{}/{}", self.owner, self.name)
     }
 
+    pub(crate) fn convert_github_url_to_proxy(url: &str, proxy: Proxy) -> String {
+        if proxy == Proxy::Github {
+            return url.to_string();
+        }
+
+        let re = Regex::new(
+            r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$"
+        ).unwrap();
+
+        if let Some(captures) = re.captures(url) {
+            let owner = captures.name("owner").unwrap().as_str();
+            let repo_name = captures.name("repo").unwrap().as_str();
+            let tag = captures.name("tag").unwrap().as_str();
+            let filename = captures.name("filename").unwrap().as_str();
+
+            let release = RepoRelease {
+                name: filename.to_string(),
+                repo: Repo {
+                    owner: owner.to_string(),
+                    name: repo_name.to_string(),
+                    tag: None,
+                },
+                tag: tag.to_string(),
+            };
+            return proxy.url(release);
+        }
+
+        // If URL doesn't match GitHub release pattern, return as-is
+        url.to_string()
+    }
+
     pub(crate) fn get_artifact_api(&self) -> String {
         trace!("get_artifact_api {}/{}", self.owner, self.name);
         if let Some(tag) = &self.tag {
@@ -129,16 +212,37 @@ impl Repo {
         )
     }
 
-    pub(crate) fn get_manfiest_url(&self) -> String {
+    pub(crate) fn build_release_url(&self, filename: &str, tag: &str, proxy: Proxy) -> String {
+        let release = RepoRelease {
+            name: filename.to_string(),
+            repo: Repo {
+                owner: self.owner.clone(),
+                name: self.name.clone(),
+                tag: None,
+            },
+            tag: tag.to_string(),
+        };
+        proxy.url(release)
+    }
+
+    pub(crate) fn get_manfiest_url(&self, proxy: Proxy) -> String {
+        let filename = "dist-manifest.json";
         match &self.tag {
-            Some(t) => format!(
-                "https://github.com/{}/{}/releases/download/{}/dist-manifest.json",
-                self.owner, self.name, t
-            ),
-            None => format!(
-                "https://github.com/{}/{}/releases/latest/download/dist-manifest.json",
-                self.owner, self.name
-            ),
+            Some(tag) => self.build_release_url(filename, tag, proxy),
+            None => match proxy {
+                Proxy::Github => format!(
+                    "https://github.com/{}/{}/releases/latest/download/{}",
+                    self.owner, self.name, filename
+                ),
+                Proxy::Xget => format!(
+                    "https://xget.xi-xu.me/gh/{}/{}/releases/latest/download/{}",
+                    self.owner, self.name, filename
+                ),
+                Proxy::GhProxy => format!(
+                    "https://gh-proxy.com/https://github.com/{}/{}/releases/latest/download/{}",
+                    self.owner, self.name, filename
+                ),
+            },
         }
     }
 
@@ -209,8 +313,8 @@ impl Repo {
         Ok(GhArtifacts { assets })
     }
 
-    pub(crate) async fn get_manfiest(&self, retry: usize) -> Result<DistManifest> {
-        download_dist_manfiest(&self.get_manfiest_url(), retry).await
+    pub(crate) async fn get_manfiest(&self, retry: usize, proxy: Proxy) -> Result<DistManifest> {
+        download_dist_manfiest(&self.get_manfiest_url(proxy), retry).await
     }
 
     async fn get_artifact_url_from_html(
