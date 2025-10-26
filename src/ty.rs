@@ -142,9 +142,91 @@ impl Repo {
         }
     }
 
+    fn parse_latest_tag(html: &str) -> Result<String> {
+        let re = Regex::new(r#"href="/[^/]+/[^/]+/releases/tag/([^"]+)""#)?;
+
+        if let Some(cap) = re.captures(html) {
+            let tag = cap[1].to_string();
+            trace!("Found latest tag: {}", tag);
+            return Ok(tag);
+        }
+
+        Err(anyhow::anyhow!("No release tag found in HTML"))
+    }
+
+    async fn get_latest_tag(&self, retry: usize) -> Result<String> {
+        let releases_url = format!("https://github.com/{}/{}/releases", self.owner, self.name);
+        trace!("Fetching releases page to get latest tag: {}", releases_url);
+
+        let response = download(&releases_url, retry).await?;
+        let html = response.text().await?;
+
+        Self::parse_latest_tag(&html)
+    }
+
+    async fn get_release_page_url(&self, retry: usize) -> Result<String> {
+        match &self.tag {
+            Some(t) => Ok(format!(
+                "https://github.com/{}/{}/releases/expanded_assets/{}",
+                self.owner, self.name, t
+            )),
+            None => {
+                let tag = self.get_latest_tag(retry).await?;
+                Ok(format!(
+                    "https://github.com/{}/{}/releases/expanded_assets/{}",
+                    self.owner, self.name, tag
+                ))
+            }
+        }
+    }
+
+    fn parse_release_html(html: &str) -> Result<GhArtifacts> {
+        let re = Regex::new(
+            r#"<a\s+href="(/[^/]+/[^/]+/releases/download/[^/]+/([^"]+))"\s+rel="nofollow""#,
+        )?;
+        let mut assets = HashSet::new();
+
+        for cap in re.captures_iter(html) {
+            let path = &cap[1];
+            let name = cap[2].to_string();
+
+            if !path.starts_with('/') || !path.contains("/releases/download/") {
+                continue;
+            }
+
+            let browser_download_url = format!("https://github.com{}", path);
+
+            assets.insert(GhArtifact {
+                name,
+                browser_download_url,
+            });
+        }
+
+        if assets.is_empty() {
+            return Err(anyhow::anyhow!("No assets found in release page HTML"));
+        }
+
+        Ok(GhArtifacts { assets })
+    }
+
     pub(crate) async fn get_manfiest(&self, retry: usize) -> Result<DistManifest> {
         download_dist_manfiest(&self.get_manfiest_url(), retry).await
     }
+
+    async fn get_artifact_url_from_html(
+        &self,
+        config: &InstallConfig,
+    ) -> Result<Vec<(String, String)>> {
+        let page_url = self.get_release_page_url(config.retry).await?;
+        trace!("Fetching release page HTML from {}", page_url);
+
+        let response = download(&page_url, config.retry).await?;
+        let html = response.text().await?;
+
+        let artifacts = Self::parse_release_html(&html)?;
+        get_artifact_url(artifacts, config)
+    }
+
     pub(crate) async fn get_artifact_url(
         &self,
         config: &InstallConfig,
@@ -153,8 +235,38 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
-        let artifacts = download_json::<GhArtifacts>(&api, config.retry).await?;
-        get_artifact_url(artifacts, config)
+        match download_json::<GhArtifacts>(&api, config.retry).await {
+            Ok(artifacts) => {
+                trace!(
+                    "Successfully retrieved artifacts from API for {}/{}",
+                    self.owner, self.name
+                );
+                get_artifact_url(artifacts, config)
+            }
+            Err(api_error) => {
+                trace!(
+                    "API request failed for {}/{}: {}, attempting HTML fallback",
+                    self.owner, self.name, api_error
+                );
+
+                match self.get_artifact_url_from_html(config).await {
+                    Ok(result) => {
+                        trace!(
+                            "Successfully retrieved artifacts from HTML for {}/{}",
+                            self.owner, self.name
+                        );
+                        Ok(result)
+                    }
+                    Err(html_error) => Err(anyhow::anyhow!(
+                        "Failed to retrieve artifacts for {}/{}. API error: {}. HTML parsing error: {}",
+                        self.owner,
+                        self.name,
+                        api_error,
+                        html_error
+                    )),
+                }
+            }
+        }
     }
 }
 
@@ -245,5 +357,14 @@ mod test {
             let v = nightly.get_artifact_url(&Default::default()).await.unwrap();
             assert!(!v.is_empty())
         }
+    }
+    #[tokio::test]
+    async fn test_html() {
+        let repo = Repo::try_from("ahaoboy/neofetch").unwrap();
+        let v = repo
+            .get_artifact_url_from_html(&Default::default())
+            .await
+            .unwrap();
+        assert!(v.len() >= 1)
     }
 }
