@@ -142,8 +142,8 @@ impl Repo {
         }
     }
 
-    pub(crate) async fn get_manfiest(&self) -> Result<DistManifest> {
-        download_dist_manfiest(&self.get_manfiest_url()).await
+    pub(crate) async fn get_manfiest(&self, retry: usize) -> Result<DistManifest> {
+        download_dist_manfiest(&self.get_manfiest_url(), retry).await
     }
     pub(crate) async fn get_artifact_url(
         &self,
@@ -153,7 +153,7 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
-        let artifacts = download_json::<GhArtifacts>(&api).await?;
+        let artifacts = download_json::<GhArtifacts>(&api, config.retry).await?;
         get_artifact_url(artifacts, config)
     }
 }
@@ -172,8 +172,8 @@ pub(crate) struct Nightly {
 }
 
 impl Nightly {
-    pub(crate) async fn get_artifact(&self) -> Result<GhArtifacts> {
-        let html = download(&self.url).await?.text().await?;
+    pub(crate) async fn get_artifact(&self, retry: usize) -> Result<GhArtifacts> {
+        let html = download(&self.url, retry).await?.text().await?;
         let re = Regex::new(r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#).unwrap();
         let mut assets = HashSet::new();
 
@@ -193,7 +193,7 @@ impl Nightly {
         &self,
         config: &InstallConfig,
     ) -> Result<Vec<(String, String)>> {
-        let artifacts = self.get_artifact().await?;
+        let artifacts = self.get_artifact(config.retry).await?;
         get_artifact_url(artifacts, config)
     }
 }

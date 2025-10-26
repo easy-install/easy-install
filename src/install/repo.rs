@@ -8,7 +8,7 @@ use tracing::trace;
 
 pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> Result<Output> {
     trace!("install_from_git {}", repo);
-    if let Ok(man) = repo.get_manfiest().await {
+    if let Ok(man) = repo.get_manfiest(config.retry).await {
         return install_from_manfiest(man, &repo.get_manfiest_url(), config).await;
     }
 

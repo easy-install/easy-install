@@ -11,12 +11,25 @@ use clap::Parser;
 use guess_target::Target;
 use tool::add_output_to_path;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct InstallConfig {
     pub dir: Option<String>,
     pub name: Vec<String>,
     pub alias: Option<String>,
     pub target: Option<Target>,
+    pub retry: usize,
+}
+
+impl Default for InstallConfig {
+    fn default() -> Self {
+        Self {
+            dir: None,
+            name: Vec::new(),
+            alias: None,
+            target: None,
+            retry: 3,
+        }
+    }
 }
 
 impl InstallConfig {
@@ -25,12 +38,14 @@ impl InstallConfig {
         name: Vec<String>,
         alias: Option<String>,
         target: Option<Target>,
+        retry: usize,
     ) -> Self {
         Self {
             dir,
             name,
             alias,
             target,
+            retry,
         }
     }
 }
@@ -55,6 +70,9 @@ pub struct Args {
 
     #[arg(long)]
     pub target: Option<Target>,
+
+    #[arg(long, default_value_t = 3)]
+    pub retry: usize,
 }
 
 impl Args {
@@ -64,6 +82,7 @@ impl Args {
             self.name.clone(),
             self.alias.clone(),
             self.target,
+            self.retry,
         )
     }
 }

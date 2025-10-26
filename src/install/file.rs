@@ -32,7 +32,7 @@ pub(crate) async fn install_from_single_file(
     let bin = if std::fs::exists(url).unwrap_or(false) {
         Some(std::fs::read(url)?)
     } else {
-        Some(download_binary(url).await?)
+        Some(download_binary(url, config.retry).await?)
     };
     if let Some(bin) = bin {
         let mut install_path = install_dir.clone();

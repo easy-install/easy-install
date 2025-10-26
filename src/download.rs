@@ -3,7 +3,59 @@ use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
+use std::time::Duration;
+use tokio::time::sleep;
 use tracing::trace;
+
+async fn retry_request<F, Fut, T>(
+    max_retries: usize,
+    operation: F,
+    operation_name: &str,
+) -> Result<T>
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = Result<T>>,
+{
+    let mut last_error = None;
+
+    for attempt in 0..=max_retries {
+        match operation().await {
+            Ok(result) => {
+                if attempt > 0 {
+                    trace!(
+                        "{} succeeded on attempt {}/{}",
+                        operation_name,
+                        attempt + 1,
+                        max_retries + 1
+                    );
+                }
+                return Ok(result);
+            }
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_retries {
+                    let delay = Duration::from_millis(100 * 2_u64.pow(attempt as u32));
+                    trace!(
+                        "{} failed on attempt {}/{}, retrying in {:?}...",
+                        operation_name,
+                        attempt + 1,
+                        max_retries + 1,
+                        delay
+                    );
+                    sleep(delay).await;
+                } else {
+                    trace!(
+                        "{} failed after {} attempts",
+                        operation_name,
+                        max_retries + 1
+                    );
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap())
+}
 
 fn get_headers() -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
@@ -18,20 +70,28 @@ fn get_headers() -> Result<HeaderMap> {
     Ok(headers)
 }
 
-pub(crate) async fn download_json<T: DeserializeOwned>(url: &str) -> Result<T> {
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .headers(get_headers()?)
-        .send()
-        .await
-        .context("send failed")?;
-    response.json::<T>().await.context("json parse failed")
+pub(crate) async fn download_json<T: DeserializeOwned>(url: &str, retry: usize) -> Result<T> {
+    let url_clone = url.to_string();
+    retry_request(
+        retry,
+        || async {
+            let client = reqwest::Client::new();
+            let response = client
+                .get(&url_clone)
+                .headers(get_headers()?)
+                .send()
+                .await
+                .context("send failed")?;
+            response.json::<T>().await.context("json parse failed")
+        },
+        &format!("download_json({})", url),
+    )
+    .await
 }
 
-pub(crate) async fn get_bytes(url: &str) -> Result<Vec<u8>> {
+pub(crate) async fn get_bytes(url: &str, retry: usize) -> Result<Vec<u8>> {
     let bin = if is_url(url) {
-        download_binary(url).await?
+        download_binary(url, retry).await?
     } else {
         std::fs::read(url).context("read file failed")?.to_vec()
     };
@@ -50,29 +110,53 @@ pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
     Ok(files)
 }
 
-pub(crate) async fn download(url: &str) -> Result<reqwest::Response> {
-    trace!("download {}", url);
-    let client = reqwest::Client::new();
-    let headers = get_headers()?;
-    client
-        .get(url)
-        .headers(headers)
-        .send()
-        .await
-        .context("send failed")
+pub(crate) async fn download(url: &str, retry: usize) -> Result<reqwest::Response> {
+    let url_clone = url.to_string();
+    retry_request(
+        retry,
+        || async {
+            trace!("download {}", url_clone);
+            let client = reqwest::Client::new();
+            let headers = get_headers()?;
+            client
+                .get(&url_clone)
+                .headers(headers)
+                .send()
+                .await
+                .context("send failed")
+        },
+        &format!("download({})", url),
+    )
+    .await
 }
 
-pub(crate) async fn download_dist_manfiest(url: &str) -> Result<DistManifest> {
-    trace!("download_dist_manfiest {}", url);
-    let response = download(url).await?;
-    response.json().await.context("json parse failed")
+pub(crate) async fn download_dist_manfiest(url: &str, retry: usize) -> Result<DistManifest> {
+    let url_clone = url.to_string();
+    retry_request(
+        retry,
+        || async {
+            trace!("download_dist_manfiest {}", url_clone);
+            let response = download(&url_clone, 0).await?;
+            response.json().await.context("json parse failed")
+        },
+        &format!("download_dist_manfiest({})", url),
+    )
+    .await
 }
 
-pub(crate) async fn download_binary(url: &str) -> Result<Vec<u8>> {
-    trace!("download_dist_manfiest {}", url);
-    let response = download(url).await?;
-    let bytes = response.bytes().await.context("bytes failed")?;
-    Ok(bytes.to_vec())
+pub(crate) async fn download_binary(url: &str, retry: usize) -> Result<Vec<u8>> {
+    let url_clone = url.to_string();
+    retry_request(
+        retry,
+        || async {
+            trace!("download_binary {}", url_clone);
+            let response = download(&url_clone, 0).await?;
+            let bytes = response.bytes().await.context("bytes failed")?;
+            Ok(bytes.to_vec())
+        },
+        &format!("download_binary({})", url),
+    )
+    .await
 }
 
 pub(crate) fn read_dist_manfiest(url: &str) -> Result<DistManifest> {
@@ -90,7 +174,7 @@ mod test {
     #[tokio::test]
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
-        let bytes = get_bytes(url).await.expect("donwload error");
+        let bytes = get_bytes(url, 3).await.expect("donwload error");
         let fmt = Fmt::guess(url).expect("fmt error");
         let files = extract_bytes(bytes, fmt).expect("extract_bytes failed");
         assert!(files.iter().any(|i| i.path == "mujs"));
