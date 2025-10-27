@@ -1,16 +1,16 @@
 {
   "artifacts": {
-    "https://github.com/boa-dev/boa/releases/latest/download/boa-linux-amd64": {
+    "https://github.com/boa-dev/boa/releases/latest/download/boa-x86_64-unknown-linux-gnu": {
       "name": "boa",
       "target_triples": ["x86_64-unknown-linux-gnu"]
     },
-    "https://github.com/boa-dev/boa/releases/latest/download/boa-windows-amd64.exe": {
+    "https://github.com/boa-dev/boa/releases/latest/download/boa-x86_64-pc-windows-msvc.exe": {
       "name": "boa",
       "target_triples": ["x86_64-pc-windows-gnu"]
     },
-    "https://github.com/boa-dev/boa/releases/latest/download/boa-macos-amd64": {
+    "https://github.com/boa-dev/boa/releases/latest/download/boa-aarch64-apple-darwin": {
       "name": "boa",
-      "target_triples": ["x86_64-apple-darwin"]
+      "target_triples": ["aarch64-apple-darwin"]
     }
   }
 }

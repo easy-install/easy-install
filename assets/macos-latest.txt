@@ -19,3 +19,4 @@ cross-env
 jsc
 qjs-next
 ladybird
+boa
