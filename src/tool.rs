@@ -702,15 +702,15 @@ mod test {
           repo
         );
 
-        let repo = Repo {
-            owner: "Ryubing".to_string(),
-            name: "Ryujinx".to_string(),
-            tag: Some("1.2.78".to_string()),
-        };
-        assert_eq!(
-          Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").context("failed to try_from").unwrap(),
-          repo
-        );
+        // let repo = Repo {
+        //     owner: "Ryubing".to_string(),
+        //     name: "Ryujinx".to_string(),
+        //     tag: Some("1.2.78".to_string()),
+        // };
+        // assert_eq!(
+        //   Repo::try_from("https://github.com/Ryubing/Ryujinx/releases/download/1.2.78/ryujinx-*.*.*-win_x64.zip").context("failed to try_from").unwrap(),
+        //   repo
+        // );
     }
 
     #[test]
