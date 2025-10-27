@@ -82,6 +82,12 @@ pub(crate) async fn download_json<T: DeserializeOwned>(url: &str, retry: usize) 
                 .send()
                 .await
                 .context("send failed")?;
+            if response.status() != reqwest::StatusCode::OK {
+                return Err(anyhow::anyhow!(
+                    "request failed with status: {}",
+                    response.status()
+                ));
+            }
             response.json::<T>().await.context("json parse failed")
         },
         &format!("download_json({})", url),
@@ -118,12 +124,19 @@ pub(crate) async fn download(url: &str, retry: usize) -> Result<reqwest::Respons
             trace!("download {}", url_clone);
             let client = reqwest::Client::new();
             let headers = get_headers()?;
-            client
+            let response = client
                 .get(&url_clone)
                 .headers(headers)
                 .send()
                 .await
-                .context("send failed")
+                .context("send failed")?;
+            if response.status() != reqwest::StatusCode::OK {
+                return Err(anyhow::anyhow!(
+                    "request failed with status: {}",
+                    response.status()
+                ));
+            }
+            Ok(response)
         },
         &format!("download({})", url),
     )
@@ -137,6 +150,12 @@ pub(crate) async fn download_dist_manfiest(url: &str, retry: usize) -> Result<Di
         || async {
             trace!("download_dist_manfiest {}", url_clone);
             let response = download(&url_clone, 0).await?;
+            if response.status() != reqwest::StatusCode::OK {
+                return Err(anyhow::anyhow!(
+                    "request failed with status: {}",
+                    response.status()
+                ));
+            }
             response.json().await.context("json parse failed")
         },
         &format!("download_dist_manfiest({})", url),
