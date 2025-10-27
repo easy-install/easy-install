@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "https://github.com/mpv-easy/mpv-easy/releases/latest/download/mpy-easy-windows-full.zip": {
+    "https://github.com/mpv-easy/mpv-easy/releases/latest/download/mpv-easy-windows-full.zip": {
       "name": "mpv-easy",
       "target_triples": ["x86_64-pc-windows-gnu"]
     }
