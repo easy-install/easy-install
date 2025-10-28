@@ -28,7 +28,7 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
 
     if is_dist_manfiest(url) {
         if let Ok(manfiest) = if is_url(url) {
-            download_dist_manfiest(url, config.retry).await
+            download_dist_manfiest(url, config.retry, config.timeout).await
         } else {
             read_dist_manfiest(url)
         } {
@@ -56,7 +56,7 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
 
     if std::fs::exists(url).unwrap_or(false) {
         if is_archive_file(url) {
-            if let Ok(bytes) = get_bytes(url, config.retry).await
+            if let Ok(bytes) = get_bytes(url, config.retry, config.timeout).await
                 && let Some(fmt) = Fmt::guess(url)
             {
                 return install_from_download_file(bytes, fmt, url, &name, config);

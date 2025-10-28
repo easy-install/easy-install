@@ -258,24 +258,24 @@ impl Repo {
         Err(anyhow::anyhow!("No release tag found in HTML"))
     }
 
-    async fn get_latest_tag(&self, retry: usize) -> Result<String> {
+    async fn get_latest_tag(&self, retry: usize, timeout: u64) -> Result<String> {
         let releases_url = format!("https://github.com/{}/{}/releases", self.owner, self.name);
         trace!("Fetching releases page to get latest tag: {}", releases_url);
 
-        let response = download(&releases_url, retry).await?;
+        let response = download(&releases_url, retry, timeout).await?;
         let html = response.text().await?;
 
         Self::parse_latest_tag(&html)
     }
 
-    async fn get_release_page_url(&self, retry: usize) -> Result<String> {
+    async fn get_release_page_url(&self, retry: usize, timeout: u64) -> Result<String> {
         match &self.tag {
             Some(t) => Ok(format!(
                 "https://github.com/{}/{}/releases/expanded_assets/{}",
                 self.owner, self.name, t
             )),
             None => {
-                let tag = self.get_latest_tag(retry).await?;
+                let tag = self.get_latest_tag(retry, timeout).await?;
                 Ok(format!(
                     "https://github.com/{}/{}/releases/expanded_assets/{}",
                     self.owner, self.name, tag
@@ -313,18 +313,25 @@ impl Repo {
         Ok(GhArtifacts { assets })
     }
 
-    pub(crate) async fn get_manfiest(&self, retry: usize, proxy: Proxy) -> Result<DistManifest> {
-        download_dist_manfiest(&self.get_manfiest_url(proxy), retry).await
+    pub(crate) async fn get_manfiest(
+        &self,
+        retry: usize,
+        proxy: Proxy,
+        timeout: u64,
+    ) -> Result<DistManifest> {
+        download_dist_manfiest(&self.get_manfiest_url(proxy), retry, timeout).await
     }
 
     async fn get_artifact_url_from_html(
         &self,
         config: &InstallConfig,
     ) -> Result<Vec<(String, String)>> {
-        let page_url = self.get_release_page_url(config.retry).await?;
+        let page_url = self
+            .get_release_page_url(config.retry, config.timeout)
+            .await?;
         trace!("Fetching release page HTML from {}", page_url);
 
-        let response = download(&page_url, config.retry).await?;
+        let response = download(&page_url, config.retry, config.timeout).await?;
         let html = response.text().await?;
 
         let artifacts = Self::parse_release_html(&html)?;
@@ -339,7 +346,7 @@ impl Repo {
         let api = self.get_artifact_api();
         trace!("get_artifact_url api {}", api);
 
-        match download_json::<GhArtifacts>(&api, config.retry).await {
+        match download_json::<GhArtifacts>(&api, config.retry, config.timeout).await {
             Ok(artifacts) => {
                 trace!(
                     "Successfully retrieved artifacts from API for {}/{}",
@@ -388,8 +395,8 @@ pub(crate) struct Nightly {
 }
 
 impl Nightly {
-    pub(crate) async fn get_artifact(&self, retry: usize) -> Result<GhArtifacts> {
-        let html = download(&self.url, retry).await?.text().await?;
+    pub(crate) async fn get_artifact(&self, retry: usize, timeout: u64) -> Result<GhArtifacts> {
+        let html = download(&self.url, retry, timeout).await?.text().await?;
         let re = Regex::new(r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#).unwrap();
         let mut assets = HashSet::new();
 
@@ -409,7 +416,7 @@ impl Nightly {
         &self,
         config: &InstallConfig,
     ) -> Result<Vec<(String, String)>> {
-        let artifacts = self.get_artifact(config.retry).await?;
+        let artifacts = self.get_artifact(config.retry, config.timeout).await?;
         get_artifact_url(artifacts, config)
     }
 }

@@ -103,7 +103,7 @@ pub(crate) async fn install_from_artifact_url(
         return Ok(output);
     }
 
-    let bytes = get_bytes(art_url, config.retry).await?;
+    let bytes = get_bytes(art_url, config.retry, config.timeout).await?;
     let fmt = Fmt::guess(art_url).context("fmt guess error")?;
     let output = install_from_download_file(bytes, fmt, art_url, name, config)?;
     v.extend(output);

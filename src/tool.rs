@@ -736,7 +736,7 @@ mod test {
             url,
             "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
         );
-        assert!(repo.get_manfiest(3, Proxy::Github).await.is_ok());
+        assert!(repo.get_manfiest(3, Proxy::Github, 30).await.is_ok());
 
         let repo =
             Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
@@ -746,7 +746,7 @@ mod test {
             "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
         );
 
-        let manfiest = repo.get_manfiest(3, Proxy::Github).await.unwrap();
+        let manfiest = repo.get_manfiest(3, Proxy::Github, 30).await.unwrap();
         assert!(!manfiest.artifacts.is_empty());
 
         let repo =
@@ -757,7 +757,7 @@ mod test {
             "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.2/dist-manifest.json"
         );
 
-        let manfiest = repo.get_manfiest(3, Proxy::Github).await.unwrap();
+        let manfiest = repo.get_manfiest(3, Proxy::Github, 30).await.unwrap();
         assert!(!manfiest.artifacts.is_empty())
     }
 
@@ -776,7 +776,7 @@ mod test {
     #[tokio::test]
     async fn test_cargo_dist() {
         let url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
-        let manfiest = download_dist_manfiest(url, 3).await.unwrap();
+        let manfiest = download_dist_manfiest(url, 3, 30).await.unwrap();
         let art_url = get_artifact_url_from_manfiest(url, &manfiest);
         assert!(!art_url.is_empty())
     }

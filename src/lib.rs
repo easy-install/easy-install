@@ -20,6 +20,7 @@ pub struct InstallConfig {
     pub target: Option<Target>,
     pub retry: usize,
     pub proxy: Proxy,
+    pub timeout: u64,
 }
 
 impl Default for InstallConfig {
@@ -31,6 +32,7 @@ impl Default for InstallConfig {
             target: None,
             retry: 3,
             proxy: Proxy::Github,
+            timeout: 600,
         }
     }
 }
@@ -43,6 +45,7 @@ impl InstallConfig {
         target: Option<Target>,
         retry: usize,
         proxy: Proxy,
+        timeout: u64,
     ) -> Self {
         Self {
             dir,
@@ -51,6 +54,7 @@ impl InstallConfig {
             target,
             retry,
             proxy,
+            timeout,
         }
     }
 }
@@ -81,6 +85,13 @@ pub struct Args {
 
     #[arg(long, default_value = "github")]
     pub proxy: Proxy,
+
+    #[arg(
+        long,
+        default_value_t = 600,
+        help = "Network request timeout in seconds"
+    )]
+    pub timeout: u64,
 }
 
 impl Args {
@@ -92,6 +103,7 @@ impl Args {
             self.target,
             self.retry,
             self.proxy,
+            self.timeout,
         )
     }
 }

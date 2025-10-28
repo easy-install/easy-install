@@ -70,18 +70,38 @@ fn get_headers() -> Result<HeaderMap> {
     Ok(headers)
 }
 
-pub(crate) async fn download_json<T: DeserializeOwned>(url: &str, retry: usize) -> Result<T> {
+fn create_client(timeout_secs: u64) -> Result<reqwest::Client> {
+    let timeout = Duration::from_secs(timeout_secs);
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .connect_timeout(timeout)
+        .build()
+        .context("Failed to create HTTP client")
+}
+
+pub(crate) async fn download_json<T: DeserializeOwned>(
+    url: &str,
+    retry: usize,
+    timeout: u64,
+) -> Result<T> {
     let url_clone = url.to_string();
     retry_request(
         retry,
         || async {
-            let client = reqwest::Client::new();
-            let response = client
-                .get(&url_clone)
-                .headers(get_headers()?)
-                .send()
-                .await
-                .context("send failed")?;
+            let client = create_client(timeout)?;
+            let response = match client.get(&url_clone).headers(get_headers()?).send().await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    if e.is_timeout() {
+                        return Err(anyhow::anyhow!(
+                            "Request timed out after {} seconds: {}",
+                            timeout,
+                            url_clone
+                        ));
+                    }
+                    return Err(e).context("send failed");
+                }
+            };
             if response.status() != reqwest::StatusCode::OK {
                 return Err(anyhow::anyhow!(
                     "request failed with status: {}",
@@ -95,9 +115,9 @@ pub(crate) async fn download_json<T: DeserializeOwned>(url: &str, retry: usize) 
     .await
 }
 
-pub(crate) async fn get_bytes(url: &str, retry: usize) -> Result<Vec<u8>> {
+pub(crate) async fn get_bytes(url: &str, retry: usize, timeout: u64) -> Result<Vec<u8>> {
     let bin = if is_url(url) {
-        download_binary(url, retry).await?
+        download_binary(url, retry, timeout).await?
     } else {
         std::fs::read(url).context("read file failed")?.to_vec()
     };
@@ -116,20 +136,27 @@ pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
     Ok(files)
 }
 
-pub(crate) async fn download(url: &str, retry: usize) -> Result<reqwest::Response> {
+pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<reqwest::Response> {
     let url_clone = url.to_string();
     retry_request(
         retry,
         || async {
             trace!("download {}", url_clone);
-            let client = reqwest::Client::new();
+            let client = create_client(timeout)?;
             let headers = get_headers()?;
-            let response = client
-                .get(&url_clone)
-                .headers(headers)
-                .send()
-                .await
-                .context("send failed")?;
+            let response = match client.get(&url_clone).headers(headers).send().await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    if e.is_timeout() {
+                        return Err(anyhow::anyhow!(
+                            "Request timed out after {} seconds: {}",
+                            timeout,
+                            url_clone
+                        ));
+                    }
+                    return Err(e).context("send failed");
+                }
+            };
             if response.status() != reqwest::StatusCode::OK {
                 return Err(anyhow::anyhow!(
                     "request failed with status: {}",
@@ -143,13 +170,17 @@ pub(crate) async fn download(url: &str, retry: usize) -> Result<reqwest::Respons
     .await
 }
 
-pub(crate) async fn download_dist_manfiest(url: &str, retry: usize) -> Result<DistManifest> {
+pub(crate) async fn download_dist_manfiest(
+    url: &str,
+    retry: usize,
+    timeout: u64,
+) -> Result<DistManifest> {
     let url_clone = url.to_string();
     retry_request(
         retry,
         || async {
             trace!("download_dist_manfiest {}", url_clone);
-            let response = download(&url_clone, 0).await?;
+            let response = download(&url_clone, 0, timeout).await?;
             if response.status() != reqwest::StatusCode::OK {
                 return Err(anyhow::anyhow!(
                     "request failed with status: {}",
@@ -163,13 +194,13 @@ pub(crate) async fn download_dist_manfiest(url: &str, retry: usize) -> Result<Di
     .await
 }
 
-pub(crate) async fn download_binary(url: &str, retry: usize) -> Result<Vec<u8>> {
+pub(crate) async fn download_binary(url: &str, retry: usize, timeout: u64) -> Result<Vec<u8>> {
     let url_clone = url.to_string();
     retry_request(
         retry,
         || async {
             trace!("download_binary {}", url_clone);
-            let response = download(&url_clone, 0).await?;
+            let response = download(&url_clone, 0, timeout).await?;
             let bytes = response.bytes().await.context("bytes failed")?;
             Ok(bytes.to_vec())
         },
@@ -193,7 +224,7 @@ mod test {
     #[tokio::test]
     async fn test_download() {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
-        let bytes = get_bytes(url, 3).await.expect("donwload error");
+        let bytes = get_bytes(url, 3, 30).await.expect("donwload error");
         let fmt = Fmt::guess(url).expect("fmt error");
         let files = extract_bytes(bytes, fmt).expect("extract_bytes failed");
         assert!(files.iter().any(|i| i.path == "mujs"));
