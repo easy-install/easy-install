@@ -182,36 +182,39 @@ try_download() {
 }
 
 download() {
-  local proxy_types=("github" "ghproxy" "xget")
-  local proxy_names=("GitHub" "GhProxy (gh-proxy.com)" "Xget (xget.xi-xu.me)")
-
   if command -v mktemp >/dev/null 2>&1; then
       DOWNLOAD_DIR=$(mktemp -d)
   else
       DOWNLOAD_DIR="."
   fi
 
-  local download_path="$DOWNLOAD_DIR/$FILENAME"
-  local download_success=false
+  download_path="$DOWNLOAD_DIR/$FILENAME"
+  download_success=false
 
-  for i in 0 1 2; do
-    local proxy_type="${proxy_types[$i]}"
-    local proxy_name="${proxy_names[$i]}"
+  url=$(generate_download_url "github" "$RELEASE" "$FILENAME")
+  if try_download "$url" "$download_path" "GitHub"; then
+    download_success=true
+  fi
 
-    local url=$(generate_download_url "$proxy_type" "$RELEASE" "$FILENAME")
-
-    if try_download "$url" "$download_path" "$proxy_name"; then
+  if [ "$download_success" = "false" ]; then
+    echo "Download from GitHub failed, trying next source..."
+    echo ""
+    url=$(generate_download_url "ghproxy" "$RELEASE" "$FILENAME")
+    if try_download "$url" "$download_path" "GhProxy (gh-proxy.com)"; then
       download_success=true
-      break
-    else
-      if [ $i -lt 2 ]; then
-        echo "Download from $proxy_name failed, trying next source..."
-        echo ""
-      fi
     fi
-  done
+  fi
 
-  if [ "$download_success" = false ]; then
+  if [ "$download_success" = "false" ]; then
+    echo "Download from GhProxy failed, trying next source..."
+    echo ""
+    url=$(generate_download_url "xget" "$RELEASE" "$FILENAME")
+    if try_download "$url" "$download_path" "Xget (xget.xi-xu.me)"; then
+      download_success=true
+    fi
+  fi
+
+  if [ "$download_success" = "false" ]; then
     echo ""
     echo "ERROR: Failed to download from all sources."
     exit 1
