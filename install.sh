@@ -134,12 +134,56 @@ ensure_containing_dir_exists() {
   fi
 }
 
-download() {
-  if [ "$RELEASE" = "latest" ]; then
-    URL="https://github.com/easy-install/easy-install/releases/latest/download/$FILENAME"
+generate_download_url() {
+  local proxy_type=$1
+  local owner="easy-install"
+  local repo="easy-install"
+  local tag=$2
+  local filename=$3
+
+  case "$proxy_type" in
+    github)
+      if [ "$tag" = "latest" ]; then
+        echo "https://github.com/$owner/$repo/releases/latest/download/$filename"
+      else
+        echo "https://github.com/$owner/$repo/releases/download/$tag/$filename"
+      fi
+      ;;
+    ghproxy)
+      if [ "$tag" = "latest" ]; then
+        echo "https://gh-proxy.com/https://github.com/$owner/$repo/releases/latest/download/$filename"
+      else
+        echo "https://gh-proxy.com/https://github.com/$owner/$repo/releases/download/$tag/$filename"
+      fi
+      ;;
+    xget)
+      if [ "$tag" = "latest" ]; then
+        echo "https://xget.xi-xu.me/gh/$owner/$repo/releases/latest/download/$filename"
+      else
+        echo "https://xget.xi-xu.me/gh/$owner/$repo/releases/download/$tag/$filename"
+      fi
+      ;;
+  esac
+}
+
+try_download() {
+  local url=$1
+  local output_path=$2
+  local proxy_name=$3
+
+  echo "Trying to download from $proxy_name..."
+  echo "URL: $url"
+
+  if curl --progress-bar --fail --max-time 300 -L "$url" -o "$output_path"; then
+    return 0
   else
-    URL="https://github.com/easy-install/easy-install/releases/download/$RELEASE/$FILENAME"
+    return 1
   fi
+}
+
+download() {
+  local proxy_types=("github" "ghproxy" "xget")
+  local proxy_names=("GitHub" "GhProxy (gh-proxy.com)" "Xget (xget.xi-xu.me)")
 
   if command -v mktemp >/dev/null 2>&1; then
       DOWNLOAD_DIR=$(mktemp -d)
@@ -147,12 +191,34 @@ download() {
       DOWNLOAD_DIR="."
   fi
 
-  echo "Downloading $URL"
+  local download_path="$DOWNLOAD_DIR/$FILENAME"
+  local download_success=false
 
-  if ! curl --progress-bar --fail -L "$URL" -o "$DOWNLOAD_DIR/$FILENAME"; then
-    echo "Download failed. Check that the release/filename are correct."
+  for i in 0 1 2; do
+    local proxy_type="${proxy_types[$i]}"
+    local proxy_name="${proxy_names[$i]}"
+
+    local url=$(generate_download_url "$proxy_type" "$RELEASE" "$FILENAME")
+
+    if try_download "$url" "$download_path" "$proxy_name"; then
+      download_success=true
+      break
+    else
+      if [ $i -lt 2 ]; then
+        echo "Download from $proxy_name failed, trying next source..."
+        echo ""
+      fi
+    fi
+  done
+
+  if [ "$download_success" = false ]; then
+    echo ""
+    echo "ERROR: Failed to download from all sources."
     exit 1
   fi
+
+  echo ""
+  echo "Download successful! Installing..."
 
   if [ "$OS" = "Windows" ]; then
     unzip -q "$DOWNLOAD_DIR/$FILENAME" -d "$DOWNLOAD_DIR"
