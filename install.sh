@@ -173,6 +173,7 @@ try_download() {
 
   echo "Trying to download from $proxy_name..."
   echo "URL: $url"
+  echo ""
 
   if curl --progress-bar --fail --max-time 300 -L "$url" -o "$output_path"; then
     return 0
