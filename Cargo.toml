@@ -28,6 +28,7 @@ tracing-subscriber = "0.3"
 cargo-dist-schema = "0.30"
 path-clean = "1"
 anyhow = "1"
+github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy" }
 
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

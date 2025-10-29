@@ -8,9 +8,9 @@ mod ty;
 
 use anyhow::Result;
 use clap::Parser;
+use github_proxy::Proxy;
 use guess_target::Target;
 use tool::add_output_to_path;
-use ty::Proxy;
 
 #[derive(Debug, Clone)]
 pub struct InstallConfig {

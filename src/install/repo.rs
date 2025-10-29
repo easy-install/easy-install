@@ -12,7 +12,14 @@ pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> 
         .get_manfiest(config.retry, config.proxy, config.timeout)
         .await
     {
-        return install_from_manfiest(man, &repo.get_manfiest_url(config.proxy), config).await;
+        return install_from_manfiest(
+            man,
+            &repo
+                .get_manfiest_url(config.proxy, config.retry, config.timeout)
+                .await?,
+            config,
+        )
+        .await;
     }
 
     let artifact_url = repo.get_artifact_url(config).await?;

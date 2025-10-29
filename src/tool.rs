@@ -627,8 +627,9 @@ mod test {
     use crate::{
         download::download_dist_manfiest,
         tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
-        ty::{Proxy, Repo},
+        ty::Repo,
     };
+    use github_proxy::Proxy;
 
     use super::{get_bin_name, get_common_prefix_len};
 
@@ -731,7 +732,7 @@ mod test {
     #[tokio::test]
     async fn test_get_manfiest() {
         let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist/releases").unwrap();
-        let url = repo.get_manfiest_url(Proxy::Github);
+        let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
         assert_eq!(
             url,
             "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
@@ -740,7 +741,7 @@ mod test {
 
         let repo =
             Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
-        let url = repo.get_manfiest_url(Proxy::Github);
+        let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
         assert_eq!(
             url,
             "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
@@ -751,7 +752,7 @@ mod test {
 
         let repo =
             Repo::try_from("https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.2").unwrap();
-        let url = repo.get_manfiest_url(Proxy::Github);
+        let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
         assert_eq!(
             url,
             "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.2/dist-manifest.json"
