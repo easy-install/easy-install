@@ -94,6 +94,22 @@ pub struct Args {
     pub timeout: u64,
 }
 
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            dir: None,
+            install_only: false,
+            name: vec![],
+            alias: None,
+            target: None,
+            retry: 3,
+            proxy: Proxy::default(),
+            timeout: 600,
+        }
+    }
+}
+
 impl Args {
     pub fn to_install_config(&self) -> InstallConfig {
         InstallConfig::new(
