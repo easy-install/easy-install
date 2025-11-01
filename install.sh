@@ -5,11 +5,15 @@
 # This script downloads and installs binary releases from GitHub repositories.
 # It supports multiple platforms, compression formats, and proxy services.
 #
+# Configuration:
+#   Set EI_DIR environment variable to specify installation directory
+#   Example: export EI_DIR=~/.local/bin
+#
 # Usage:
 #   bash install.sh [OPTIONS]
 #
 # Options:
-#   --proxy <type>    Specify proxy service (github, ghproxy, xget, jsdelivr, statically)
+#   --proxy <type>    Specify proxy service (github, gh-proxy, xget, jsdelivr, statically)
 #   --target <target> Specify target platform (Rust target triple)
 #   --tag <version>   Specify release version (default: latest)
 #   --help            Display this help message
@@ -19,6 +23,7 @@
 #   bash install.sh --proxy xget
 #   bash install.sh --target aarch64-unknown-linux-musl
 #   bash install.sh --proxy jsdelivr --tag v1.0.0
+#   EI_DIR=~/.ei bash install.sh
 #
 
 set -e
@@ -30,6 +35,7 @@ EI_OWNER="easy-install"
 EI_REPO="easy-install"
 EI_TAG="latest"
 EI_BINARY_NAME="ei"
+EI_DIR="~/.ei"  # Installation directory (empty = auto-detect based on permissions)
 
 # ============================================================================
 # DEFAULTS - These can be overridden by command-line arguments
@@ -282,7 +288,7 @@ Usage:
 
 Options:
   --proxy <type>    Specify proxy service for downloading
-                    Available: github, ghproxy, xget, jsdelivr, statically
+                    Available: github, gh-proxy, xget, jsdelivr, statically
                     Default: github
 
   --target <target> Specify target platform explicitly (Rust target triple)
@@ -310,7 +316,7 @@ Supported Platforms (Rust target triples):
 
 Supported Proxies:
   github      - Direct GitHub access (default)
-  ghproxy     - gh-proxy.com mirror
+  gh-proxy     - gh-proxy.com mirror
   xget        - xget.xi-xu.me mirror
   jsdelivr    - cdn.jsdelivr.net CDN
   statically  - cdn.statically.io CDN
@@ -360,6 +366,60 @@ parse_arguments() {
         ;;
     esac
   done
+}
+
+# Resolve path to absolute path (handles ~, relative paths, etc.)
+# Args: path
+# Returns: absolute path
+resolve_path() {
+  local path="$1"
+
+  # Handle empty path
+  if [ -z "$path" ]; then
+    echo ""
+    return
+  fi
+
+  # Expand tilde to home directory
+  case "$path" in
+    "~")
+      path="$HOME"
+      ;;
+    "~/"*)
+      path="$HOME/${path#~/}"
+      ;;
+  esac
+
+  # Convert to absolute path
+  if [ -d "$path" ]; then
+    # Directory exists, use cd to get absolute path
+    (cd "$path" && pwd)
+  elif [ -e "$path" ]; then
+    # File exists
+    echo "$(cd "$(dirname "$path")" && pwd)/$(basename "$path")"
+  else
+    # Path doesn't exist yet, resolve parent directory
+    local dir
+    local base
+    dir="$(dirname "$path")"
+    base="$(basename "$path")"
+
+    if [ "$dir" = "." ]; then
+      echo "$(pwd)/$base"
+    elif [ -d "$dir" ]; then
+      echo "$(cd "$dir" && pwd)/$base"
+    else
+      # Parent doesn't exist either, just expand relative path
+      case "$path" in
+        /*)
+          echo "$path"
+          ;;
+        *)
+          echo "$(pwd)/$path"
+          ;;
+      esac
+    fi
+  fi
 }
 
 # Detect compression format from filename
@@ -471,7 +531,7 @@ generate_download_url() {
     github)
       echo "$github_url"
       ;;
-    ghproxy)
+    gh-proxy)
       echo "https://gh-proxy.com/${github_url}"
       ;;
     xget)
@@ -499,7 +559,7 @@ generate_download_url() {
       ;;
     *)
       echo "ERROR: Unknown proxy type: $proxy" >&2
-      echo "Supported proxies: github, ghproxy, xget, jsdelivr, statically" >&2
+      echo "Supported proxies: github, gh-proxy, xget, jsdelivr, statically" >&2
       exit 1
       ;;
   esac
@@ -559,6 +619,34 @@ extract_archive() {
 setup_install_dir() {
   local os_type="$1"
 
+  # If EI_DIR is specified, use it (resolve to absolute path)
+  if [ -n "$EI_DIR" ]; then
+    INSTALL_DIR="$(resolve_path "$EI_DIR")"
+
+    # Create directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+      mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+        echo "ERROR: Cannot create directory: $INSTALL_DIR"
+        echo "Please check permissions or specify a different directory."
+        exit 1
+      }
+    fi
+
+    # For Windows, still need to set PATH_MODE
+    if [ "$os_type" = "Windows" ]; then
+      local is_admin
+      is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')" 2>/dev/null)
+      if [ "$is_admin" = "True" ]; then
+        PATH_MODE="Machine"
+      else
+        PATH_MODE="User"
+      fi
+    fi
+
+    return
+  fi
+
+  # Auto-detect installation directory based on OS and permissions
   if [ "$os_type" = "Windows" ]; then
     # Windows-specific logic
     powershell -c "New-Item -Path '~/.${EI_BINARY_NAME}' -ItemType Directory -Force | Out-Null" 2>/dev/null || true
@@ -772,15 +860,63 @@ main() {
   extract_archive "$DOWNLOAD_PATH" "$DOWNLOAD_DIR" "$FORMAT"
   echo "Extraction complete"
 
+  # Find the extracted binary
+  echo "Locating binary..."
+  BINARY_PATH=""
+
+  # Look for binary in common locations after extraction
+  if [ "$OS_TYPE" = "Windows" ]; then
+    # Windows: look for .exe file
+    for possible_path in \
+      "$DOWNLOAD_DIR/$EI_BINARY_NAME.exe" \
+      "$DOWNLOAD_DIR/$EI_BINARY_NAME" \
+      "$DOWNLOAD_DIR/bin/$EI_BINARY_NAME.exe" \
+      "$DOWNLOAD_DIR/bin/$EI_BINARY_NAME"; do
+      if [ -f "$possible_path" ]; then
+        BINARY_PATH="$possible_path"
+        break
+      fi
+    done
+  else
+    # Unix-like: look for binary without extension
+    for possible_path in \
+      "$DOWNLOAD_DIR/$EI_BINARY_NAME" \
+      "$DOWNLOAD_DIR/bin/$EI_BINARY_NAME" \
+      "$DOWNLOAD_DIR/${EI_BINARY_NAME}-"*"/$EI_BINARY_NAME"; do
+      if [ -f "$possible_path" ]; then
+        BINARY_PATH="$possible_path"
+        break
+      fi
+    done
+  fi
+
+  # If still not found, try to find any executable file
+  if [ -z "$BINARY_PATH" ]; then
+    if [ "$OS_TYPE" = "Windows" ]; then
+      BINARY_PATH="$(find "$DOWNLOAD_DIR" -type f -name "*.exe" 2>/dev/null | head -n 1)"
+    else
+      BINARY_PATH="$(find "$DOWNLOAD_DIR" -type f -executable -name "$EI_BINARY_NAME" 2>/dev/null | head -n 1)"
+    fi
+  fi
+
+  if [ -z "$BINARY_PATH" ] || [ ! -f "$BINARY_PATH" ]; then
+    echo "ERROR: Could not find binary after extraction"
+    echo "Contents of download directory:"
+    ls -la "$DOWNLOAD_DIR"
+    exit 1
+  fi
+
+  echo "Found binary at: $BINARY_PATH"
+
   # Move binary to installation directory
   echo "Installing binary..."
 
   if [ "$OS_TYPE" = "Windows" ]; then
-    mv "$DOWNLOAD_DIR/$EI_BINARY_NAME" "$INSTALL_DIR/${EI_BINARY_NAME}.exe"
+    mv "$BINARY_PATH" "$INSTALL_DIR/${EI_BINARY_NAME}.exe"
     chmod u+x "$INSTALL_DIR/${EI_BINARY_NAME}.exe"
     echo "Successfully installed to $INSTALL_DIR/${EI_BINARY_NAME}.exe"
   else
-    mv "$DOWNLOAD_DIR/$EI_BINARY_NAME" "$INSTALL_DIR/$EI_BINARY_NAME"
+    mv "$BINARY_PATH" "$INSTALL_DIR/$EI_BINARY_NAME"
     chmod u+x "$INSTALL_DIR/$EI_BINARY_NAME"
     echo "Successfully installed to $INSTALL_DIR/$EI_BINARY_NAME"
   fi
