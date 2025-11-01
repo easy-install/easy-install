@@ -35,7 +35,7 @@ EI_OWNER="easy-install"
 EI_REPO="easy-install"
 EI_TAG="latest"
 EI_BINARY_NAME="ei"
-EI_DIR="~/.ei"  # Installation directory (empty = auto-detect based on permissions)
+EI_DIR="~/.ei4"  # Installation directory (empty = auto-detect based on permissions)
 
 # ============================================================================
 # DEFAULTS - These can be overridden by command-line arguments
@@ -373,54 +373,16 @@ parse_arguments() {
 # Returns: absolute path
 resolve_path() {
   local path="$1"
-
-  # Handle empty path
-  if [ -z "$path" ]; then
-    echo ""
-    return
-  fi
-
-  # Expand tilde to home directory
-  case "$path" in
-    "~")
-      path="$HOME"
-      ;;
-    "~/"*)
-      path="$HOME/${path#~/}"
-      ;;
-  esac
-
-  # Convert to absolute path
-  if [ -d "$path" ]; then
-    # Directory exists, use cd to get absolute path
-    (cd "$path" && pwd)
-  elif [ -e "$path" ]; then
-    # File exists
-    echo "$(cd "$(dirname "$path")" && pwd)/$(basename "$path")"
-  else
-    # Path doesn't exist yet, resolve parent directory
-    local dir
-    local base
-    dir="$(dirname "$path")"
-    base="$(basename "$path")"
-
-    if [ "$dir" = "." ]; then
-      echo "$(pwd)/$base"
-    elif [ -d "$dir" ]; then
-      echo "$(cd "$dir" && pwd)/$base"
-    else
-      # Parent doesn't exist either, just expand relative path
-      case "$path" in
-        /*)
-          echo "$path"
-          ;;
-        *)
-          echo "$(pwd)/$path"
-          ;;
-      esac
-    fi
-  fi
+  local abs_path=$(eval "readlink -f ${EI_DIR}")
+  echo $abs_path
 }
+
+resolve_windows_path() {
+  local path="$1"
+  local abs_path=$(powershell -c "(Resolve-Path '$path').Path")
+  echo $abs_path
+}
+
 
 # Detect compression format from filename
 # Args: filename
@@ -615,76 +577,18 @@ extract_archive() {
 # ============================================================================
 
 # Setup installation directory based on OS and permissions
-# Sets global variables: INSTALL_DIR, PATH_MODE (for Windows)
+# Sets global variables: EI_DIR, PATH_MODE (for Windows)
 setup_install_dir() {
   local os_type="$1"
-
-  # If EI_DIR is specified, use it (resolve to absolute path)
-  if [ -n "$EI_DIR" ]; then
-    INSTALL_DIR="$(resolve_path "$EI_DIR")"
-
-    # Create directory if it doesn't exist
-    if [ ! -d "$INSTALL_DIR" ]; then
-      mkdir -p "$INSTALL_DIR" 2>/dev/null || {
-        echo "ERROR: Cannot create directory: $INSTALL_DIR"
+  if [ "$os_type" = "Windows" ]; then
+    powershell -c "New-Item -Path '$EI_DIR' -ItemType Directory -Force | Out-Null"
+  else
+    if [ ! -d "$EI_DIR" ]; then
+      mkdir -p "$EI_DIR" 2>/dev/null || {
+        echo "ERROR: Cannot create directory: $EI_DIR"
         echo "Please check permissions or specify a different directory."
         exit 1
       }
-    fi
-
-    # For Windows, still need to set PATH_MODE
-    if [ "$os_type" = "Windows" ]; then
-      local is_admin
-      is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')" 2>/dev/null)
-      if [ "$is_admin" = "True" ]; then
-        PATH_MODE="Machine"
-      else
-        PATH_MODE="User"
-      fi
-    fi
-
-    return
-  fi
-
-  # Auto-detect installation directory based on OS and permissions
-  if [ "$os_type" = "Windows" ]; then
-    # Windows-specific logic
-    powershell -c "New-Item -Path '~/.${EI_BINARY_NAME}' -ItemType Directory -Force | Out-Null" 2>/dev/null || true
-    INSTALL_DIR=$(powershell -c "[string](Resolve-Path ~/.${EI_BINARY_NAME})" 2>/dev/null)
-
-    # Check admin privileges
-    local is_admin
-    is_admin=$(powershell -c "[bool]([Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544')" 2>/dev/null)
-    if [ "$is_admin" = "True" ]; then
-      PATH_MODE="Machine"
-    else
-      PATH_MODE="User"
-    fi
-  else
-    # Unix-like systems
-    local is_root=0
-
-    # Check if running as root (multiple methods for compatibility)
-    if command_exists id; then
-      if [ "$(id -u 2>/dev/null)" = "0" ]; then
-        is_root=1
-      fi
-    elif [ "$USER" = "root" ] || [ "$LOGNAME" = "root" ]; then
-      is_root=1
-    elif [ "$EUID" = "0" ] 2>/dev/null; then
-      is_root=1
-    elif [ -w /etc/passwd ]; then
-      # If we can write to /etc/passwd, likely root
-      is_root=1
-    fi
-
-    if [ "$is_root" -eq 1 ]; then
-      # Root user - install system-wide
-      INSTALL_DIR="/usr/local/bin"
-    else
-      # Regular user - install to user directory
-      INSTALL_DIR="$HOME/.local/bin"
-      mkdir -p "$INSTALL_DIR"
     fi
   fi
 }
@@ -735,20 +639,34 @@ update_path_unix() {
 # Args: install_dir, path_mode
 update_path_windows() {
   local install_dir="$1"
-  local mode="$2"
+  local cmd="[bool]([System.Security.Principal.WindowsPrincipal][System.Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)";
+  local is_admin=$(powershell -c $cmd)
+  local mode="User"
+  if [ "$is_admin" = "True" ]; then
+    PATH_MODE="Machine"
+  else
+    PATH_MODE="User"
+  fi
+  # Convert MSYS/Git Bash path to Windows path
+  local windows_path=$(resolve_windows_path $install_dir)
+
+  # Normalize path separators (use forward slashes for consistency)
+  windows_path="$(echo "$windows_path" | sed 's|\\|/|g')"
+
+  echo "Windows path: $windows_path"
 
   # Check if path already exists
   local has_path
-  has_path=$(powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode'); [bool](\$currentPath -split ';' | Where-Object { \$_ -eq '$install_dir' })" 2>/dev/null)
+  has_path=$(powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode'); [bool](\$currentPath -split ';' | Where-Object { \$_.Replace('\\', '/') -eq '$windows_path' })" 2>/dev/null)
 
   if [ "$has_path" = "True" ]; then
     echo "Installation directory already in PATH"
     return 0
   fi
 
-  # Add to PATH
-  powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode'); \$newPath=\"\$currentPath;$install_dir\"; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')" 2>/dev/null
-  echo "Added $install_dir to system PATH ($mode level)"
+  # Add to PATH (PowerShell will handle the path format)
+  powershell -c "\$currentPath=[Environment]::GetEnvironmentVariable('Path', '$mode'); \$newPath=\"\$currentPath;$windows_path\"; [Environment]::SetEnvironmentVariable('Path', \$newPath, '$mode')" 2>/dev/null
+  echo "Added $windows_path to system PATH ($mode level)"
   echo "Please restart your terminal for PATH changes to take effect"
 }
 
@@ -832,7 +750,8 @@ main() {
 
   # Setup installation directory
   setup_install_dir "$OS_TYPE"
-  echo "Installation directory: $INSTALL_DIR"
+  local abs_path=$(resolve_path $EI_DIR)
+  echo "Installation directory: $abs_path"
 
   # Create temporary download directory
   if command -v mktemp >/dev/null 2>&1; then
@@ -860,8 +779,6 @@ main() {
   extract_archive "$DOWNLOAD_PATH" "$DOWNLOAD_DIR" "$FORMAT"
   echo "Extraction complete"
 
-  # Find the extracted binary
-  echo "Locating binary..."
   BINARY_PATH=""
 
   # Look for binary in common locations after extraction
@@ -912,26 +829,25 @@ main() {
   echo "Installing binary..."
 
   if [ "$OS_TYPE" = "Windows" ]; then
-    mv "$BINARY_PATH" "$INSTALL_DIR/${EI_BINARY_NAME}.exe"
-    chmod u+x "$INSTALL_DIR/${EI_BINARY_NAME}.exe"
-    echo "Successfully installed to $INSTALL_DIR/${EI_BINARY_NAME}.exe"
+    mv "$BINARY_PATH" "$abs_path/${EI_BINARY_NAME}.exe"
+    chmod u+x "$abs_path/${EI_BINARY_NAME}.exe"
+    echo "Successfully installed to $abs_path/${EI_BINARY_NAME}.exe"
   else
-    mv "$BINARY_PATH" "$INSTALL_DIR/$EI_BINARY_NAME"
-    chmod u+x "$INSTALL_DIR/$EI_BINARY_NAME"
-    echo "Successfully installed to $INSTALL_DIR/$EI_BINARY_NAME"
+    mv "$BINARY_PATH" "$abs_path/$EI_BINARY_NAME"
+    chmod u+x "$abs_path/$EI_BINARY_NAME"
+    echo "Successfully installed to $abs_path/$EI_BINARY_NAME"
   fi
 
   # Update PATH
   echo "Updating PATH..."
   if [ "$OS_TYPE" = "Windows" ]; then
-    update_path_windows "$INSTALL_DIR" "$PATH_MODE"
+    update_path_windows "$EI_DIR"
+    win_path=$(resolve_windows_path $EI_DIR)
+    add_to_github_path "$win_path"
   else
-    update_path_unix "$INSTALL_DIR"
+    update_path_unix "$EI_DIR"
+    add_to_github_path "$abs_path"
   fi
-  echo ""
-
-  # Add to GitHub Actions PATH if applicable
-  add_to_github_path "$INSTALL_DIR"
 }
 
 main "$@"
