@@ -574,7 +574,23 @@ setup_install_dir() {
     fi
   else
     # Unix-like systems
-    if [ "$(id -u)" -eq 0 ]; then
+    local is_root=0
+
+    # Check if running as root (multiple methods for compatibility)
+    if command_exists id; then
+      if [ "$(id -u 2>/dev/null)" = "0" ]; then
+        is_root=1
+      fi
+    elif [ "$USER" = "root" ] || [ "$LOGNAME" = "root" ]; then
+      is_root=1
+    elif [ "$EUID" = "0" ] 2>/dev/null; then
+      is_root=1
+    elif [ -w /etc/passwd ]; then
+      # If we can write to /etc/passwd, likely root
+      is_root=1
+    fi
+
+    if [ "$is_root" -eq 1 ]; then
       # Root user - install system-wide
       INSTALL_DIR="/usr/local/bin"
     else
