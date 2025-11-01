@@ -35,7 +35,7 @@ EI_OWNER="easy-install"
 EI_REPO="easy-install"
 EI_TAG="latest"
 EI_BINARY_NAME="ei"
-EI_DIR="~/.ei4"  # Installation directory (empty = auto-detect based on permissions)
+EI_DIR="~/.ei"  # Installation directory (empty = auto-detect based on permissions)
 
 # ============================================================================
 # DEFAULTS - These can be overridden by command-line arguments
@@ -373,8 +373,14 @@ parse_arguments() {
 # Returns: absolute path
 resolve_path() {
   local path="$1"
-  local abs_path=$(eval "readlink -f ${EI_DIR}")
-  echo $abs_path
+  if [[ "$(uname)" == "Darwin" ]]; then
+    local dir=$(cd "$(dirname "$path")" && pwd)
+    local file=$(basename "$path")
+    echo "$dir/$file"
+  else
+    local abs_path=$(eval "readlink -f '$path'")
+    echo $abs_path
+  fi
 }
 
 resolve_windows_path() {
@@ -583,13 +589,8 @@ setup_install_dir() {
   if [ "$os_type" = "Windows" ]; then
     powershell -c "New-Item -Path '$EI_DIR' -ItemType Directory -Force | Out-Null"
   else
-    if [ ! -d "$EI_DIR" ]; then
-      mkdir -p "$EI_DIR" 2>/dev/null || {
-        echo "ERROR: Cannot create directory: $EI_DIR"
-        echo "Please check permissions or specify a different directory."
-        exit 1
-      }
-    fi
+    abs_path=$(resolve_path $EI_DIR)
+    mkdir -p $abs_path
   fi
 }
 
@@ -643,9 +644,9 @@ update_path_windows() {
   local is_admin=$(powershell -c $cmd)
   local mode="User"
   if [ "$is_admin" = "True" ]; then
-    PATH_MODE="Machine"
+    mode="Machine"
   else
-    PATH_MODE="User"
+    mode="User"
   fi
   # Convert MSYS/Git Bash path to Windows path
   local windows_path=$(resolve_windows_path $install_dir)

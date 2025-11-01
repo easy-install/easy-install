@@ -13,20 +13,9 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: release-dist-manifest
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "dist-manifest/*.json,install.sh,install.ps1"
-          allowUpdates: true
-
-  upload-assets:
-    needs: create-release
+  build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-apple-darwin
@@ -62,6 +51,12 @@ jobs:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           tag: nightly
           allowUpdates: true
+      - name: wait
+        run: |
+          sleep 300
+      - name: install.sh
+        run: |
+          bash ./install.sh
 
   test-release:
     needs: ["create-release", "upload-assets"]
