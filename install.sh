@@ -374,9 +374,8 @@ parse_arguments() {
 resolve_path() {
   local path="$1"
   if [[ "$(uname)" == "Darwin" ]]; then
-    local dir=$(cd "$(dirname "$path")" && pwd)
-    local file=$(basename "$path")
-    echo "$dir/$file"
+    local abs_path=$(bash -c "realpath $path")
+    echo $abs_path
   else
     local abs_path=$(eval "readlink -f '$path'")
     echo $abs_path
