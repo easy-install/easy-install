@@ -373,13 +373,8 @@ parse_arguments() {
 # Returns: absolute path
 resolve_path() {
   local path="$1"
-  if [[ "$(uname)" == "Darwin" ]]; then
-    local abs_path=$(bash -c "realpath $path")
-    echo $abs_path
-  else
-    local abs_path=$(eval "readlink -f '$path'")
-    echo $abs_path
-  fi
+  local abs_path=$(bash -c "realpath $path")
+  echo $abs_path
 }
 
 resolve_windows_path() {
@@ -752,7 +747,8 @@ main() {
   # Setup installation directory
   setup_install_dir "$OS_TYPE"
   local abs_path=$(resolve_path $EI_DIR)
-  echo "Installation directory: $abs_path"
+  echo "Installation directory: $abs_path" $EI_DIR
+  return
 
   # Create temporary download directory
   if command -v mktemp >/dev/null 2>&1; then
