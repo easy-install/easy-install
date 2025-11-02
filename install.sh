@@ -355,6 +355,15 @@ parse_arguments() {
         EI_TAG="$2"
         shift 2
         ;;
+      --dir)
+        if [ -z "$2" ]; then
+          echo "ERROR: --dir requires a value"
+          show_usage
+          exit 1
+        fi
+        EI_DIR="$2"
+        shift 2
+        ;;
       --help)
         show_usage
         exit 0
