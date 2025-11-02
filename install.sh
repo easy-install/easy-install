@@ -746,7 +746,6 @@ main() {
   setup_install_dir "$OS_TYPE"
   local abs_path=$(resolve_path $EI_DIR)
   echo "Installation directory: $abs_path" $EI_DIR
-  return
 
   # Create temporary download directory
   if command -v mktemp >/dev/null 2>&1; then

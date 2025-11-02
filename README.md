@@ -17,7 +17,7 @@ curl -fsSL https://cdn.jsdelivr.net/gh/easy-install/easy-install/install.sh | ba
 
 curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/main/install.sh | bash -s -- --proxy xget
 
-curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | bash -s -- --proxy gh-proxy
+curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | sh -s -- --proxy gh-proxy
 
 ```
 
