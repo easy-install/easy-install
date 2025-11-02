@@ -523,8 +523,9 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
         .context("failed to execute chmod")
     {
         println!(
-            "add_execute_permission: {}",
-            String::from_utf8_lossy(&output.stdout)
+            "add_execute_permission: {} {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
         if !output.status.success() {
             println!(
@@ -537,6 +538,10 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
         println!("chmod +x {} failed", file_path);
     }
 
+    // try busybox
+    let _ = std::process::Command::new("busybox")
+        .args(["chmod", "+x", file_path])
+        .output();
     Ok(())
 }
 
