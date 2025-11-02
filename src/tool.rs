@@ -496,7 +496,6 @@ pub(crate) fn name_no_ext(s: &str) -> String {
 
 #[cfg(not(windows))]
 pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
-    println!("add_execute_permission {}", file_path);
     let path = Path::new(file_path);
 
     let metadata = std::fs::metadata(path).context("failed to get metadata")?;
@@ -507,41 +506,27 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     let mut permissions = metadata.permissions();
     let current_mode = permissions.mode();
     let new_mode = current_mode | EXEC_MASK;
-    println!("add_execute_permission {:#?}", permissions);
-    println!("add_execute_permission {} {}", current_mode, new_mode);
 
     if new_mode != current_mode {
         permissions.set_mode(new_mode);
         std::fs::set_permissions(path, permissions).context("failed to set permissions")?;
     }
 
-    let updated_mode = std::fs::metadata(path)
-        .context("failed to recheck metadata")?
-        .permissions()
-        .mode();
-    println!(
-        "add_execute_permission updated_mode {} {}",
-        updated_mode,
-        updated_mode & EXEC_MASK
-    );
-
-    if updated_mode & EXEC_MASK == 0 {
-        if let Ok(output) = std::process::Command::new("chmod")
-            .args(["+x", file_path])
-            .output()
-            .context("failed to execute chmod")
-        {
-            println!("chmod +x : {}",String::from_utf8_lossy(&output.stderr));
-            if !output.status.success() {
-                println!(
-                    "chmod +x {} failed: {}",
-                    file_path,
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
-        } else {
-            println!("chmod +x {} failed", file_path);
+    // try chmod
+    if let Ok(output) = std::process::Command::new("chmod")
+        .args(["+x", file_path])
+        .output()
+        .context("failed to execute chmod")
+    {
+        if !output.status.success() {
+            println!(
+                "chmod +x {} failed: {}",
+                file_path,
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
+    } else {
+        println!("chmod +x {} failed", file_path);
     }
 
     Ok(())
