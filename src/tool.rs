@@ -509,15 +509,23 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
 
     if new_mode != current_mode {
         permissions.set_mode(new_mode);
-        std::fs::set_permissions(path, permissions).context("failed to set permissions")?;
+        if let Err(e) = std::fs::set_permissions(path, permissions) {
+            println!("set_permissions error: {:?}", e);
+        }
     }
 
     // try chmod
+    let cmd = format!("chmod +x {}", file_path);
+    println!("add_execute_permission: {}", cmd);
     if let Ok(output) = std::process::Command::new("sh")
-        .args(["-c", &format!("chmod +x {}", file_path)])
+        .args(["-c", &cmd])
         .output()
         .context("failed to execute chmod")
     {
+        println!(
+            "add_execute_permission: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
         if !output.status.success() {
             println!(
                 "chmod +x {} failed: {}",
