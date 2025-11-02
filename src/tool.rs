@@ -497,26 +497,27 @@ pub(crate) fn name_no_ext(s: &str) -> String {
 #[cfg(not(windows))]
 pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let metadata = std::fs::metadata(file_path).context("metadata failed")?;
-    if metadata.is_dir() {
-        return Ok(());
+    if let Ok(metadata) = std::fs::metadata(file_path).context("metadata failed") {
+        if metadata.is_dir() {
+            return Ok(());
+        }
+
+        let mut permissions = metadata.permissions();
+        let current_mode = permissions.mode();
+
+        let new_mode = current_mode | EXEC_MASK;
+        permissions.set_mode(new_mode);
+
+        if std::fs::set_permissions(file_path, permissions)
+            .context("set_permissions failed")
+            .is_ok()
+        {
+            return Ok(());
+        }
     }
-
-    let mut permissions = metadata.permissions();
-    let current_mode = permissions.mode();
-
-    let new_mode = current_mode | EXEC_MASK;
-    permissions.set_mode(new_mode);
-
-    if std::fs::set_permissions(file_path, permissions)
-        .context("set_permissions failed")
-        .is_err()
-    {
-        std::process::Command::new("chmod")
-            .args(["+x", file_path])
-            .output()?;
-    }
-
+    std::process::Command::new("chmod")
+        .args(["+x", file_path])
+        .output()?;
     Ok(())
 }
 
