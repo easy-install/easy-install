@@ -372,9 +372,7 @@ parse_arguments() {
 # Args: path
 # Returns: absolute path
 resolve_path() {
-  local path="$1"
-  local abs_path=$(bash -c "realpath $path")
-  echo $abs_path
+  sh -c "(cd $1 2>/dev/null && pwd -P) || return 1;"
 }
 
 resolve_windows_path() {
@@ -585,7 +583,7 @@ setup_install_dir() {
   else
     # abs_path=$(resolve_path $EI_DIR)
     # mkdir -p $abs_path
-    bash -c "mkdir -p $EI_DIR"
+    sh -c "mkdir -p $EI_DIR"
   fi
 }
 

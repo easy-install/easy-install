@@ -14,6 +14,11 @@ curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/inst
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | bash
 
 curl -fsSL https://cdn.jsdelivr.net/gh/easy-install/easy-install/install.sh | bash
+
+curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/main/install.sh | bash -s -- --proxy xget
+
+curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | bash -s -- --proxy gh-proxy
+
 ```
 
 ### cargo
