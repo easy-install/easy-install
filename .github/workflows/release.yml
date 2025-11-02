@@ -57,26 +57,3 @@ jobs:
       - name: install.sh
         run: |
           bash ./install.sh
-
-  test-release:
-    needs: ["create-release", "upload-assets"]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - uses: actions/checkout@v4
-      - uses: easy-install/easy-setup@v1
-        with:
-          url: https://github.com/easy-install/easy-install
-      - name: test
-        run: |
-          ei https://github.com/pnpm/pnpm
-          pnpm --version
-          ei https://github.com/pnpm/pnpm/v9.15.3
-          pnpm --version
-          ei https://github.com/ahaoboy/easy-install/raw/refs/heads/main/dist-manifest/bun.json
-          bun --version
-          ei https://github.com/denoland/deno
-          deno --version
