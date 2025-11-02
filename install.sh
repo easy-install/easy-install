@@ -588,8 +588,9 @@ setup_install_dir() {
   if [ "$os_type" = "Windows" ]; then
     powershell -c "New-Item -Path '$EI_DIR' -ItemType Directory -Force | Out-Null"
   else
-    abs_path=$(resolve_path $EI_DIR)
-    mkdir -p $abs_path
+    # abs_path=$(resolve_path $EI_DIR)
+    # mkdir -p $abs_path
+    bash -c "mkdir -p $EI_DIR"
   fi
 }
 
