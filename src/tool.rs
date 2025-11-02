@@ -513,8 +513,8 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     }
 
     // try chmod
-    if let Ok(output) = std::process::Command::new("chmod")
-        .args(["+x", file_path])
+    if let Ok(output) = std::process::Command::new("sh")
+        .args(["-c", &format!("chmod +x {}", file_path)])
         .output()
         .context("failed to execute chmod")
     {
