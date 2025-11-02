@@ -496,8 +496,10 @@ pub(crate) fn name_no_ext(s: &str) -> String {
 
 #[cfg(not(windows))]
 pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
+    println!("add_execute_permission1 {}", file_path);
     use std::os::unix::fs::PermissionsExt;
     if let Ok(metadata) = std::fs::metadata(file_path).context("metadata failed") {
+        println!("add_execute_permission2 {:#?}", metadata);
         if metadata.is_dir() {
             return Ok(());
         }
@@ -506,8 +508,10 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
         let current_mode = permissions.mode();
 
         let new_mode = current_mode | EXEC_MASK;
+        println!("add_execute_permission3 new_mode {:#?}", new_mode);
         permissions.set_mode(new_mode);
 
+        println!("add_execute_permission3 {:#?}", permissions);
         if std::fs::set_permissions(file_path, permissions)
             .context("set_permissions failed")
             .is_ok()
@@ -515,9 +519,14 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
             return Ok(());
         }
     }
-    std::process::Command::new("chmod")
+    println!("add_execute_permission4  ",);
+    let s = std::process::Command::new("chmod")
         .args(["+x", file_path])
         .output()?;
+    println!(
+        "add_execute_permission4 {:#?}",
+        String::from_utf8_lossy(&s.stdout)
+    );
     Ok(())
 }
 
