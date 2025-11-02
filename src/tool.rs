@@ -496,37 +496,42 @@ pub(crate) fn name_no_ext(s: &str) -> String {
 
 #[cfg(not(windows))]
 pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
-    println!("add_execute_permission1 {}", file_path);
-    use std::os::unix::fs::PermissionsExt;
-    if let Ok(metadata) = std::fs::metadata(file_path).context("metadata failed") {
-        println!("add_execute_permission2 {:#?}", metadata);
-        if metadata.is_dir() {
-            return Ok(());
-        }
+    let path = Path::new(file_path);
 
-        let mut permissions = metadata.permissions();
-        let current_mode = permissions.mode();
+    let metadata = std::fs::metadata(path).context("failed to get metadata")?;
+    if metadata.is_dir() {
+        return Ok(());
+    }
 
-        let new_mode = current_mode | EXEC_MASK;
-        println!("add_execute_permission3 new_mode {:#?}", new_mode);
+    let mut permissions = metadata.permissions();
+    let current_mode = permissions.mode();
+    let new_mode = current_mode | EXEC_MASK;
+
+    if new_mode != current_mode {
         permissions.set_mode(new_mode);
+        std::fs::set_permissions(path, permissions).context("failed to set permissions")?;
+    }
 
-        println!("add_execute_permission3 {:#?}", permissions);
-        if std::fs::set_permissions(file_path, permissions)
-            .context("set_permissions failed")
-            .is_ok()
-        {
-            return Ok(());
+    let updated_mode = std::fs::metadata(path)
+        .context("failed to recheck metadata")?
+        .permissions()
+        .mode();
+
+    if updated_mode & EXEC_MASK == 0 {
+        let output = std::process::Command::new("chmod")
+            .args(["+x", file_path])
+            .output()
+            .context("failed to execute chmod")?;
+
+        if !output.status.success() {
+            println!(
+                "chmod +x {} failed: {}",
+                file_path,
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
     }
-    println!("add_execute_permission4  ",);
-    let s = std::process::Command::new("chmod")
-        .args(["+x", file_path])
-        .output()?;
-    println!(
-        "add_execute_permission4 {:#?}",
-        String::from_utf8_lossy(&s.stdout)
-    );
+
     Ok(())
 }
 
