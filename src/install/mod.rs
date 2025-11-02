@@ -45,6 +45,11 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
     let name = item.map_or(name, |i| i.name.clone());
 
     if is_url(url) {
+        let url = &match github_proxy::Resource::try_from(url) {
+            Ok(r) => r.url(&config.proxy).unwrap_or(url.to_string()),
+            _ => url.to_string(),
+        };
+
         if is_archive_file(url) {
             return install_from_artifact_url(url, &name, config).await;
         }
