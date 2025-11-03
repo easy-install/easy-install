@@ -817,7 +817,7 @@ main() {
   echo "Installation directory: $abs_path" $EI_DIR
 
   # Create temporary download directory
-  if command -v mktemp >/dev/null 2>&1; then
+  if command_exists mktemp; then
     DOWNLOAD_DIR="$(mktemp -d)"
   else
     DOWNLOAD_DIR="."
