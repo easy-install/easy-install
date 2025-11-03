@@ -521,6 +521,11 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn expand_path(path: &str) -> String {
+    let expanded = shellexpand::tilde(path);
+    path_clean::PathClean::clean(Path::new(&*expanded)).to_string_lossy().to_string()
+}
+
 pub(crate) fn is_archive_file(s: &str) -> bool {
     Fmt::guess(s).is_some()
 }

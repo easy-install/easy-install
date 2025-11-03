@@ -29,7 +29,7 @@ cargo-dist-schema = "0.30"
 path-clean = "1"
 anyhow = "1"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy" }
-
+shellexpand = "3"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

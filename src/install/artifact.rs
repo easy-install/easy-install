@@ -3,8 +3,7 @@ use crate::download::{extract_bytes, get_bytes};
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
 use crate::tool::{
-    display_output, get_common_prefix_len, get_filename, install_output_files, is_archive_file,
-    path_to_str,
+    display_output, expand_path, get_common_prefix_len, get_filename, install_output_files, is_archive_file, path_to_str
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use anyhow::{Context, Result};
@@ -29,7 +28,7 @@ pub(crate) fn install_from_download_file(
         .or(Some(path_to_str(&install_dir).to_string()))
     {
         if target_dir.contains("/") || target_dir.contains("\\") {
-            install_dir = target_dir.into();
+            install_dir = expand_path(&target_dir).into();
         } else {
             install_dir.push(target_dir);
         }

@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::tool::{
-    display_output, ends_with_exe, get_bin_name, get_filename, install_output_files, path_to_str,
+    display_output, ends_with_exe, expand_path, get_bin_name, get_filename, install_output_files, path_to_str
 };
 use crate::ty::{Output, OutputFile, OutputItem};
 use anyhow::Result;
@@ -18,7 +18,7 @@ pub(crate) async fn install_from_single_file(
 
     if let Some(target_dir) = &config.dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
-            install_dir = target_dir.into();
+            install_dir = expand_path(&target_dir).into();
         } else {
             install_dir.push(target_dir);
         }
