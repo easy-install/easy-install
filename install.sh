@@ -473,17 +473,17 @@ check_dependencies() {
       if ! command_exists tar; then
         missing_deps="${missing_deps} tar"
       fi
-      if ! command_exists gzip; then
-        missing_deps="${missing_deps} gzip"
-      fi
+      # if ! command_exists gzip; then
+      #   missing_deps="${missing_deps} gzip"
+      # fi
       ;;
     tar.xz)
       if ! command_exists tar; then
         missing_deps="${missing_deps} tar"
       fi
-      if ! command_exists xz; then
-        missing_deps="${missing_deps} xz"
-      fi
+      # if ! command_exists xz; then
+      #   missing_deps="${missing_deps} xz"
+      # fi
       ;;
     zip)
       if ! command_exists unzip; then
