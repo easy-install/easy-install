@@ -488,11 +488,12 @@ generate_download_url() {
   local filename="$5"
   local github_url
 
+  local github_host="github.com"
   # Build base GitHub URL
   if [ "$tag" = "latest" ]; then
-    github_url="https://github.com/${owner}/${repo}/releases/latest/download/${filename}"
+    github_url="https://${github_host}/${owner}/${repo}/releases/latest/download/${filename}"
   else
-    github_url="https://github.com/${owner}/${repo}/releases/download/${tag}/${filename}"
+    github_url="https://${github_host}/${owner}/${repo}/releases/download/${tag}/${filename}"
   fi
 
   # Apply proxy transformation
