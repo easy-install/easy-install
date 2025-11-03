@@ -1,91 +1,128 @@
-## install
+# Easy Install
 
-### windows
+A cross-platform command-line tool for effortlessly installing binaries from GitHub releases and other sources. Simplify your workflow by downloading and setting up executables with a single command.
 
-```bash
+## Features
+
+- 🚀 Install binaries directly from GitHub releases
+- 🎯 Automatic platform detection and binary selection
+- 📦 Support for multiple archive formats (zip, tar.gz, tar.xz, etc.)
+- 🔧 Custom installation directories
+- 🌐 Proxy support for restricted networks
+- 📋 Manifest-based installations for complex packages
+- 🔄 Version-specific or latest release installation
+- 💾 Automatic PATH configuration
+
+## Installation
+
+### Windows
+
+```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/easy-install/easy-install/releases/latest/download/install.ps1 | iex"
 ```
 
-### linux/macos
+### Linux/macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | bash
+# Direct installation
+curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
-curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | bash
+# Using proxy (for restricted networks)
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
-curl -fsSL https://cdn.jsdelivr.net/gh/easy-install/easy-install/install.sh | bash
+# Using CDN
+curl -fsSL https://cdn.jsdelivr.net/gh/easy-install/easy-install/install.sh | sh
 
-curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/main/install.sh | bash -s -- --proxy xget
+# Using xget proxy
+curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/main/install.sh | sh -s -- --proxy xget
 
+# Using gh-proxy
 curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | sh -s -- --proxy gh-proxy
-
 ```
 
-### cargo
+### Cargo (Rust)
 
 ```bash
-cargo install --git https://github.com/easy-install/easy-install.git
+# Install from crates.io
+cargo install easy-install
 
+# Install using cargo-binstall
 cargo binstall easy-install
 
-cargo install easy-install
+# Install from GitHub
+cargo install --git https://github.com/easy-install/easy-install.git
 ```
 
-### npm
+### npm/pnpm/yarn
 
 ```bash
-npm i @easy-install/easy-install -g
+npm install -g @easy-install/easy-install
+# or
+pnpm add -g @easy-install/easy-install
+# or
+yarn global add @easy-install/easy-install
 ```
 
-## usage
+## Usage
+
+### Basic Installation
 
 ```bash
-# install latest
+# Install the latest release from a GitHub repository
 ei https://github.com/ahaoboy/mujs-build
 
-ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
-ei https://github.com/ip7z/7zip/releases/tag/25.01 --name 7z2501 --alias 7z
-
-# install v0.0.1
+# Install a specific version
 ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
 
-# install yt-dlp from github
-ei ansi2 yt-dlp/yt-dlp
+# Short syntax for GitHub repositories
+ei yt-dlp/yt-dlp
+```
 
-# install deno and denort
-ei https://github.com/denoland/deno
+### Advanced Options
 
-# install deno
+```bash
+# Specify target platform
+ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
+
+# Set custom name and alias
+ei https://github.com/ip7z/7zip/releases/tag/25.01 --name 7z2501 --alias 7z
+
+# Install specific binary from a multi-binary package
+ei https://github.com/quickjs-ng/quickjs --bin=qjs
+
+# Install from a direct download URL
 ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
 ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
+```
 
-# install from json
+### Custom Installation Directory
+
+```bash
+# Install to a specific absolute path
+ei ./dist-manifest/mpv-easy.json -d c:/mpv-easy
+
+# Install to a named directory under ~/.ei/
+ei ./dist-manifest/mpv-easy.json -d custom-name
+```
+
+### Manifest-Based Installation
+
+```bash
+# Install from a remote manifest
 ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
 ei "https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json"
 
-# install from local json file
+# Install from a local manifest file
 ei "./dist-manifest/screentogif.json"
-
-# install to custom directory
-cargo run -- ./dist-manifest/mpv-easy.json -d c:/mpv-easy
-
-# install to custom directory name (~/.ei/custom-name)
-cargo run -- ./dist-manifest/mpv-easy.json -d custom-name
-
-# only install qjs
-cargo run -- https://github.com/quickjs-ng/quickjs --bin=qjs
 ```
 
-## dist-manifest.json
+## Distribution Manifest
 
-### mujs
+For complex packages containing multiple files, you can create a `dist-manifest.json` file to define the structure and assets. This follows the [cargo-dist-schema](https://github.com/axodotdev/cargo-dist/tree/main/cargo-dist-schema) format.
 
-When the release package contains many files, add a dist-manifest.json file to
-define the format of each file
+### Example: mujs
 
-[cargo-dist-schema](https://github.com/axodotdev/cargo-dist/tree/main/cargo-dist-schema)
-
-Taking mujs as an example, it contains the following files
+A typical mujs release contains multiple files:
 
 ```
 .
@@ -97,40 +134,44 @@ Taking mujs as an example, it contains the following files
 └── mujs.pc
 ```
 
-[dist-manifest.json](https://github.com/ahaoboy/mujs-build/blob/main/dist-manifest.json)
+The corresponding [dist-manifest.json](https://github.com/ahaoboy/mujs-build/blob/main/dist-manifest.json) defines which files to install:
 
-```
-"mujs-aarch64-apple-darwin.tar.gz": {
-  "name": "mujs-aarch64-apple-darwin.tar.gz",
-  "target_triples": [
-    "aarch64-apple-darwin"
-  ],
-  "assets": [
-    {
-      "name": "mujs",
-      "path": "mujs",
-      "kind": "executable"
-    },
-    {
-      "name": "mujs-pp",
-      "path": "mujs-pp",
-      "kind": "executable"
-    },
-    {
-      "name": "libmujs.dylib",
-      "path": "libmujs.dylib",
-      "kind": "c_dynamic_library"
-    },
-    {
-      "name": "libmujs.a",
-      "path": "libmujs.a",
-      "kind": "c_static_library"
-    }
-  ]
-},
+```json
+{
+  "mujs-aarch64-apple-darwin.tar.gz": {
+    "name": "mujs-aarch64-apple-darwin.tar.gz",
+    "target_triples": [
+      "aarch64-apple-darwin"
+    ],
+    "assets": [
+      {
+        "name": "mujs",
+        "path": "mujs",
+        "kind": "executable"
+      },
+      {
+        "name": "mujs-pp",
+        "path": "mujs-pp",
+        "kind": "executable"
+      },
+      {
+        "name": "libmujs.dylib",
+        "path": "libmujs.dylib",
+        "kind": "c_dynamic_library"
+      },
+      {
+        "name": "libmujs.a",
+        "path": "libmujs.a",
+        "kind": "c_static_library"
+      }
+    ]
+  }
+}
 ```
 
-### zig
+### Example: Zig
+
+For tools hosted outside GitHub, you can specify direct download URLs:
 
 ```json
 {
@@ -153,5 +194,26 @@ Taking mujs as an example, it contains the following files
     }
   }
 }
-
 ```
+
+## Supported Platforms
+
+- Windows (x86_64, aarch64)
+- Linux (x86_64, aarch64, musl)
+- macOS (x86_64, aarch64/Apple Silicon)
+
+## Default Installation Location
+
+Binaries are installed to `~/.ei` by default, which is automatically added to your PATH during installation.
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Repository
+
+[https://github.com/easy-install/easy-install](https://github.com/easy-install/easy-install)
