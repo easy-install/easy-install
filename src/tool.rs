@@ -29,8 +29,9 @@ pub(crate) const INSTALLER_EXTS: [&str; 11] = [
     ".ipa",
     ".appimage",
 ];
-pub(crate) const TEXT_FILE_EXTS: [&str; 11] = [
+pub(crate) const TEXT_FILE_EXTS: [&str; 17] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
+    ".rsa", ".pub", ".ed25519", ".jsonl", ".json5", ".md5",
 ];
 pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
     ".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js", ".ts", ".jsx", ".tsx", ".wasm", ".fish",
@@ -523,7 +524,9 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
 
 pub(crate) fn expand_path(path: &str) -> String {
     let expanded = shellexpand::tilde(path);
-    path_clean::PathClean::clean(Path::new(&*expanded)).to_string_lossy().to_string()
+    path_clean::PathClean::clean(Path::new(&*expanded))
+        .to_string_lossy()
+        .to_string()
 }
 
 pub(crate) fn is_archive_file(s: &str) -> bool {
