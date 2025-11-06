@@ -640,6 +640,23 @@ extract_archive() {
 }
 
 # ============================================================================
+# CLEANUP FUNCTIONS
+# ============================================================================
+
+# Safely cleanup temporary files
+# Args: file_path1 [file_path2 ...]
+# Only removes files, not directories, to prevent accidental data loss
+cleanup_temp_files() {
+  local file_path
+  for file_path in "$@"; do
+    if [ -f "$file_path" ]; then
+      echo "Cleaning up temporary file: $file_path"
+      rm -f "$file_path"
+    fi
+  done
+}
+
+# ============================================================================
 # INSTALLATION FUNCTIONS
 # ============================================================================
 
@@ -920,6 +937,9 @@ main() {
     update_path_unix "$EI_DIR"
     add_to_github_path "$abs_path"
   fi
+
+  cleanup_temp_files "$DOWNLOAD_PATH"
+  echo "Cleanup complete"
 }
 
 main "$@"
