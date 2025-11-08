@@ -673,13 +673,61 @@ setup_install_dir() {
   fi
 }
 
+# Update PATH for Fish shell
+# Args: install_dir
+update_path_fish() {
+  local install_dir="$1"
+  local fish_config="$HOME/.config/fish/config.fish"
+
+  # Check if already in PATH
+  if echo "$PATH" | grep -q "$install_dir"; then
+    echo "Installation directory already in PATH"
+    return 0
+  fi
+
+  # Create Fish config directory if it doesn't exist
+  if [ ! -d "$HOME/.config/fish" ]; then
+    mkdir -p "$HOME/.config/fish"
+  fi
+
+  # Check if already in Fish config file
+  if [ -f "$fish_config" ] && grep -Fq "$install_dir" "$fish_config" 2>/dev/null; then
+    echo "Installation directory already configured in $fish_config"
+    echo "Please restart your shell or run: source $fish_config"
+    return 0
+  fi
+
+  # Add to Fish config file using Fish syntax
+  local fish_path_export="\n# Added by ${EI_BINARY_NAME} installer\nfish_add_path $install_dir\n"
+
+  if [ -w "$fish_config" ] || [ ! -f "$fish_config" ]; then
+    printf "%b" "$fish_path_export" >> "$fish_config"
+    echo "Added $install_dir to $fish_config"
+    echo "Please restart your shell or run: source $fish_config"
+  else
+    echo "WARNING: Cannot write to $fish_config"
+    echo "Please manually add the following to your Fish config:"
+    echo "  fish_add_path $install_dir"
+  fi
+}
+
 # Update PATH for Unix-like systems
 # Args: install_dir
 update_path_unix() {
   local install_dir="$1"
   local profile_file
+  local current_shell
 
-  # Determine profile file
+  # Detect current shell
+  current_shell="$(basename "$SHELL" 2>/dev/null)"
+
+  # Handle Fish shell separately
+  if [ "$current_shell" = "fish" ]; then
+    update_path_fish "$install_dir"
+    return 0
+  fi
+
+  # Determine profile file for other shells
   if [ -n "$BASH_VERSION" ]; then
     profile_file="$HOME/.bashrc"
   elif [ -n "$ZSH_VERSION" ]; then
