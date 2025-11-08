@@ -698,10 +698,10 @@ update_path_fish() {
   fi
 
   # Add to Fish config file using Fish syntax
-  local fish_path_export="\n# Added by ${EI_BINARY_NAME} installer\nfish_add_path $install_dir\n"
-
   if [ -w "$fish_config" ] || [ ! -f "$fish_config" ]; then
-    printf "%b" "$fish_path_export" >> "$fish_config"
+    echo "" >> "$fish_config"
+    echo "# Added by ${EI_BINARY_NAME} installer" >> "$fish_config"
+    echo "fish_add_path $install_dir" >> "$fish_config"
     echo "Added $install_dir to $fish_config"
     echo "Please restart your shell or run: source $fish_config"
   else
@@ -750,10 +750,10 @@ update_path_unix() {
   fi
 
   # Add to profile file
-  local path_export="\n# Added by ${EI_BINARY_NAME} installer\nexport PATH=\"\$PATH:$install_dir\"\n"
-
   if [ -w "$profile_file" ] || [ ! -f "$profile_file" ]; then
-    printf "%b" "$path_export" >> "$profile_file"
+    echo "" >> "$profile_file"
+    echo "# Added by ${EI_BINARY_NAME} installer" >> "$profile_file"
+    echo "export PATH=\"\$PATH:$install_dir\"" >> "$profile_file"
     echo "Added $install_dir to $profile_file"
     echo "Please restart your shell or run: source $profile_file"
   else
