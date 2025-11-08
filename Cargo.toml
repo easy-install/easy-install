@@ -31,6 +31,16 @@ anyhow = "1"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy" }
 shellexpand = "3"
 
+[features]
+default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "zip"]
+tar = ["easy-archive/tar"]
+tar-gz = ["tar", "easy-archive/tar-gz"]
+tar-xz = ["tar", "easy-archive/tar-xz"]
+tar-bz = ["tar", "easy-archive/tar-bz"]
+tar-zstd = ["tar", "easy-archive/tar-zstd"]
+zip = ["easy-archive/zip"]
+
+
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
 

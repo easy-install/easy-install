@@ -126,8 +126,7 @@ pub(crate) async fn get_bytes(url: &str, retry: usize, timeout: u64) -> Result<V
 
 pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
     let files = fmt
-        .decode(bytes)
-        .context("decode failed")?
+        .decode(bytes)?
         .into_iter()
         // FIXME: remove __MACOSX
         .filter(|i| !i.path.starts_with("__MACOSX"))
