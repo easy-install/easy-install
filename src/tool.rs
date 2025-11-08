@@ -29,16 +29,16 @@ pub(crate) const INSTALLER_EXTS: [&str; 11] = [
     ".ipa",
     ".appimage",
 ];
-pub(crate) const TEXT_FILE_EXTS: [&str; 17] = [
+pub(crate) const TEXT_FILE_EXTS: [&str; 19] = [
     ".txt", ".md", ".json", ".xml", ".csv", ".log", ".ini", ".cfg", ".conf", ".yaml", ".yml",
-    ".rsa", ".pub", ".ed25519", ".jsonl", ".json5", ".md5",
+    ".rsa", ".pub", ".ed25519", ".jsonl", ".json5", ".md5", ".sha256", ".sha512",
 ];
 pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
     ".out", ".sh", ".bash", ".zsh", ".py", ".pl", ".js", ".ts", ".jsx", ".tsx", ".wasm", ".fish",
     ".nu",
 ];
 
-pub(crate) const SKIP_FMT_LIST: [&str; 18] = [
+pub(crate) const SKIP_FMT_LIST: [&str; 20] = [
     ".sha256sum",
     ".sha256",
     ".sha1",
@@ -57,6 +57,8 @@ pub(crate) const SKIP_FMT_LIST: [&str; 18] = [
     ".asc",
     ".intoto.jsonl",
     ".jsonl",
+    ".sha256",
+    ".sha512",
 ];
 
 pub(crate) fn is_known_format(s: &str) -> bool {
