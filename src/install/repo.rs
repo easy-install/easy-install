@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::manfiest::install_from_manfiest;
 use crate::tool::not_found_asset_message;
-use crate::ty::{Output, Repo};
+use crate::types::{Output, Repo};
 use anyhow::Result;
 use tracing::trace;
 

@@ -58,7 +58,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 debug = false
 lto = true
 strip = true
-opt-level = 3
+opt-level = "s"
 codegen-units = 1
 
 [profile.bloaty]

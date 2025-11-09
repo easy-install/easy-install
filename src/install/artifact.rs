@@ -5,7 +5,7 @@ use crate::install::file::install_from_single_file;
 use crate::tool::{
     display_output, expand_path, get_common_prefix_len, get_filename, install_output_files, is_archive_file, path_to_str
 };
-use crate::ty::{Output, OutputFile, OutputItem};
+use crate::types::{Output, OutputFile, OutputItem};
 use anyhow::{Context, Result};
 use easy_archive::Fmt;
 use tracing::trace;

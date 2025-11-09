@@ -4,7 +4,7 @@ mod env;
 mod install;
 mod manfiest;
 mod tool;
-mod ty;
+mod types;
 
 use anyhow::Result;
 use clap::Parser;

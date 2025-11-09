@@ -404,7 +404,7 @@ impl TryFrom<&str> for Nightly {
 
 #[cfg(test)]
 mod test {
-    use crate::ty::{Nightly, Repo};
+    use crate::types::{Nightly, Repo};
     #[tokio::test]
     async fn test() {
         for i in [

@@ -4,7 +4,7 @@ use crate::env::get_install_dir;
 use crate::tool::{
     display_output, ends_with_exe, expand_path, get_bin_name, get_filename, install_output_files, path_to_str
 };
-use crate::ty::{Output, OutputFile, OutputItem};
+use crate::types::{Output, OutputFile, OutputItem};
 use anyhow::Result;
 use guess_target::{Os, get_local_target};
 

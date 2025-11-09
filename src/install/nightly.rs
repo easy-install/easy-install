@@ -1,7 +1,7 @@
 use crate::InstallConfig;
 use crate::install::artifact::install_from_artifact_url;
 use crate::tool::not_found_asset_message;
-use crate::ty::{Nightly, Output};
+use crate::types::{Nightly, Output};
 use anyhow::Result;
 use tracing::trace;
 

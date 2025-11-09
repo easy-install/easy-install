@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::artifact::GhArtifacts;
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
-use crate::ty::{Output, OutputFile};
+use crate::types::{Output, OutputFile};
 use anyhow::{Context, Result};
 use easy_archive::{Fmt, clean};
 use easy_archive::{human_size, mode_to_string, types::IntoEnumIterator};
@@ -588,7 +588,7 @@ pub(crate) fn get_artifact_url(
     artifacts: GhArtifacts,
     config: &InstallConfig,
 ) -> Result<Vec<(String, String)>> {
-    use crate::ty::Repo;
+    use crate::types::Repo;
 
     let mut v = vec![];
     let local_target = get_local_target();
@@ -647,7 +647,7 @@ mod test {
     use crate::{
         download::download_dist_manfiest,
         tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
-        ty::Repo,
+        types::Repo,
     };
     use github_proxy::Proxy;
 
