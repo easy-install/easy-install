@@ -15,7 +15,9 @@ is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
 is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }
 crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }
 which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "0.1" }
-easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false }
+easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false, features = [
+  "decode",
+] }
 guess-target = { git = " https://github.com/ahaoboy/guess-target.git", version = "0.1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -28,7 +30,7 @@ dirs = "6"
 reqwest = { version = "0.12", features = [
   "json",
   "rustls-tls",
-  "gzip"
+  "gzip",
   # "native-tls"
 ], default-features = false }
 regex = { version = "1", default-features = false, features = ["std"] }
