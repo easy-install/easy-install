@@ -25,8 +25,13 @@ tokio = { version = "1", features = [
 ], default-features = false }
 tracing = "0.1"
 dirs = "6"
-reqwest = { version = "0.12", features = ["json"], default-features = false }
-regex = { version = "1", default-features = false, features = ["std"]}
+reqwest = { version = "0.12", features = [
+  "json",
+  "rustls-tls",
+  "gzip"
+  # "native-tls"
+], default-features = false }
+regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
 cargo-dist-schema = "0.30"
 path-clean = "1"
