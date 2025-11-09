@@ -244,7 +244,9 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
         }
     }
 
-    std::fs::write(src, buffer).context("failed to write file")?;
+    if !buffer.is_empty() {
+        std::fs::write(src, buffer).context("failed to write file")?;
+    }
 
     #[cfg(unix)]
     if let Some(mode) = mode
