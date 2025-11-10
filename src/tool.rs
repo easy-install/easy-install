@@ -251,6 +251,7 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
     #[cfg(unix)]
     if let Some(mode) = mode
         && *mode > 0
+        && !buffer.is_empty()
     {
         std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
             .context("failed to set_permissions")?;
@@ -513,16 +514,8 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
         let new_mode = current_mode | EXEC_MASK;
         permissions.set_mode(new_mode);
 
-        if std::fs::set_permissions(file_path, permissions)
-            .context("set_permissions failed")
-            .is_ok()
-        {
-            return Ok(());
-        }
+        std::fs::set_permissions(file_path, permissions)?
     }
-    std::process::Command::new("chmod")
-        .args(["+x", file_path])
-        .output()?;
     Ok(())
 }
 
