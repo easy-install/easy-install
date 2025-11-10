@@ -20,3 +20,4 @@ jsc
 qjs-next
 ladybird
 boa
+iperf3

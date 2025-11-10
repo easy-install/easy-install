@@ -25,3 +25,4 @@ cross-env
 jsc
 qjs-next
 ladybird
+iperf3
