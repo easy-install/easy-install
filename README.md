@@ -38,6 +38,9 @@ curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/mai
 
 # Using gh-proxy
 curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | sh -s -- --proxy gh-proxy
+
+# Using ei-assets mirror (more proxy options available)
+curl -fsSL https://cdn.jsdelivr.net/gh/ahaoboy/ei-assets/install.sh | sh -s -- --proxy jsdelivr
 ```
 
 ### Cargo (Rust)
@@ -114,6 +117,21 @@ ei "https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg
 
 # Install from a local manifest file
 ei "./dist-manifest/screentogif.json"
+```
+
+## Use Cases
+
+### Replacing cargo-binstall
+
+Easy Install can be used as a drop-in replacement for cargo-binstall with more flexibility:
+
+```bash
+# Instead of: cargo binstall cargo-binstall
+# Use:
+ei cargo-bins/cargo-binstall -d ~/.cargo/bin
+
+# This installs cargo-binstall to your Cargo bin directory
+# Works with any GitHub release, not just Rust projects
 ```
 
 ## Distribution Manifest
