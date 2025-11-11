@@ -48,7 +48,7 @@ pub(crate) async fn install_from_single_file(
             install_path,
             buffer: bin,
         }];
-        install_output_files(&mut files, config.alias.clone())?;
+        install_output_files(&mut files, config.alias.clone(), config.strip, config.upx)?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
@@ -57,7 +57,7 @@ pub(crate) async fn install_from_single_file(
         };
 
         output.insert(url.to_string(), item);
-        println!("{}", display_output(&output));
+        println!("{}", display_output(&output, config));
     } else {
         println!("not found/download artifact for {url}")
     }

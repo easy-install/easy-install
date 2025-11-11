@@ -4,6 +4,7 @@ mod download;
 mod env;
 mod install;
 mod manfiest;
+mod optimize;
 mod tool;
 mod types;
 
@@ -23,6 +24,8 @@ pub struct InstallConfig {
     pub retry: usize,
     pub proxy: Proxy,
     pub timeout: u64,
+    pub strip: bool,
+    pub upx: bool,
 }
 
 impl Default for InstallConfig {
@@ -35,31 +38,13 @@ impl Default for InstallConfig {
             retry: 3,
             proxy: Proxy::Github,
             timeout: 600,
+            strip: false,
+            upx: false,
         }
     }
 }
 
 impl InstallConfig {
-    pub fn new(
-        dir: Option<String>,
-        name: Vec<String>,
-        alias: Option<String>,
-        target: Option<Target>,
-        retry: usize,
-        proxy: Proxy,
-        timeout: u64,
-    ) -> Self {
-        Self {
-            dir,
-            name,
-            alias,
-            target,
-            retry,
-            proxy,
-            timeout,
-        }
-    }
-
     pub fn get_local_target(&self) -> Vec<Target> {
         if let Some(t) = self.target {
             return vec![t];
@@ -111,6 +96,16 @@ pub struct Args {
 
     #[arg(long, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
+
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Strip debug symbols from executable"
+    )]
+    pub strip: bool,
+
+    #[arg(long, default_value_t = false, help = "Compress executable with UPX")]
+    pub upx: bool,
 }
 
 impl Default for Args {
@@ -126,6 +121,8 @@ impl Default for Args {
             retry: 3,
             proxy: None,
             timeout: None,
+            strip: false,
+            upx: false,
         }
     }
 }
@@ -145,15 +142,17 @@ impl Args {
 
         let target = self.target.or(persistent_config.target);
 
-        InstallConfig::new(
+        InstallConfig {
             dir,
-            self.name.clone(),
-            self.alias.clone(),
+            name: self.name.clone(),
+            alias: self.alias.clone(),
             target,
-            self.retry,
+            retry: self.retry,
             proxy,
             timeout,
-        )
+            strip: self.strip,
+            upx: self.upx,
+        }
     }
 }
 

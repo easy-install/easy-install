@@ -98,7 +98,7 @@ pub(crate) fn get_bin_name(s: &str) -> String {
 }
 
 const MAX_FILE_COUNT: usize = 16;
-pub(crate) fn display_output(output: &Output) -> String {
+pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String {
     let mut v = vec![];
     for i in output.values() {
         if i.files.len() > MAX_FILE_COUNT {
@@ -117,13 +117,21 @@ pub(crate) fn display_output(output: &Output) -> String {
                 .iter()
                 .fold(0, |pre, cur| pre.max(human_size(cur.size as usize).len()));
 
+            let is_single = i.files.len() == 1;
+
             for k in &i.files {
                 let s = human_size(k.size as usize);
+                let install_info = if is_single && config.strip | config.upx {
+                    let size = human_size(file_size(&k.install_path));
+                    format!("{} {}", size, k.install_path)
+                } else {
+                    k.install_path.to_string()
+                };
                 v.push(
                     [
                         mode_to_string(k.mode.unwrap_or(0), k.is_dir),
                         " ".repeat(max_size_len - s.len()) + &s,
-                        [k.origin_path.as_str(), k.install_path.as_str()].join(" -> "),
+                        [k.origin_path.as_str(), &install_info].join(" -> "),
                     ]
                     .join(" "),
                 );
@@ -136,6 +144,10 @@ pub(crate) fn display_output(output: &Output) -> String {
 fn dirname(s: &str) -> String {
     let i = s.rfind('/').map_or(s.len(), |i| i + 1);
     s[0..i].to_string()
+}
+
+fn file_size(p: &str) -> usize {
+    std::fs::metadata(p).map(|i| i.len()).unwrap_or(0) as usize
 }
 
 pub(crate) fn add_output_to_path(output: &Output) {
@@ -438,7 +450,12 @@ fn rename_alias(files: &mut [OutputFile], alias: &str) {
     first.install_path = clean(&(d + "/" + &alias_name));
 }
 
-pub(crate) fn install_output_files(files: &mut [OutputFile], alias: Option<String>) -> Result<()> {
+pub(crate) fn install_output_files(
+    files: &mut [OutputFile],
+    alias: Option<String>,
+    strip: bool,
+    upx: bool,
+) -> Result<()> {
     if let Some(alias) = alias {
         rename_alias(files, &alias);
     }
@@ -470,6 +487,26 @@ pub(crate) fn install_output_files(files: &mut [OutputFile], alias: Option<Strin
             add_execute_permission(&single_exe.install_path)?;
         }
     }
+
+    // Optimize single executable if strip or upx flags are enabled
+    if strip || upx {
+        let executables: Vec<_> = files
+            .iter()
+            .filter(|f| executable(&get_filename(&f.install_path), &f.mode))
+            .collect();
+
+        if let [single_exe] = executables.as_slice() {
+            use crate::optimize::optimize_executable;
+            let _ = optimize_executable(&single_exe.install_path, strip, upx);
+        } else if !executables.is_empty() {
+            eprintln!("Warning: --strip and --upx only work with single executable installations");
+            eprintln!(
+                "  Found {} executables, skipping optimization",
+                executables.len()
+            );
+        }
+    }
+
     Ok(())
 }
 

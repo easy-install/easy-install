@@ -14,6 +14,7 @@ A cross-platform command-line tool for effortlessly installing binaries from Git
 - 💾 Automatic PATH configuration
 - ⚙️ Persistent configuration management
 - ⏱️ Configurable network timeouts
+- 🗜️ Binary optimization with strip and UPX compression
 
 ## Installation
 
@@ -98,7 +99,36 @@ ei https://github.com/quickjs-ng/quickjs --bin=qjs
 # Install from a direct download URL
 ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
 ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
+
+# Optimize binary with strip and UPX compression
+ei https://github.com/boa-dev/boa --strip --upx
 ```
+
+### Binary Optimization
+
+Easy Install supports automatic binary optimization for single-executable installations:
+
+```bash
+# Strip debug symbols to reduce binary size
+ei https://github.com/boa-dev/boa --strip
+
+# Compress binary with UPX for maximum size reduction
+ei https://github.com/boa-dev/boa --upx
+
+# Combine both for optimal results (strip runs first, then UPX)
+ei https://github.com/boa-dev/boa --strip --upx
+# 27M boa-x86_64-pc-windows-msvc.exe -> 7.1M C:/Users/Admin/.ei/boa.exe
+```
+
+**Requirements:**
+- `--strip`: Requires the `strip` command to be available in PATH
+- `--upx`: Requires the `upx` command to be available in PATH
+
+**Notes:**
+- Optimization only works when installing a single executable file
+- If the required tool is not found, a warning is displayed but installation continues
+- Works cross-platform: you can use these flags on any OS, and they'll be silently skipped if tools aren't available
+- UPX uses `--best --lzma` flags for maximum compression
 
 ### Custom Installation Directory
 

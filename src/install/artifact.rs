@@ -77,10 +77,10 @@ pub(crate) fn install_from_download_file(
 
             v.files = files;
             if !v.files.is_empty() {
-                install_output_files(&mut v.files, config.alias.clone())?;
+                install_output_files(&mut v.files, config.alias.clone(), config.strip, config.upx)?;
                 println!("Installation Successful");
                 output.insert(url.to_string(), v);
-                println!("{}", display_output(&output));
+                println!("{}", display_output(&output, config));
             }
         }
     } else {
