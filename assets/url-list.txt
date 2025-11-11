@@ -31,3 +31,4 @@ https://github.com/easy-install/easy-install
 https://nightly.link/ahaoboy/cross-env/workflows/release/main?preview
 https://github.com/ahaoboy/jsc-build
 https://github.com/userdocs/iperf3-static/
+https://github.com/upx/upx
