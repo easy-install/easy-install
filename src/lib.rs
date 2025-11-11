@@ -8,11 +8,13 @@ mod optimize;
 mod tool;
 mod types;
 
+use crate::tool::expand_path;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
+use std::str::FromStr;
 use tool::add_output_to_path;
 
 #[derive(Debug, Clone)]
@@ -136,31 +138,31 @@ impl Default for Args {
     }
 }
 
-impl Args {
-    pub fn to_install_config(&self) -> InstallConfig {
+impl From<Args> for InstallConfig {
+    fn from(value: Args) -> Self {
         let persistent_config = PersistentConfig::load();
 
-        let proxy = self
+        let proxy = value
             .proxy
             .or(persistent_config.proxy)
             .unwrap_or(Proxy::Github);
 
-        let timeout = self.timeout.or(persistent_config.timeout).unwrap_or(600);
+        let timeout = value.timeout.or(persistent_config.timeout).unwrap_or(600);
 
-        let dir = self.dir.clone().or(persistent_config.dir);
+        let dir = value.dir.clone().or(persistent_config.dir);
 
-        let target = self.target.or(persistent_config.target);
+        let target = value.target.or(persistent_config.target);
 
         InstallConfig {
             dir,
-            name: self.name.clone(),
-            alias: self.alias.clone(),
+            name: value.name.clone(),
+            alias: value.alias.clone(),
             target,
-            retry: self.retry,
+            retry: value.retry,
             proxy,
             timeout,
-            strip: self.strip,
-            upx: self.upx,
+            strip: value.strip,
+            upx: value.upx,
         }
     }
 }
@@ -181,7 +183,7 @@ pub async fn run_main(args: Args) -> Result<()> {
     }
 
     let install_only = args.install_only;
-    let config = args.to_install_config();
+    let config = args.into();
 
     let output = install::install(&url, &config).await?;
     if !install_only {
@@ -290,7 +292,3 @@ fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Resu
 
     Ok(())
 }
-
-use std::str::FromStr;
-
-use crate::tool::expand_path;
