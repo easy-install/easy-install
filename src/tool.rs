@@ -655,6 +655,13 @@ pub(crate) fn get_artifact_url(
             ));
         }
     }
+    // If name is not empty, it means there may be multiple download sources, and in this case, no filtering is performed on the resources.
+    if !config.name.is_empty() {
+        return Ok(v
+            .into_iter()
+            .map(|(_, name, url)| (name, Repo::convert_github_url_to_proxy(&url, config.proxy)))
+            .collect());
+    }
     let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
     let mut filter = vec![];
     let mut list = vec![];
