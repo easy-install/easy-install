@@ -167,7 +167,7 @@ pub async fn run_main(args: Args) -> Result<()> {
     let url = args.url.clone();
 
     if url.is_empty() {
-        let s = Args::command().render_usage();
+        let s = Args::command().render_help();
         println!("{s}");
         return Ok(());
     }
