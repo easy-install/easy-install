@@ -8,7 +8,7 @@ mod tool;
 mod types;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
@@ -80,13 +80,13 @@ pub enum Command {
 }
 
 #[derive(Parser, Debug, Clone)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about)]
 pub struct Args {
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub cmd: Option<Command>,
 
-    #[arg()]
-    pub url: Option<String>,
+    #[arg(default_value_t = String::new())]
+    pub url: String,
 
     #[arg(short, long)]
     pub dir: Option<String>,
@@ -116,8 +116,8 @@ pub struct Args {
 impl Default for Args {
     fn default() -> Self {
         Self {
-            command: None,
-            url: None,
+            cmd: None,
+            url: "".to_string(),
             dir: None,
             install_only: false,
             name: vec![],
@@ -159,15 +159,19 @@ impl Args {
 
 pub async fn run_main(args: Args) -> Result<()> {
     // Handle config subcommand
-    if let Some(Command::Config { key, value }) = args.command {
+    if let Some(Command::Config { key, value }) = args.cmd {
         return handle_config_command(&key, value);
     }
 
     // Regular install command
-    let url = args
-        .url
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!("URL is required"))?;
+    let url = args.url.clone();
+
+    if url.is_empty() {
+        let s = Args::command().render_usage();
+        println!("{s}");
+        return Ok(());
+    }
+
     let install_only = args.install_only;
     let config = args.to_install_config();
 
