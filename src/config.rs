@@ -14,6 +14,8 @@ pub struct PersistentConfig {
     pub target: Option<Target>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<u64>,
 }
 
 impl PersistentConfig {
@@ -74,7 +76,9 @@ impl PersistentConfig {
     pub fn set_timeout(&mut self, timeout: u64) {
         self.timeout = Some(timeout);
     }
-
+    pub fn set_retry(&mut self, retry: u64) {
+        self.retry = Some(retry);
+    }
     pub fn display(&self) {
         println!("{}", serde_json::to_string_pretty(self).unwrap_or_default())
     }

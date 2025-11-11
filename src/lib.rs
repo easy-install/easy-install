@@ -9,7 +9,7 @@ mod tool;
 mod types;
 
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
@@ -53,12 +53,21 @@ impl InstallConfig {
     }
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ConfigKey {
+    Proxy,
+    Dir,
+    Target,
+    Timeout,
+    Retry,
+}
+
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Manage configuration settings
     Config {
         /// Configuration key to view or modify (proxy, dir, target, timeout)
-        key: String,
+        key: Option<ConfigKey>,
         /// Value to set (omit to view current value)
         value: Option<String>,
     },
@@ -184,11 +193,16 @@ pub async fn run_main(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
+fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Result<()> {
     let mut config = PersistentConfig::load();
 
-    match key.to_lowercase().as_str() {
-        "proxy" => {
+    let Some(key) = key else {
+        config.display();
+        return Ok(());
+    };
+
+    match key {
+        ConfigKey::Proxy => {
             if let Some(val) = value {
                 let proxy =
                     Proxy::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid proxy: {}", e))?;
@@ -207,9 +221,9 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
                 );
             }
         }
-        "dir" => {
+        ConfigKey::Dir => {
             if let Some(val) = value {
-                config.set_dir(val.clone());
+                config.set_dir(expand_path(&val));
                 config.save()?;
                 println!("Directory set to: {}", val);
             } else {
@@ -219,7 +233,7 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
                 );
             }
         }
-        "target" => {
+        ConfigKey::Target => {
             if let Some(val) = value {
                 let target =
                     Target::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid target: {}", e))?;
@@ -237,11 +251,11 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
                 );
             }
         }
-        "timeout" => {
+        ConfigKey::Timeout => {
             if let Some(val) = value {
                 let timeout: u64 = val
                     .parse()
-                    .map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a number"))?;
+                    .map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a u64"))?;
                 config.set_timeout(timeout);
                 config.save()?;
                 println!("Timeout set to: {} seconds", timeout);
@@ -255,14 +269,22 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
                 );
             }
         }
-        "show" | "list" | "all" => {
-            config.display();
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Unknown config key: {}. Valid keys are: proxy, dir, target, timeout, show",
-                key
-            ));
+        ConfigKey::Retry => {
+            if let Some(val) = value {
+                let retry: u64 = val
+                    .parse()
+                    .map_err(|_| anyhow::anyhow!("Invalid retry value, must be a u64"))?;
+                config.set_retry(retry);
+                config.save()?;
+                println!("Retry set to: {} seconds", retry);
+            } else {
+                println!(
+                    "Current retry: {}",
+                    config
+                        .retry
+                        .map_or("not set (default: 3)".to_string(), |t| format!("{}", t))
+                );
+            }
         }
     }
 
@@ -270,3 +292,5 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
 }
 
 use std::str::FromStr;
+
+use crate::tool::expand_path;
