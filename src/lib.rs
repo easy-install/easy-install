@@ -1,4 +1,5 @@
 mod artifact;
+mod config;
 mod download;
 mod env;
 mod install;
@@ -7,7 +8,8 @@ mod tool;
 mod types;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
 use tool::add_output_to_path;
@@ -59,11 +61,25 @@ impl InstallConfig {
     }
 }
 
+#[derive(Debug, Clone, Subcommand)]
+pub enum Command {
+    /// Manage configuration settings
+    Config {
+        /// Configuration key to view or modify (proxy, dir, target, timeout)
+        key: String,
+        /// Value to set (omit to view current value)
+        value: Option<String>,
+    },
+}
+
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
     #[arg()]
-    pub url: String,
+    pub url: Option<String>,
 
     #[arg(short, long)]
     pub dir: Option<String>,
@@ -83,49 +99,68 @@ pub struct Args {
     #[arg(long, default_value_t = 3)]
     pub retry: usize,
 
-    #[arg(long, default_value = "github")]
-    pub proxy: Proxy,
+    #[arg(long)]
+    pub proxy: Option<Proxy>,
 
-    #[arg(
-        long,
-        default_value_t = 600,
-        help = "Network request timeout in seconds"
-    )]
-    pub timeout: u64,
+    #[arg(long, help = "Network request timeout in seconds")]
+    pub timeout: Option<u64>,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
-            url: String::new(),
+            command: None,
+            url: None,
             dir: None,
             install_only: false,
             name: vec![],
             alias: None,
             target: None,
             retry: 3,
-            proxy: Proxy::default(),
-            timeout: 600,
+            proxy: None,
+            timeout: None,
         }
     }
 }
 
 impl Args {
     pub fn to_install_config(&self) -> InstallConfig {
+        let persistent_config = PersistentConfig::load();
+
+        let proxy = self.proxy
+            .or(persistent_config.proxy)
+            .unwrap_or(Proxy::Github);
+
+        let timeout = self.timeout
+            .or(persistent_config.timeout)
+            .unwrap_or(600);
+
+        let dir = self.dir.clone()
+            .or(persistent_config.dir);
+
+        let target = self.target
+            .or(persistent_config.target);
+
         InstallConfig::new(
-            self.dir.clone(),
+            dir,
             self.name.clone(),
             self.alias.clone(),
-            self.target,
+            target,
             self.retry,
-            self.proxy,
-            self.timeout,
+            proxy,
+            timeout,
         )
     }
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
-    let url = args.url.clone();
+    // Handle config subcommand
+    if let Some(Command::Config { key, value }) = args.command {
+        return handle_config_command(&key, value);
+    }
+
+    // Regular install command
+    let url = args.url.clone().ok_or_else(|| anyhow::anyhow!("URL is required"))?;
     let install_only = args.install_only;
     let config = args.to_install_config();
 
@@ -138,3 +173,64 @@ pub async fn run_main(args: Args) -> Result<()> {
     }
     Ok(())
 }
+
+fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
+    let mut config = PersistentConfig::load();
+
+    match key.to_lowercase().as_str() {
+        "proxy" => {
+            if let Some(val) = value {
+                let proxy = Proxy::from_str(&val)
+                    .map_err(|e| anyhow::anyhow!("Invalid proxy: {}", e))?;
+                config.set_proxy(proxy);
+                config.save()?;
+                println!("Proxy set to: {:?}", proxy);
+            } else {
+                println!("Current proxy: {}", config.proxy.map_or("not set (default: Github)".to_string(), |p| format!("{:?}", p)));
+            }
+        }
+        "dir" => {
+            if let Some(val) = value {
+                config.set_dir(val.clone());
+                config.save()?;
+                println!("Directory set to: {}", val);
+            } else {
+                println!("Current directory: {}", config.dir.as_deref().unwrap_or("not set"));
+            }
+        }
+        "target" => {
+            if let Some(val) = value {
+                let target = Target::from_str(&val)
+                    .map_err(|e| anyhow::anyhow!("Invalid target: {}", e))?;
+                config.set_target(target);
+                config.save()?;
+                println!("Target set to: {}", target.to_str());
+            } else {
+                println!("Current target: {}", config.target.map_or("not set (auto-detect)".to_string(), |t| t.to_str().to_string()));
+            }
+        }
+        "timeout" => {
+            if let Some(val) = value {
+                let timeout: u64 = val.parse().map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a number"))?;
+                config.set_timeout(timeout);
+                config.save()?;
+                println!("Timeout set to: {} seconds", timeout);
+            } else {
+                println!("Current timeout: {}", config.timeout.map_or("not set (default: 600 seconds)".to_string(), |t| format!("{} seconds", t)));
+            }
+        }
+        "show" | "list" | "all" => {
+            config.display();
+        }
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Unknown config key: {}. Valid keys are: proxy, dir, target, timeout, show",
+                key
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+use std::str::FromStr;

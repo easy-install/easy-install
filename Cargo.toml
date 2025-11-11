@@ -18,7 +18,9 @@ which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "
 easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false, features = [
   "decode",
 ] }
-guess-target = { git = " https://github.com/ahaoboy/guess-target.git", version = "0.1" }
+guess-target = { git = " https://github.com/ahaoboy/guess-target.git", version = "0.1", features = [
+  "serde",
+] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = [
@@ -38,7 +40,9 @@ tracing-subscriber = "0.3"
 cargo-dist-schema = "0.30"
 path-clean = "1"
 anyhow = "1"
-github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy" }
+github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy", features = [
+  "serde",
+] }
 shellexpand = "3"
 
 [features]

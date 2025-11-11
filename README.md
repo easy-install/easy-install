@@ -12,6 +12,8 @@ A cross-platform command-line tool for effortlessly installing binaries from Git
 - 📋 Manifest-based installations for complex packages
 - 🔄 Version-specific or latest release installation
 - 💾 Automatic PATH configuration
+- ⚙️ Persistent configuration management
+- ⏱️ Configurable network timeouts
 
 ## Installation
 
@@ -107,6 +109,43 @@ ei ./dist-manifest/mpv-easy.json -d c:/mpv-easy
 # Install to a named directory under ~/.ei/
 ei ./dist-manifest/mpv-easy.json -d custom-name
 ```
+
+### Configuration Management
+
+Easy Install supports persistent configuration through the `config` subcommand. Configuration is stored in `ei_config.json` in the same directory as the `ei` executable.
+
+```bash
+# View all configuration
+ei config show
+
+# View specific configuration
+ei config proxy
+ei config dir
+ei config target
+ei config timeout
+
+# Set configuration values
+ei config proxy gh-proxy
+ei config dir /custom/install/path
+ei config target x86_64-pc-windows-msvc
+ei config timeout 300
+
+# Configuration priority (highest to lowest):
+# 1. Command-line arguments (--proxy, --dir, --target, --timeout)
+# 2. Configuration file (ei_config.json)
+# 3. Default values
+```
+
+**Supported Configuration Keys:**
+- `proxy` - Default proxy for GitHub downloads (github, gh-proxy, ghproxy, jsdelivr, etc.)
+- `dir` - Default installation directory
+- `target` - Default target platform
+- `timeout` - Network request timeout in seconds (default: 600)
+
+**Configuration File Location:**
+- The `ei_config.json` file is created in the same directory as the `ei` executable
+- Only created when you use `ei config` commands
+- If the file exists but is corrupted, it will be automatically reset to defaults
 
 ### Manifest-Based Installation
 
