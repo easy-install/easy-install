@@ -435,6 +435,6 @@ mod test {
             .get_artifact_url_from_html(&Default::default())
             .await
             .unwrap();
-        assert!(v.len() >= 1)
+        assert!(!v.is_empty())
     }
 }

@@ -6,7 +6,7 @@ use crate::types::{Output, OutputFile};
 use anyhow::{Context, Result};
 use easy_archive::{Fmt, clean};
 use easy_archive::{human_size, mode_to_string, types::IntoEnumIterator};
-use guess_target::{Abi, Arch, Os, get_local_target, guess_target};
+use guess_target::{Abi, Arch, Os, guess_target};
 use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
@@ -271,10 +271,11 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
 pub(crate) fn get_artifact_url_from_manfiest(
     url: &str,
     manfiest: &DistManifest,
+    config: &InstallConfig,
 ) -> Vec<(String, String)> {
     let mut v = vec![];
     // let mut filter = vec![];
-    let local_target = get_local_target();
+    let local_target = config.get_local_target();
 
     for (key, art) in manfiest.artifacts.iter() {
         let filename = get_filename(key);
@@ -586,7 +587,7 @@ pub(crate) fn get_artifact_url(
     use crate::types::Repo;
 
     let mut v = vec![];
-    let local_target = get_local_target();
+    let local_target = config.get_local_target();
 
     for i in artifacts.assets {
         if is_skip(&i.browser_download_url) {
@@ -635,11 +636,27 @@ pub(crate) fn get_artifact_url(
     }
     Ok(list)
 }
+
+pub(crate) fn not_found_asset_message(url: &str, config: &InstallConfig) {
+    println!(
+        "Not found asset for os:{} arch:{} target:{} on {}",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        config
+            .get_local_target()
+            .iter()
+            .map(|i| i.to_str().to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        url
+    );
+}
 #[cfg(test)]
 mod test {
     use anyhow::Context;
 
     use crate::{
+        InstallConfig,
         download::download_dist_manfiest,
         tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
         types::Repo,
@@ -794,7 +811,7 @@ mod test {
     async fn test_cargo_dist() {
         let url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
         let manfiest = download_dist_manfiest(url, 3, 30).await.unwrap();
-        let art_url = get_artifact_url_from_manfiest(url, &manfiest);
+        let art_url = get_artifact_url_from_manfiest(url, &manfiest, &InstallConfig::default());
         assert!(!art_url.is_empty())
     }
 
@@ -888,18 +905,4 @@ mod test {
             assert_eq!(dirname(a), b);
         }
     }
-}
-
-pub(crate) fn not_found_asset_message(url: &str) {
-    println!(
-        "Not found asset for os:{} arch:{} target:{} on {}",
-        std::env::consts::OS,
-        std::env::consts::ARCH,
-        get_local_target()
-            .iter()
-            .map(|i| i.to_str().to_string())
-            .collect::<Vec<_>>()
-            .join(", "),
-        url
-    );
 }

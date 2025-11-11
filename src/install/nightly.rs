@@ -19,7 +19,7 @@ pub(crate) async fn install_from_nightly(repo: &Nightly, config: &InstallConfig)
             v.extend(install_from_artifact_url(&i, &name, config).await?);
         }
     } else {
-        not_found_asset_message(&repo.url);
+        not_found_asset_message(&repo.url, config);
     }
     Ok(v)
 }

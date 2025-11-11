@@ -52,10 +52,9 @@ impl PersistentConfig {
 
     pub fn save(&self) -> Result<()> {
         let config_path = Self::get_config_path()?;
-        let content = serde_json::to_string_pretty(self)
-            .context("Failed to serialize configuration")?;
-        std::fs::write(&config_path, content)
-            .context("Failed to write configuration file")?;
+        let content =
+            serde_json::to_string_pretty(self).context("Failed to serialize configuration")?;
+        std::fs::write(&config_path, content).context("Failed to write configuration file")?;
         println!("Configuration saved to: {}", config_path.display());
         Ok(())
     }
@@ -77,14 +76,6 @@ impl PersistentConfig {
     }
 
     pub fn display(&self) {
-        println!("Current Configuration:");
-        println!("  proxy:   {}", self.proxy.map_or("not set".to_string(), |p| format!("{:?}", p)));
-        println!("  dir:     {}", self.dir.as_deref().unwrap_or("not set"));
-        println!("  target:  {}", self.target.map_or("not set".to_string(), |t| t.to_str().to_string()));
-        println!("  timeout: {}", self.timeout.map_or("not set".to_string(), |t| format!("{} seconds", t)));
-
-        if let Ok(path) = Self::get_config_path() {
-            println!("\nConfig file: {}", path.display());
-        }
+        println!("{}", serde_json::to_string_pretty(self).unwrap_or_default())
     }
 }

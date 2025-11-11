@@ -59,6 +59,13 @@ impl InstallConfig {
             timeout,
         }
     }
+
+    pub fn get_local_target(&self) -> Vec<Target> {
+        if let Some(t) = self.target {
+            return vec![t];
+        }
+        guess_target::get_local_target()
+    }
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -127,19 +134,16 @@ impl Args {
     pub fn to_install_config(&self) -> InstallConfig {
         let persistent_config = PersistentConfig::load();
 
-        let proxy = self.proxy
+        let proxy = self
+            .proxy
             .or(persistent_config.proxy)
             .unwrap_or(Proxy::Github);
 
-        let timeout = self.timeout
-            .or(persistent_config.timeout)
-            .unwrap_or(600);
+        let timeout = self.timeout.or(persistent_config.timeout).unwrap_or(600);
 
-        let dir = self.dir.clone()
-            .or(persistent_config.dir);
+        let dir = self.dir.clone().or(persistent_config.dir);
 
-        let target = self.target
-            .or(persistent_config.target);
+        let target = self.target.or(persistent_config.target);
 
         InstallConfig::new(
             dir,
@@ -160,7 +164,10 @@ pub async fn run_main(args: Args) -> Result<()> {
     }
 
     // Regular install command
-    let url = args.url.clone().ok_or_else(|| anyhow::anyhow!("URL is required"))?;
+    let url = args
+        .url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("URL is required"))?;
     let install_only = args.install_only;
     let config = args.to_install_config();
 
@@ -180,13 +187,21 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
     match key.to_lowercase().as_str() {
         "proxy" => {
             if let Some(val) = value {
-                let proxy = Proxy::from_str(&val)
-                    .map_err(|e| anyhow::anyhow!("Invalid proxy: {}", e))?;
+                let proxy =
+                    Proxy::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid proxy: {}", e))?;
                 config.set_proxy(proxy);
                 config.save()?;
                 println!("Proxy set to: {:?}", proxy);
             } else {
-                println!("Current proxy: {}", config.proxy.map_or("not set (default: Github)".to_string(), |p| format!("{:?}", p)));
+                println!(
+                    "Current proxy: {}",
+                    config
+                        .proxy
+                        .map_or("not set (default: Github)".to_string(), |p| format!(
+                            "{:?}",
+                            p
+                        ))
+                );
             }
         }
         "dir" => {
@@ -195,28 +210,46 @@ fn handle_config_command(key: &str, value: Option<String>) -> Result<()> {
                 config.save()?;
                 println!("Directory set to: {}", val);
             } else {
-                println!("Current directory: {}", config.dir.as_deref().unwrap_or("not set"));
+                println!(
+                    "Current directory: {}",
+                    config.dir.as_deref().unwrap_or("not set")
+                );
             }
         }
         "target" => {
             if let Some(val) = value {
-                let target = Target::from_str(&val)
-                    .map_err(|e| anyhow::anyhow!("Invalid target: {}", e))?;
+                let target =
+                    Target::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid target: {}", e))?;
                 config.set_target(target);
                 config.save()?;
                 println!("Target set to: {}", target.to_str());
             } else {
-                println!("Current target: {}", config.target.map_or("not set (auto-detect)".to_string(), |t| t.to_str().to_string()));
+                println!(
+                    "Current target: {}",
+                    config
+                        .target
+                        .map_or("not set (auto-detect)".to_string(), |t| t
+                            .to_str()
+                            .to_string())
+                );
             }
         }
         "timeout" => {
             if let Some(val) = value {
-                let timeout: u64 = val.parse().map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a number"))?;
+                let timeout: u64 = val
+                    .parse()
+                    .map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a number"))?;
                 config.set_timeout(timeout);
                 config.save()?;
                 println!("Timeout set to: {} seconds", timeout);
             } else {
-                println!("Current timeout: {}", config.timeout.map_or("not set (default: 600 seconds)".to_string(), |t| format!("{} seconds", t)));
+                println!(
+                    "Current timeout: {}",
+                    config.timeout.map_or(
+                        "not set (default: 600 seconds)".to_string(),
+                        |t| format!("{} seconds", t)
+                    )
+                );
             }
         }
         "show" | "list" | "all" => {

@@ -13,7 +13,7 @@ pub(crate) async fn install_from_manfiest(
 ) -> Result<Output> {
     trace!("install_from_manfiest {}", url);
     let mut v: std::collections::HashMap<String, crate::types::OutputItem> = Output::new();
-    let art_url_list = get_artifact_url_from_manfiest(url, &manfiest);
+    let art_url_list = get_artifact_url_from_manfiest(url, &manfiest, config);
     if art_url_list.is_empty() {
         println!("install_from_manfiest {url} failed");
         return Ok(v);

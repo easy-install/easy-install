@@ -3,7 +3,8 @@ use crate::download::{extract_bytes, get_bytes};
 use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
 use crate::tool::{
-    display_output, expand_path, get_common_prefix_len, get_filename, install_output_files, is_archive_file, path_to_str
+    display_output, expand_path, get_common_prefix_len, get_filename, install_output_files,
+    is_archive_file, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
 use anyhow::{Context, Result};

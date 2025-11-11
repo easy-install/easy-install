@@ -19,7 +19,7 @@ use crate::types::{Nightly, Output, Repo};
 use anyhow::Result;
 use artifact::install_from_download_file;
 use easy_archive::Fmt;
-use guess_target::{get_local_target, guess_target};
+use guess_target::guess_target;
 use tracing::trace;
 
 pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output> {
@@ -40,7 +40,7 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
     let filename = get_filename(url);
     let name = name_no_ext(&filename);
     let guess = guess_target(&name);
-    let local = get_local_target();
+    let local = config.get_local_target();
     let item = guess.iter().find(|i| local.contains(&i.target));
     let name = item.map_or(name, |i| i.name.clone());
 

@@ -33,7 +33,7 @@ pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> 
             v.extend(install_from_artifact_url(&i, &name, config).await?);
         }
     } else {
-        not_found_asset_message(&repo.get_gh_url());
+        not_found_asset_message(&repo.get_gh_url(), config);
     }
     Ok(v)
 }
