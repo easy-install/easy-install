@@ -62,7 +62,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 debug = false
 lto = true
 strip = true
-opt-level = 's'
+opt-level = 3
 panic = "abort"
 codegen-units = 1
 
