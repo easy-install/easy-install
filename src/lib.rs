@@ -10,11 +10,10 @@ mod types;
 
 use crate::tool::expand_path;
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
-use std::str::FromStr;
 use tool::add_output_to_path;
 
 #[derive(Debug, Clone)]
@@ -55,23 +54,51 @@ impl InstallConfig {
     }
 }
 
-#[derive(Debug, Clone, ValueEnum)]
-pub enum ConfigKey {
-    Proxy,
-    Dir,
-    Target,
-    Timeout,
-    Retry,
+#[derive(Debug, Clone, Subcommand)]
+pub enum ConfigSubcommand {
+    /// View or set proxy configuration
+    Proxy {
+        /// Proxy value to set (omit to view current value)
+        value: Option<Proxy>,
+    },
+    /// View or set installation directory
+    Dir {
+        /// Directory path to set (omit to view current value)
+        value: Option<String>,
+    },
+    /// View or set target platform
+    Target {
+        /// Target platform to set (omit to view current value)
+        value: Option<Target>,
+    },
+    /// View or set network timeout in seconds
+    Timeout {
+        /// Timeout in seconds (omit to view current value)
+        value: Option<u64>,
+    },
+    /// View or set retry count
+    Retry {
+        /// Number of retries (omit to view current value)
+        value: Option<u64>,
+    },
+    /// View or set UPX compression
+    Upx {
+        /// Enable or disable UPX compression (omit to view current value)
+        value: Option<bool>,
+    },
+    /// View or set strip debug symbols
+    Strip {
+        /// Enable or disable stripping debug symbols (omit to view current value)
+        value: Option<bool>,
+    },
 }
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Manage configuration settings
     Config {
-        /// Configuration key to view or modify (proxy, dir, target, timeout)
-        key: Option<ConfigKey>,
-        /// Value to set (omit to view current value)
-        value: Option<String>,
+        #[command(subcommand)]
+        subcmd: Option<ConfigSubcommand>,
     },
 }
 
@@ -108,15 +135,11 @@ pub struct Args {
     #[arg(long, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
 
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Strip debug symbols from executable"
-    )]
-    pub strip: bool,
+    #[arg(long, help = "Strip debug symbols from executable")]
+    pub strip: Option<bool>,
 
-    #[arg(long, default_value_t = false, help = "Compress executable with UPX")]
-    pub upx: bool,
+    #[arg(long, help = "Compress executable with UPX")]
+    pub upx: Option<bool>,
 }
 
 impl Default for Args {
@@ -132,8 +155,8 @@ impl Default for Args {
             retry: 3,
             proxy: None,
             timeout: None,
-            strip: false,
-            upx: false,
+            strip: None,
+            upx: None,
         }
     }
 }
@@ -152,6 +175,8 @@ impl From<Args> for InstallConfig {
         let dir = value.dir.clone().or(persistent_config.dir);
 
         let target = value.target.or(persistent_config.target);
+        let strip = value.strip.or(persistent_config.strip).unwrap_or(false);
+        let upx = value.upx.or(persistent_config.upx).unwrap_or(false);
 
         InstallConfig {
             dir,
@@ -161,16 +186,16 @@ impl From<Args> for InstallConfig {
             retry: value.retry,
             proxy,
             timeout,
-            strip: value.strip,
-            upx: value.upx,
+            strip,
+            upx,
         }
     }
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
     // Handle config subcommand
-    if let Some(Command::Config { key, value }) = args.cmd {
-        return handle_config_command(&key, value);
+    if let Some(Command::Config { subcmd }) = args.cmd {
+        return handle_config_command(subcmd);
     }
 
     // Regular install command
@@ -195,19 +220,17 @@ pub async fn run_main(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Result<()> {
+fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
     let mut config = PersistentConfig::load();
 
-    let Some(key) = key else {
+    let Some(subcmd) = subcmd else {
         config.display();
         return Ok(());
     };
 
-    match key {
-        ConfigKey::Proxy => {
-            if let Some(val) = value {
-                let proxy =
-                    Proxy::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid proxy: {}", e))?;
+    match subcmd {
+        ConfigSubcommand::Proxy { value } => {
+            if let Some(proxy) = value {
                 config.set_proxy(proxy);
                 config.save()?;
                 println!("Proxy set to: {:?}", proxy);
@@ -223,7 +246,7 @@ fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Resu
                 );
             }
         }
-        ConfigKey::Dir => {
+        ConfigSubcommand::Dir { value } => {
             if let Some(val) = value {
                 config.set_dir(expand_path(&val));
                 config.save()?;
@@ -235,10 +258,8 @@ fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Resu
                 );
             }
         }
-        ConfigKey::Target => {
-            if let Some(val) = value {
-                let target =
-                    Target::from_str(&val).map_err(|e| anyhow::anyhow!("Invalid target: {}", e))?;
+        ConfigSubcommand::Target { value } => {
+            if let Some(target) = value {
                 config.set_target(target);
                 config.save()?;
                 println!("Target set to: {}", target.to_str());
@@ -253,11 +274,8 @@ fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Resu
                 );
             }
         }
-        ConfigKey::Timeout => {
-            if let Some(val) = value {
-                let timeout: u64 = val
-                    .parse()
-                    .map_err(|_| anyhow::anyhow!("Invalid timeout value, must be a u64"))?;
+        ConfigSubcommand::Timeout { value } => {
+            if let Some(timeout) = value {
                 config.set_timeout(timeout);
                 config.save()?;
                 println!("Timeout set to: {} seconds", timeout);
@@ -271,20 +289,45 @@ fn handle_config_command(key: &Option<ConfigKey>, value: Option<String>) -> Resu
                 );
             }
         }
-        ConfigKey::Retry => {
-            if let Some(val) = value {
-                let retry: u64 = val
-                    .parse()
-                    .map_err(|_| anyhow::anyhow!("Invalid retry value, must be a u64"))?;
+        ConfigSubcommand::Retry { value } => {
+            if let Some(retry) = value {
                 config.set_retry(retry);
                 config.save()?;
-                println!("Retry set to: {} seconds", retry);
+                println!("Retry set to: {}", retry);
             } else {
                 println!(
                     "Current retry: {}",
                     config
                         .retry
                         .map_or("not set (default: 3)".to_string(), |t| format!("{}", t))
+                );
+            }
+        }
+        ConfigSubcommand::Upx { value } => {
+            if let Some(upx) = value {
+                config.set_upx(upx);
+                config.save()?;
+                println!("Upx set to: {}", upx);
+            } else {
+                println!(
+                    "Current upx: {}",
+                    config
+                        .upx
+                        .map_or("not set (default: false)".to_string(), |t| format!("{}", t))
+                );
+            }
+        }
+        ConfigSubcommand::Strip { value } => {
+            if let Some(strip) = value {
+                config.set_strip(strip);
+                config.save()?;
+                println!("Strip set to: {}", strip);
+            } else {
+                println!(
+                    "Current strip: {}",
+                    config
+                        .strip
+                        .map_or("not set (default: false)".to_string(), |t| format!("{}", t))
                 );
             }
         }

@@ -16,6 +16,10 @@ pub struct PersistentConfig {
     pub timeout: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upx: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strip: Option<bool>,
 }
 
 impl PersistentConfig {
@@ -78,6 +82,12 @@ impl PersistentConfig {
     }
     pub fn set_retry(&mut self, retry: u64) {
         self.retry = Some(retry);
+    }
+    pub fn set_upx(&mut self, upx: bool) {
+        self.upx = Some(upx);
+    }
+    pub fn set_strip(&mut self, strip: bool) {
+        self.strip = Some(strip);
     }
     pub fn display(&self) {
         println!("{}", serde_json::to_string_pretty(self).unwrap_or_default())
