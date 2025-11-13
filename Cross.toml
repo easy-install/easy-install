@@ -1,8 +1,0 @@
-[target.aarch64-linux-android]
-pre-build = ["apt update && apt install libssl-dev -y"]
-
-[target.aarch64-unknown-linux-gnu]
-pre-build = ["apt update && apt install libssl-dev -y"]
-
-[target.aarch64-unknown-linux-musl]
-pre-build = ["apt update && apt install libssl-dev -y"]

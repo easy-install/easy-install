@@ -56,10 +56,6 @@ tar-bz = ["tar", "easy-archive/tar-bz"]
 tar-zstd = ["tar", "easy-archive/tar-zstd"]
 zip = ["easy-archive/zip"]
 
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
-
 [profile.release]
 debug = false
 lto = true
