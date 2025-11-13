@@ -3,9 +3,15 @@ use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
+use std::sync::OnceLock;
 use std::time::Duration;
-use tokio::time::sleep;
-use tracing::trace;
+use tokio::io::AsyncWriteExt;
+use tokio::process::Command;
+use tokio::time::{sleep, timeout};
+use tracing::{trace, warn};
+
+// Credential cache for GitHub token detection
+static GITHUB_TOKEN_CACHE: OnceLock<Option<String>> = OnceLock::new();
 
 async fn retry_request<F, Fut, T>(
     max_retries: usize,
@@ -57,16 +63,226 @@ where
     Err(last_error.unwrap())
 }
 
-fn get_headers() -> Result<HeaderMap> {
+async fn detect_github_token() -> Option<String> {
+    // Check cache first
+    if let Some(cached) = GITHUB_TOKEN_CACHE.get() {
+        return cached.clone();
+    }
+
+    // Try detection methods in order
+    let token = if let Some(t) = try_github_cli_token().await {
+        Some(t)
+    } else if let Some(t) = try_git_credential_manager().await {
+        Some(t)
+    } else {
+        std::env::var("GITHUB_TOKEN").ok()
+    };
+
+    // Cache the result (even if None)
+    let _ = GITHUB_TOKEN_CACHE.set(token.clone());
+
+    token
+}
+
+async fn try_github_cli_token() -> Option<String> {
+    trace!("Attempting to detect GitHub CLI token");
+
+    let timeout_duration = Duration::from_secs(5);
+
+    // Platform-specific command execution
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("powershell");
+        c.args(["-c", "gh auth token"]);
+        c
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let mut c = Command::new("gh");
+        c.arg("auth").arg("token");
+        c
+    };
+
+    // Execute command with timeout
+    let result = timeout(timeout_duration, cmd.output()).await;
+
+    match result {
+        Ok(Ok(output)) if output.status.success() => {
+            let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !token.is_empty() {
+                trace!("Successfully detected GitHub CLI token");
+                return Some(token);
+            }
+            trace!("GitHub CLI returned empty token");
+            None
+        }
+        Ok(Ok(output)) => {
+            trace!("GitHub CLI command failed with status: {}", output.status);
+            None
+        }
+        Ok(Err(e)) => {
+            trace!("Failed to execute GitHub CLI command: {}", e);
+            None
+        }
+        Err(_) => {
+            warn!("GitHub CLI token detection timed out after 5 seconds");
+            None
+        }
+    }
+}
+
+struct GitCredentialOutput {
+    protocol: Option<String>,
+    host: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+impl GitCredentialOutput {
+    fn parse(output: &str) -> Self {
+        let mut result = GitCredentialOutput {
+            protocol: None,
+            host: None,
+            username: None,
+            password: None,
+        };
+
+        for line in output.lines() {
+            if let Some((key, value)) = line.split_once('=') {
+                match key {
+                    "protocol" => result.protocol = Some(value.to_string()),
+                    "host" => result.host = Some(value.to_string()),
+                    "username" => result.username = Some(value.to_string()),
+                    "password" => result.password = Some(value.to_string()),
+                    _ => {}
+                }
+            }
+        }
+
+        result
+    }
+
+    fn get_token(&self) -> Option<String> {
+        self.password.clone()
+    }
+}
+
+async fn try_git_credential_manager() -> Option<String> {
+    trace!("Attempting to detect Git Credential Manager token");
+
+    let timeout_duration = Duration::from_secs(5);
+
+    // Platform-specific command execution
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("powershell");
+        c.args(["-c", "git credential fill"]);
+        c.stdin(std::process::Stdio::piped());
+        c.stdout(std::process::Stdio::piped());
+        c.stderr(std::process::Stdio::piped());
+        c
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let mut c = Command::new("git");
+        c.args(["credential", "fill"]);
+        c.stdin(std::process::Stdio::piped());
+        c.stdout(std::process::Stdio::piped());
+        c.stderr(std::process::Stdio::piped());
+        c
+    };
+
+    // Spawn the process
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            trace!("Failed to spawn git credential fill command: {}", e);
+            return None;
+        }
+    };
+
+    // Write input to stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        let input = "protocol=https\nhost=github.com\n\n";
+        if let Err(e) = timeout(timeout_duration, stdin.write_all(input.as_bytes())).await {
+            trace!("Failed to write to git credential stdin: {}", e);
+            let _ = child.kill().await;
+            return None;
+        }
+    } else {
+        trace!("Failed to get stdin for git credential command");
+        let _ = child.kill().await;
+        return None;
+    }
+
+    // Wait for output with timeout
+    let result = timeout(timeout_duration, child.wait_with_output()).await;
+
+    match result {
+        Ok(Ok(output)) if output.status.success() => {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            let parsed = GitCredentialOutput::parse(&output_str);
+
+            if let Some(token) = parsed.get_token()
+                && !token.is_empty()
+            {
+                trace!("Successfully detected Git Credential Manager token");
+                return Some(token);
+            }
+            trace!("Git Credential Manager returned no password");
+            None
+        }
+        Ok(Ok(output)) => {
+            trace!(
+                "Git credential command failed with status: {}",
+                output.status
+            );
+            None
+        }
+        Ok(Err(e)) => {
+            trace!("Failed to execute git credential command: {}", e);
+            None
+        }
+        Err(_) => {
+            warn!("Git Credential Manager detection timed out after 5 seconds");
+            None
+        }
+    }
+}
+
+fn is_github_url(url: &str) -> bool {
+    // Parse URL to check the actual host, not just string contains
+    if let Ok(parsed) = reqwest::Url::parse(url)
+        && let Some(host) = parsed.host_str()
+    {
+        return host == "github.com"
+            || host.ends_with(".github.com")
+            || host == "githubusercontent.com"
+            || host.ends_with(".githubusercontent.com");
+    }
+    false
+}
+
+async fn get_headers(url: &str) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     headers.append("User-Agent", HeaderValue::from_static("reqwest"));
-    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-        headers.append(
-            "Authorization",
-            HeaderValue::from_str(&format!("token {token}"))
-                .context("Authorization token error")?,
-        );
-    };
+
+    // Only add GitHub token for GitHub URLs to prevent token leakage
+    if is_github_url(url) {
+        if let Some(token) = detect_github_token().await {
+            headers.append(
+                "Authorization",
+                HeaderValue::from_str(&format!("Bearer {}", token))
+                    .context("Authorization token error")?,
+            );
+            trace!("Using detected GitHub token for authentication");
+        } else {
+            trace!("No GitHub token detected, proceeding without authentication");
+        }
+    }
+
     Ok(headers)
 }
 
@@ -89,7 +305,12 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
         retry,
         || async {
             let client = create_client(timeout)?;
-            let response = match client.get(&url_clone).headers(get_headers()?).send().await {
+            let response = match client
+                .get(&url_clone)
+                .headers(get_headers(&url_clone).await?)
+                .send()
+                .await
+            {
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
@@ -142,7 +363,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
         || async {
             trace!("download {}", url_clone);
             let client = create_client(timeout)?;
-            let headers = get_headers()?;
+            let headers = get_headers(&url_clone).await?;
             let response = match client.get(&url_clone).headers(headers).send().await {
                 Ok(resp) => resp,
                 Err(e) => {
