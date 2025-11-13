@@ -30,6 +30,9 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/easy-install/easy-
 # Direct installation
 curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
+# wget
+wget -qO- https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
+
 # Using proxy (for restricted networks)
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
