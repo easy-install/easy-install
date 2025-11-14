@@ -11,7 +11,7 @@ use regex::Regex;
 use std::collections::HashSet;
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub(crate) const DEEP: usize = 3;
@@ -97,6 +97,10 @@ pub(crate) fn get_bin_name(s: &str) -> String {
     s.to_string()
 }
 
+fn abs_path(p: &str) -> PathBuf {
+    std::path::absolute(p).unwrap_or(p.into())
+}
+
 const MAX_FILE_COUNT: usize = 16;
 pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String {
     let mut v = vec![];
@@ -107,7 +111,7 @@ pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String 
                 [
                     human_size(sum_size as usize).as_str(),
                     format!("(total {})", i.files.len()).as_str(),
-                    i.install_dir.as_str(),
+                    &path_to_str(abs_path(&i.install_dir).as_path()),
                 ]
                 .join(" "),
             );

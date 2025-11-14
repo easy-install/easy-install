@@ -45,8 +45,12 @@ pub(crate) fn install_from_download_file(
                 return install_from_download_file(first.buffer.clone(), fmt, url, &name, config);
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
-            if file_list.len() > 1 && config.dir.is_none() {
-                install_dir.push(name);
+            if file_list.len() > 1 {
+                if let Some(alias) = &config.alias {
+                    install_dir.push(alias);
+                } else {
+                    install_dir.push(name);
+                }
             }
 
             let prefix_len = get_common_prefix_len(
@@ -57,7 +61,6 @@ pub(crate) fn install_from_download_file(
                     .as_slice(),
             );
 
-            let nest = file_list.len() > 1;
             for entry in file_list {
                 let size = entry.buffer.len() as u32;
                 let is_dir = entry.is_dir;
@@ -65,9 +68,6 @@ pub(crate) fn install_from_download_file(
                     continue;
                 }
                 let mut dst = install_dir.clone();
-                if nest {
-                    dst.push(name);
-                }
                 dst.push(&entry.path[prefix_len..]);
                 files.push(OutputFile {
                     install_path: path_to_str(&dst),
