@@ -26,3 +26,5 @@ jsc
 qjs-next
 ladybird
 iperf3
+hx
+fastfetch

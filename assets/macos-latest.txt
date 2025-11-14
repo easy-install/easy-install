@@ -21,3 +21,5 @@ qjs-next
 ladybird
 boa
 iperf3
+hx
+fastfetch
