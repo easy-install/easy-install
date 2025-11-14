@@ -27,4 +27,4 @@ jsc
 qjs-next
 iperf3
 hx
-fastfetch
+kibi
