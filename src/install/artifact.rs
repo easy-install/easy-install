@@ -34,9 +34,6 @@ pub(crate) fn install_from_download_file(
             install_dir.push(target_dir);
         }
 
-        let install_dir_str = path_to_str(&install_dir);
-        v.install_dir = install_dir_str;
-
         if let Ok(download_files) = extract_bytes(bytes, fmt) {
             if let &[first] = &download_files.as_slice()
                 && let Some(fmt) = Fmt::guess(&first.path)
@@ -52,6 +49,8 @@ pub(crate) fn install_from_download_file(
                     install_dir.push(name);
                 }
             }
+            let install_dir_str = path_to_str(&install_dir);
+            v.install_dir = install_dir_str;
 
             let prefix_len = get_common_prefix_len(
                 file_list

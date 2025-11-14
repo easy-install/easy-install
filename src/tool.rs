@@ -80,6 +80,21 @@ pub(crate) fn is_known_format(s: &str) -> bool {
 
     false
 }
+const LICENSE_PREFIXES: &[&str] = &["license", "licence", "copying", "unlicense", "copyright"];
+const LICENSE_EXTS: &[&str] = &["", "md", "txt", "rst"];
+pub fn is_license_file(p: &str) -> bool {
+    let name = get_filename(p).to_lowercase();
+    let (stem, ext) = match name.rsplit_once('.') {
+        Some((s, e)) => (s, e),
+        None => (name.as_str(), ""),
+    };
+    if !LICENSE_EXTS.contains(&ext) {
+        return false;
+    }
+    LICENSE_PREFIXES
+        .iter()
+        .any(|prefix| stem.starts_with(prefix))
+}
 
 pub(crate) fn is_skip(s: &str) -> bool {
     s.rsplit('/').next().unwrap_or_default().starts_with('.')
@@ -158,11 +173,13 @@ pub(crate) fn add_output_to_path(output: &Output) {
     let mut maybe_exe = HashSet::new();
     for v in output.values() {
         for f in &v.files {
-            if !is_skip(&f.install_path) {
+            let skip = !is_skip(&f.install_path) && !is_license_file(&f.install_path);
+            if !skip {
                 maybe_exe.insert(f.install_path.clone());
             }
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP
+                && !skip
                 && let Some(p) = check(f)
             {
                 let msg = if p != f.install_path {
