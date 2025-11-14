@@ -57,6 +57,7 @@ pub(crate) fn install_from_download_file(
                     .as_slice(),
             );
 
+            let nest = file_list.len() > 1;
             for entry in file_list {
                 let size = entry.buffer.len() as u32;
                 let is_dir = entry.is_dir;
@@ -64,6 +65,9 @@ pub(crate) fn install_from_download_file(
                     continue;
                 }
                 let mut dst = install_dir.clone();
+                if nest {
+                    dst.push(name);
+                }
                 dst.push(&entry.path[prefix_len..]);
                 files.push(OutputFile {
                     install_path: path_to_str(&dst),
