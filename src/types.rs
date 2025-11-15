@@ -356,6 +356,9 @@ pub(crate) struct Nightly {
 impl Nightly {
     pub(crate) async fn get_artifact(&self, retry: usize, timeout: u64) -> Result<GhArtifacts> {
         let html = download(&self.url, retry, timeout).await?.text().await?;
+        if html.contains("class=\"absent\"") {
+            return Ok(Default::default());
+        }
         let re = Regex::new(r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#).unwrap();
         let mut assets = HashSet::new();
 
