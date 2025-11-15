@@ -6,6 +6,7 @@ use crate::tool::get_artifact_url;
 use anyhow::{Context, Result};
 use github_proxy::{Proxy, Resource};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use tracing::trace;
@@ -32,6 +33,12 @@ pub(crate) struct Repo {
     pub(crate) owner: String,
     pub(crate) name: String,
     pub(crate) tag: Option<String>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
+struct JsdelivrPackage {
+    tags: HashMap<String, String>,
+    versions: Vec<String>,
 }
 
 impl TryFrom<&str> for Repo {
@@ -216,10 +223,30 @@ impl Repo {
         let releases_url = format!("https://github.com/{}/{}/releases", self.owner, self.name);
         trace!("Fetching releases page to get latest tag: {}", releases_url);
 
-        let response = download(&releases_url, retry, timeout).await?;
-        let html = response.text().await?;
+        if let Ok(response) = download(&releases_url, retry, timeout).await
+            && let Ok(html) = response.text().await
+        {
+            return Self::parse_latest_tag(&html);
+        }
 
-        Self::parse_latest_tag(&html)
+        let pkg_url = format!(
+            "https://data.jsdelivr.com/v1/package/gh/{}/{}",
+            self.owner, self.name
+        );
+        let response = download(&pkg_url, retry, timeout).await?;
+        let pkg: JsdelivrPackage = response.json().await?;
+
+        if let Some(v) = pkg.tags.get("latest") {
+            return Ok(v.to_string());
+        };
+
+        if let Some(v) = pkg.versions.first() {
+            return Ok(v.to_string());
+        }
+
+        Err(anyhow::anyhow!(
+            "No latest tag found from GitHub or jsDelivr"
+        ))
     }
 
     async fn get_release_page_url(&self, retry: usize, timeout: u64) -> Result<String> {
