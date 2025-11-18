@@ -60,6 +60,9 @@ EI_TYPE="${EI_TYPE:-release}"
 # Examples: "main", "master", "v1.0.0", "abc123"
 EI_REF="${EI_REF:-main}"
 
+# EI_MIN_DISK_SPACE to specify minimum required disk space in MB (default: 0)
+EI_MIN_DISK_SPACE=10
+
 # ============================================================================
 # DEFAULTS - These can be overridden by command-line arguments
 # ============================================================================
@@ -538,11 +541,13 @@ get_available_disk_space() {
   elif [ "$IS_DARWIN" = true ]; then
     # macOS: df uses 512-byte blocks by default, convert to MB
     # Column 4 is available space in 512-byte blocks
-    available_space=$(df "$dir" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 2048}')
+    local abs_path=$(resolve_path $EI_DIR)
+    available_space=$(df "$abs_path" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 2048}')
   else
     # Linux/Android: use -k for KB output (more compatible), then convert to MB
     # Column 4 is available space in KB
-    available_space=$(df -k "$dir" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 1024}')
+    local abs_path=$(resolve_path $EI_DIR)
+    available_space=$(df -k "$abs_path" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 1024}')
   fi
 
   echo "$available_space"
