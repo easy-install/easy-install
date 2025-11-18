@@ -471,13 +471,38 @@ fn rename_alias(files: &mut [OutputFile], alias: &str) {
     first.install_path = clean(&(d + "/" + &alias_name));
 }
 
-pub(crate) fn install_output_files(
-    files: &mut [OutputFile],
-    alias: Option<String>,
-    strip: bool,
-    upx: bool,
-) -> Result<()> {
-    if let Some(alias) = alias {
+fn format_size(n: u64) -> String {
+    humansize::format_size(
+        n,
+        if cfg!(windows) {
+            humansize::WINDOWS
+        } else {
+            humansize::DECIMAL
+        },
+    )
+}
+
+pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()> {
+    let sum = files.iter().map(|i| i.size).sum::<u32>() as usize;
+    let disk = fs4::available_space(dir).unwrap_or(0);
+
+    if disk < sum as u64 {
+        return Err(anyhow::anyhow!(
+            r#"Insufficient disk space for installation
+  Installation directory: {}
+  Available space: {}
+  Required space: {}"#,
+            dir.to_string_lossy(),
+            format_size(disk),
+            human_size(sum),
+        ));
+    }
+
+    Ok(())
+}
+
+pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallConfig) -> Result<()> {
+    if let Some(alias) = config.alias.clone() {
         rename_alias(files, &alias);
     }
 
@@ -510,7 +535,7 @@ pub(crate) fn install_output_files(
     }
 
     // Optimize single executable if strip or upx flags are enabled
-    if strip || upx {
+    if config.strip || config.upx {
         let executables: Vec<_> = files
             .iter()
             .filter(|f| executable(&get_filename(&f.install_path), &f.mode))
@@ -518,7 +543,7 @@ pub(crate) fn install_output_files(
 
         if let [single_exe] = executables.as_slice() {
             use crate::optimize::optimize_executable;
-            let _ = optimize_executable(&single_exe.install_path, strip, upx);
+            let _ = optimize_executable(&single_exe.install_path, config.strip, config.upx);
         } else if !executables.is_empty() {
             eprintln!("Warning: --strip and --upx only work with single executable installations");
             eprintln!(

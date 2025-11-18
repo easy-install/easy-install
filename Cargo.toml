@@ -46,6 +46,8 @@ github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy
   "serde",
 ] }
 shellexpand = "3"
+fs4 = "0.13"
+humansize = "2"
 
 [features]
 default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "zip"]

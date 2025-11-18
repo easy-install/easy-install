@@ -2,8 +2,8 @@ use crate::InstallConfig;
 use crate::download::download_binary;
 use crate::env::get_install_dir;
 use crate::tool::{
-    display_output, ends_with_exe, expand_path, get_bin_name, get_filename, install_output_files,
-    path_to_str,
+    check_disk_space, display_output, ends_with_exe, expand_path, get_bin_name, get_filename,
+    install_output_files, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
 use anyhow::Result;
@@ -48,7 +48,8 @@ pub(crate) async fn install_from_single_file(
             install_path,
             buffer: bin,
         }];
-        install_output_files(&mut files, config.alias.clone(), config.strip, config.upx)?;
+        check_disk_space(&files, &install_dir)?;
+        install_output_files(&mut files, config)?;
         println!("Installation Successful");
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
