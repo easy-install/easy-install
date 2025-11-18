@@ -484,7 +484,13 @@ fn format_size(n: u64) -> String {
 
 pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()> {
     let sum = files.iter().map(|i| i.size).sum::<u32>() as usize;
-    let disk = fs4::available_space(dir).unwrap_or(0);
+    let disk = if dir.exists() {
+        fs4::available_space(dir).unwrap_or(0)
+    } else if let Some(p) = dir.parent() {
+        fs4::available_space(p).unwrap_or(0)
+    } else {
+        0
+    };
 
     if disk < sum as u64 {
         return Err(anyhow::anyhow!(
