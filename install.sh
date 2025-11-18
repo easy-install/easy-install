@@ -541,12 +541,12 @@ get_available_disk_space() {
   elif [ "$IS_DARWIN" = true ]; then
     # macOS: df uses 512-byte blocks by default, convert to MB
     # Column 4 is available space in 512-byte blocks
-    local abs_path=$(resolve_path $EI_DIR)
+    local abs_path=$(resolve_path $dir)
     available_space=$(df "$abs_path" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 2048}')
   else
     # Linux/Android: use -k for KB output (more compatible), then convert to MB
     # Column 4 is available space in KB
-    local abs_path=$(resolve_path $EI_DIR)
+    local abs_path=$(resolve_path $dir)
     available_space=$(df -k "$abs_path" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 1024}')
   fi
 
@@ -559,7 +559,7 @@ get_available_disk_space() {
 check_disk_space() {
   local install_dir="$1"
   local required_space="$2"
-  required_space=$((required_space  + 0))
+  required_space=$((required_space + 0))
 
   # Skip check if required space is 0
   if [ "$required_space" -eq 0 ]; then
