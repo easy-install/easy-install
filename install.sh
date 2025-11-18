@@ -18,6 +18,11 @@
 #   Used only when EI_TYPE=file
 #   Example: export EI_REF=main
 #
+#   Set EI_MIN_DISK_SPACE to specify minimum required disk space in MB (default: 0)
+#   - Set to 0 to skip disk space check (default)
+#   - Set to a positive number to enforce minimum disk space requirement
+#   Example: export EI_MIN_DISK_SPACE=200
+#
 # Usage:
 #   bash install.sh [OPTIONS]
 #
@@ -33,6 +38,7 @@
 #   bash install.sh --target aarch64-unknown-linux-musl
 #   bash install.sh --proxy jsdelivr --tag v1.0.0
 #   EI_DIR=~/.ei bash install.sh
+#   EI_MIN_DISK_SPACE=200 bash install.sh
 #
 
 set -e
@@ -59,6 +65,9 @@ EI_REF="${EI_REF:-main}"
 # ============================================================================
 PROXY="github"
 TARGET=""
+
+# to specify minimum required disk space in MB (default: 0)
+EI_MIN_DISK_SPACE=10
 
 # ============================================================================
 # PLATFORM MAPPING (Bash 3.2 compatible - no associative arrays)
@@ -318,10 +327,13 @@ Options:
   --help            Display this help message
 
 Environment Variables:
-  EI_DIR        Installation directory (default: ~/.ei)
-  EI_TYPE       Resource type: "release" or "file" (default: release)
-  EI_REF        Reference for file type (default: main)
-                Used only when EI_TYPE=file
+  EI_DIR              Installation directory (default: ~/.ei)
+  EI_TYPE             Resource type: "release" or "file" (default: release)
+  EI_REF              Reference for file type (default: main)
+                      Used only when EI_TYPE=file
+  EI_MIN_DISK_SPACE   Minimum required disk space in MB (default: 0)
+                      Set to 0 to skip disk space check
+                      Set to positive number to enforce minimum requirement
 
 Examples:
   bash install.sh
@@ -331,6 +343,7 @@ Examples:
   EI_DIR=~/.local/bin bash install.sh
   EI_TYPE=file EI_REF=main bash install.sh
   EI_TYPE=file EI_REF=v1.0.0 bash install.sh --proxy jsdelivr
+  EI_MIN_DISK_SPACE=100 bash install.sh
 
 Supported Platforms (Rust target triples):
   x86_64-unknown-linux-musl, x86_64-unknown-linux-gnu
@@ -495,6 +508,76 @@ check_dependencies() {
   if [ -n "$missing_deps" ]; then
     echo "ERROR: Missing required dependencies:$missing_deps"
     echo "Please install the missing tools and try again."
+    exit 1
+  fi
+}
+
+# Get available disk space for a directory
+# Args: directory path
+# Returns: available space in MB, or empty string on failure
+get_available_disk_space() {
+  local dir="$1"
+  local available_space=""
+
+  # Detect OS type from uname
+  local os_name
+  os_name="$(uname -s)"
+
+  case "$os_name" in
+    Linux|Darwin|Android)
+      # Use df command for Unix-like systems
+      # -BM outputs in MB, awk extracts the available space column
+      local abs_path=$(resolve_path $EI_DIR)
+      available_space=$(df -BM "$abs_path" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
+      ;;
+    MINGW*|MSYS*|CYGWIN*|Win*)
+      # Use PowerShell for Windows
+      available_space=$(powershell -c "[int]((Get-Item '$dir').PSDrive.Free / 1MB)" 2>/dev/null)
+      ;;
+    *)
+      # Unknown OS, try df as fallback
+      available_space=$(df -BM "$dir" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
+      ;;
+  esac
+
+  echo "$available_space"
+}
+
+# Check if there is sufficient disk space for installation
+# Args: installation directory, minimum required space in MB
+# Exits with error if space is insufficient
+check_disk_space() {
+  local install_dir="$1"
+  local required_space="$2"
+  required_space=$((required_space  + 0))
+
+  # Skip check if required space is 0
+  if [ "$required_space" -eq 0 ]; then
+    return 0
+  fi
+
+  # Get available disk space
+  local available_space
+  available_space=$(get_available_disk_space "$install_dir")
+  available_space=$((available_space  + 0))
+
+  # If we couldn't get disk space, warn but continue
+  if [ -z "$available_space" ]; then
+    echo "WARNING: Unable to check disk space, continuing installation" >&2
+    return 0
+  fi
+
+  # Check if space is sufficient
+  if [ "$available_space" -lt "$required_space" ]; then
+    local shortage=$((required_space - available_space))
+    echo ""
+    echo "ERROR: Insufficient disk space for installation" >&2
+    echo "  Installation directory: $install_dir" >&2
+    echo "  Available space: ${available_space} MB" >&2
+    echo "  Required space: ${required_space} MB" >&2
+    echo "" >&2
+    echo "Please free up at least ${shortage} MB of disk space or choose a different installation directory using:" >&2
+    echo "  EI_DIR=/other/path bash install.sh" >&2
     exit 1
   fi
 }
@@ -880,6 +963,13 @@ main() {
   setup_install_dir "$OS_TYPE"
   local abs_path=$(resolve_path $EI_DIR)
   echo "Installation directory: $abs_path" $EI_DIR
+
+  # Check disk space
+  if [ "$EI_MIN_DISK_SPACE" -gt 0 ]; then
+    echo "Checking disk space..."
+    check_disk_space "$EI_DIR" "$EI_MIN_DISK_SPACE"
+    echo "Disk space check passed"
+  fi
 
   # Create temporary download directory
   if command_exists mktemp; then
