@@ -66,8 +66,21 @@ EI_REF="${EI_REF:-main}"
 PROXY="github"
 TARGET=""
 
-# to specify minimum required disk space in MB (default: 0)
-EI_MIN_DISK_SPACE=10
+# ============================================================================
+# OS DETECTION - Global variables set once at script start
+# ============================================================================
+OS_NAME="$(uname -s)"
+IS_WINDOWS=false
+IS_DARWIN=false
+
+case "$OS_NAME" in
+  MINGW*|MSYS*|CYGWIN*|Win*)
+    IS_WINDOWS=true
+    ;;
+  Darwin)
+    IS_DARWIN=true
+    ;;
+esac
 
 # ============================================================================
 # PLATFORM MAPPING (Bash 3.2 compatible - no associative arrays)
@@ -519,26 +532,14 @@ get_available_disk_space() {
   local dir="$1"
   local available_space=""
 
-  # Detect OS type from uname
-  local os_name
-  os_name="$(uname -s)"
-
-  case "$os_name" in
-    Linux|Darwin|Android)
-      # Use df command for Unix-like systems
-      # -BM outputs in MB, awk extracts the available space column
-      local abs_path=$(resolve_path $EI_DIR)
-      available_space=$(df -BM "$abs_path" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
-      ;;
-    MINGW*|MSYS*|CYGWIN*|Win*)
-      # Use PowerShell for Windows
-      available_space=$(powershell -c "[int]((Get-Item '$dir').PSDrive.Free / 1MB)" 2>/dev/null)
-      ;;
-    *)
-      # Unknown OS, try df as fallback
-      available_space=$(df -BM "$dir" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
-      ;;
-  esac
+  if [ "$IS_WINDOWS" = true ]; then
+    # Use PowerShell for Windows
+    available_space=$(powershell -c "[int]((Get-Item '$dir').PSDrive.Free / 1MB)" 2>/dev/null)
+  else
+    # Use df command for Unix-like systems (Linux, macOS, Android)
+    # -BM outputs in MB, awk extracts the available space column
+    available_space=$(df -BM "$dir" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
+  fi
 
   echo "$available_space"
 }
@@ -744,14 +745,10 @@ cleanup_temp_files() {
 # ============================================================================
 
 # Setup installation directory based on OS and permissions
-# Sets global variables: EI_DIR, PATH_MODE (for Windows)
 setup_install_dir() {
-  local os_type="$1"
-  if [ "$os_type" = "Windows" ]; then
+  if [ "$IS_WINDOWS" = true ]; then
     powershell -c "New-Item -Path '$EI_DIR' -ItemType Directory -Force | Out-Null"
   else
-    # abs_path=$(resolve_path $EI_DIR)
-    # mkdir -p $abs_path
     sh -c "mkdir -p $EI_DIR"
   fi
 }
@@ -940,27 +937,8 @@ main() {
   check_dependencies "$FORMAT"
   echo "All dependencies satisfied"
 
-  # Extract OS type from Rust target triple for setup_install_dir
-  case "$TARGET" in
-    *-apple-darwin)
-      OS_TYPE="Darwin"
-      ;;
-    *-pc-windows-*|*-windows-*)
-      OS_TYPE="Windows"
-      ;;
-    *-linux-android|*-androideabi)
-      OS_TYPE="Android"
-      ;;
-    *-linux-*)
-      OS_TYPE="Linux"
-      ;;
-    *)
-      OS_TYPE="Linux"
-      ;;
-  esac
-
   # Setup installation directory
-  setup_install_dir "$OS_TYPE"
+  setup_install_dir
   local abs_path=$(resolve_path $EI_DIR)
   echo "Installation directory: $abs_path" $EI_DIR
 
@@ -1009,7 +987,7 @@ main() {
   BINARY_PATH=""
 
   # Look for binary in common locations after extraction
-  if [ "$OS_TYPE" = "Windows" ]; then
+  if [ "$IS_WINDOWS" = true ]; then
     # Windows: look for .exe file
     for possible_path in \
       "$DOWNLOAD_DIR/$EI_BINARY_NAME.exe" \
@@ -1036,7 +1014,7 @@ main() {
 
   # If still not found, try to find any executable file
   if [ -z "$BINARY_PATH" ]; then
-    if [ "$OS_TYPE" = "Windows" ]; then
+    if [ "$IS_WINDOWS" = true ]; then
       BINARY_PATH="$(find "$DOWNLOAD_DIR" -type f -name "*.exe" 2>/dev/null | head -n 1)"
     else
       BINARY_PATH="$(find "$DOWNLOAD_DIR" -type f -executable -name "$EI_BINARY_NAME" 2>/dev/null | head -n 1)"
@@ -1055,7 +1033,7 @@ main() {
   # Move binary to installation directory
   echo "Installing binary..."
 
-  if [ "$OS_TYPE" = "Windows" ]; then
+  if [ "$IS_WINDOWS" = true ]; then
     mv "$BINARY_PATH" "$abs_path/${EI_BINARY_NAME}.exe"
     chmod u+x "$abs_path/${EI_BINARY_NAME}.exe"
     echo "Successfully installed to $abs_path/${EI_BINARY_NAME}.exe"
@@ -1067,7 +1045,7 @@ main() {
 
   # Update PATH
   echo "Updating PATH..."
-  if [ "$OS_TYPE" = "Windows" ]; then
+  if [ "$IS_WINDOWS" = true ]; then
     update_path_windows "$EI_DIR"
     win_path=$(resolve_windows_path $EI_DIR)
     add_to_github_path "$win_path"
