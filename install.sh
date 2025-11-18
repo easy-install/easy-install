@@ -535,10 +535,14 @@ get_available_disk_space() {
   if [ "$IS_WINDOWS" = true ]; then
     # Use PowerShell for Windows
     available_space=$(powershell -c "[int]((Get-Item '$dir').PSDrive.Free / 1MB)" 2>/dev/null)
+  elif [ "$IS_DARWIN" = true ]; then
+    # macOS: df uses 512-byte blocks by default, convert to MB
+    # Column 4 is available space in 512-byte blocks
+    available_space=$(df "$dir" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 2048}')
   else
-    # Use df command for Unix-like systems (Linux, macOS, Android)
-    # -BM outputs in MB, awk extracts the available space column
-    available_space=$(df -BM "$dir" 2>/dev/null | awk 'NR==2 {gsub(/M/, "", $4); print $4}')
+    # Linux/Android: use -k for KB output (more compatible), then convert to MB
+    # Column 4 is available space in KB
+    available_space=$(df -k "$dir" 2>/dev/null | awk 'NR==2 {printf "%.0f", $4 / 1024}')
   fi
 
   echo "$available_space"
