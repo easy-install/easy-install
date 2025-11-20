@@ -181,14 +181,15 @@ pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
             if deep <= DEEP
                 && !skip
                 && let Some(p) = check(f)
-                && !config.quiet {
-                    let msg = if p != f.install_path {
-                        format!("Warning: file exists at {p}")
-                    } else {
-                        format!("Warning: file updated at {p}")
-                    };
-                    println!("{msg}");
-                }
+                && !config.quiet
+            {
+                let msg = if p != f.install_path {
+                    format!("Warning: file exists at {p}")
+                } else {
+                    format!("Warning: file updated at {p}")
+                };
+                println!("{msg}");
+            }
         }
     }
 

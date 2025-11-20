@@ -149,22 +149,28 @@ Easy Install supports persistent configuration through the `config` subcommand. 
 
 ```bash
 # View all configuration
-ei config show
+ei config
 
 # View specific configuration
 ei config proxy
 ei config dir
 ei config target
 ei config timeout
+ei config retry
+ei config strip
+ei config upx
 
 # Set configuration values
 ei config proxy gh-proxy
 ei config dir /custom/install/path
 ei config target x86_64-pc-windows-msvc
 ei config timeout 300
+ei config retry 5
+ei config strip true
+ei config upx true
 
 # Configuration priority (highest to lowest):
-# 1. Command-line arguments (--proxy, --dir, --target, --timeout)
+# 1. Command-line arguments (--proxy, --dir, --target, --timeout, --retry, --strip, --upx)
 # 2. Configuration file (ei_config.json)
 # 3. Default values
 ```
@@ -174,6 +180,54 @@ ei config timeout 300
 - `dir` - Default installation directory
 - `target` - Default target platform
 - `timeout` - Network request timeout in seconds (default: 600)
+- `retry` - Number of retry attempts for failed downloads (default: 3)
+- `strip` - Strip debug symbols from executables (default: false)
+- `upx` - Compress executables with UPX (default: false)
+
+### Quiet Mode
+
+Suppress all output messages during installation:
+
+```bash
+# Install silently (no output)
+ei https://github.com/ahaoboy/mujs-build --quiet
+
+# Short form
+ei https://github.com/ahaoboy/mujs-build -q
+
+# Useful for scripts and automation
+ei yt-dlp/yt-dlp -q && echo "Installation complete"
+```
+
+### Shell Completions
+
+Generate shell completion scripts for your preferred shell:
+
+```bash
+# Generate completions for bash
+ei completions bash > ~/.local/share/bash-completion/completions/ei
+
+# Generate completions for zsh
+ei completions zsh > ~/.zfunc/_ei
+
+# Generate completions for fish
+ei completions fish > ~/.config/fish/completions/ei.fish
+
+# Generate completions for PowerShell
+ei completions powershell > $PROFILE/../Completions/ei.ps1
+
+# Generate completions for elvish
+ei completions elvish > ~/.config/elvish/completions/ei.elv
+```
+
+**Supported Shells:**
+- bash
+- zsh
+- fish
+- powershell
+- elvish
+
+After generating the completion script, restart your shell or source the completion file to enable tab completion for `ei` commands.
 
 **Configuration File Location:**
 - The `ei_config.json` file is created in the same directory as the `ei` executable

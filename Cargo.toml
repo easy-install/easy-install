@@ -11,6 +11,7 @@ include = ["/src", "/Cargo.toml", "/README.md"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
 is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }
 crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }

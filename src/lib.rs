@@ -102,6 +102,12 @@ pub enum Command {
         #[command(subcommand)]
         subcmd: Option<ConfigSubcommand>,
     },
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell type to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -200,6 +206,11 @@ impl From<Args> for InstallConfig {
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
+    // Handle completions subcommand
+    if let Some(Command::Completions { shell }) = args.cmd {
+        return handle_completions_command(shell);
+    }
+
     // Handle config subcommand
     if let Some(Command::Config { subcmd }) = args.cmd {
         let quiet = args.quiet;
@@ -225,6 +236,17 @@ pub async fn run_main(args: Args) -> Result<()> {
     if output.is_empty() && !config.quiet {
         println!("No file installed from {url}");
     }
+    Ok(())
+}
+
+fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
+    use clap_complete::generate;
+    use std::io;
+
+    let mut cmd = Args::command();
+    let bin_name = cmd.get_name().to_string();
+
+    generate(shell, &mut cmd, bin_name, &mut io::stdout());
     Ok(())
 }
 
