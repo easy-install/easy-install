@@ -10,7 +10,7 @@ mod types;
 
 use crate::tool::expand_path;
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
@@ -122,7 +122,7 @@ pub struct Args {
     #[arg(short, long)]
     pub dir: Option<String>,
 
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
     pub install_only: bool,
 
     #[arg(long, value_delimiter = ',')]
@@ -143,13 +143,13 @@ pub struct Args {
     #[arg(long, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
 
-    #[arg(long, help = "Strip debug symbols from executable")]
+    #[arg(long, help = "Strip debug symbols from executable", action = ArgAction::SetTrue)]
     pub strip: Option<bool>,
 
-    #[arg(long, help = "Compress executable with UPX")]
+    #[arg(long, help = "Compress executable with UPX", action = ArgAction::SetTrue)]
     pub upx: Option<bool>,
 
-    #[arg(long, short, help = "Suppress all output messages")]
+    #[arg(long, short, help = "Suppress all output messages", action = ArgAction::SetTrue)]
     pub quiet: bool,
 }
 
