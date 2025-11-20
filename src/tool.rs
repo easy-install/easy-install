@@ -169,7 +169,7 @@ fn file_size(p: &str) -> usize {
     std::fs::metadata(p).map(|i| i.len()).unwrap_or(0) as usize
 }
 
-pub(crate) fn add_output_to_path(output: &Output) {
+pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
     let mut maybe_exe = HashSet::new();
     for v in output.values() {
         for f in &v.files {
@@ -181,20 +181,20 @@ pub(crate) fn add_output_to_path(output: &Output) {
             if deep <= DEEP
                 && !skip
                 && let Some(p) = check(f)
-            {
-                let msg = if p != f.install_path {
-                    format!("Warning: file exists at {p}")
-                } else {
-                    format!("Warning: file updated at {p}")
-                };
-                println!("{msg}");
-            }
+                && !config.quiet {
+                    let msg = if p != f.install_path {
+                        format!("Warning: file exists at {p}")
+                    } else {
+                        format!("Warning: file updated at {p}")
+                    };
+                    println!("{msg}");
+                }
         }
     }
 
     let mut filter = HashSet::new();
     for v in output.values() {
-        add_to_path(&v.install_dir);
+        add_to_path(&v.install_dir, config.quiet);
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
@@ -203,7 +203,7 @@ pub(crate) fn add_output_to_path(output: &Output) {
                 || (f.mode.unwrap_or(0) & EXEC_MASK != 0);
             let dir = dirname(&f.install_path);
             if deep <= DEEP && is_exe && !filter.contains(&dir) {
-                add_to_path(&dir);
+                add_to_path(&dir, config.quiet);
                 filter.insert(dir);
             }
         }
@@ -549,8 +549,13 @@ pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallCon
 
         if let [single_exe] = executables.as_slice() {
             use crate::optimize::optimize_executable;
-            let _ = optimize_executable(&single_exe.install_path, config.strip, config.upx);
-        } else if !executables.is_empty() {
+            let _ = optimize_executable(
+                &single_exe.install_path,
+                config.strip,
+                config.upx,
+                config.quiet,
+            );
+        } else if !executables.is_empty() && !config.quiet {
             eprintln!("Warning: --strip and --upx only work with single executable installations");
             eprintln!(
                 "  Found {} executables, skipping optimization",
@@ -734,18 +739,20 @@ pub(crate) fn get_artifact_url(
 }
 
 pub(crate) fn not_found_asset_message(url: &str, config: &InstallConfig) {
-    println!(
-        "Not found asset for os:{} arch:{} target:{} on {}",
-        std::env::consts::OS,
-        std::env::consts::ARCH,
-        config
-            .get_local_target()
-            .iter()
-            .map(|i| i.to_str().to_string())
-            .collect::<Vec<_>>()
-            .join(", "),
-        url
-    );
+    if !config.quiet {
+        println!(
+            "Not found asset for os:{} arch:{} target:{} on {}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            config
+                .get_local_target()
+                .iter()
+                .map(|i| i.to_str().to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            url
+        );
+    }
 }
 #[cfg(test)]
 mod test {

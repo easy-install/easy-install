@@ -27,6 +27,7 @@ pub struct InstallConfig {
     pub timeout: u64,
     pub strip: bool,
     pub upx: bool,
+    pub quiet: bool,
 }
 
 impl Default for InstallConfig {
@@ -41,6 +42,7 @@ impl Default for InstallConfig {
             timeout: 600,
             strip: false,
             upx: false,
+            quiet: false,
         }
     }
 }
@@ -140,6 +142,9 @@ pub struct Args {
 
     #[arg(long, help = "Compress executable with UPX")]
     pub upx: Option<bool>,
+
+    #[arg(long, short, help = "Suppress all output messages")]
+    pub quiet: bool,
 }
 
 impl Default for Args {
@@ -157,6 +162,7 @@ impl Default for Args {
             timeout: None,
             strip: None,
             upx: None,
+            quiet: false,
         }
     }
 }
@@ -188,6 +194,7 @@ impl From<Args> for InstallConfig {
             timeout,
             strip,
             upx,
+            quiet: value.quiet,
         }
     }
 }
@@ -195,7 +202,8 @@ impl From<Args> for InstallConfig {
 pub async fn run_main(args: Args) -> Result<()> {
     // Handle config subcommand
     if let Some(Command::Config { subcmd }) = args.cmd {
-        return handle_config_command(subcmd);
+        let quiet = args.quiet;
+        return handle_config_command(subcmd, quiet);
     }
 
     // Regular install command
@@ -212,19 +220,21 @@ pub async fn run_main(args: Args) -> Result<()> {
 
     let output = install::install(&url, &config).await?;
     if !install_only {
-        add_output_to_path(&output);
+        add_output_to_path(&output, &config);
     }
-    if output.is_empty() {
+    if output.is_empty() && !config.quiet {
         println!("No file installed from {url}");
     }
     Ok(())
 }
 
-fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
+fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Result<()> {
     let mut config = PersistentConfig::load();
 
     let Some(subcmd) = subcmd else {
-        config.display();
+        if !quiet {
+            config.display();
+        }
         return Ok(());
     };
 
@@ -232,9 +242,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Proxy { value } => {
             if let Some(proxy) = value {
                 config.set_proxy(proxy);
-                config.save()?;
-                println!("Proxy set to: {:?}", proxy);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Proxy set to: {:?}", proxy);
+                }
+            } else if !quiet {
                 println!(
                     "Current proxy: {}",
                     config
@@ -249,9 +261,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Dir { value } => {
             if let Some(val) = value {
                 config.set_dir(expand_path(&val));
-                config.save()?;
-                println!("Directory set to: {}", val);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Directory set to: {}", val);
+                }
+            } else if !quiet {
                 println!(
                     "Current directory: {}",
                     config.dir.as_deref().unwrap_or("not set")
@@ -261,9 +275,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Target { value } => {
             if let Some(target) = value {
                 config.set_target(target);
-                config.save()?;
-                println!("Target set to: {}", target.to_str());
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Target set to: {}", target.to_str());
+                }
+            } else if !quiet {
                 println!(
                     "Current target: {}",
                     config
@@ -277,9 +293,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Timeout { value } => {
             if let Some(timeout) = value {
                 config.set_timeout(timeout);
-                config.save()?;
-                println!("Timeout set to: {} seconds", timeout);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Timeout set to: {} seconds", timeout);
+                }
+            } else if !quiet {
                 println!(
                     "Current timeout: {}",
                     config.timeout.map_or(
@@ -292,9 +310,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Retry { value } => {
             if let Some(retry) = value {
                 config.set_retry(retry);
-                config.save()?;
-                println!("Retry set to: {}", retry);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Retry set to: {}", retry);
+                }
+            } else if !quiet {
                 println!(
                     "Current retry: {}",
                     config
@@ -306,9 +326,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Upx { value } => {
             if let Some(upx) = value {
                 config.set_upx(upx);
-                config.save()?;
-                println!("Upx set to: {}", upx);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Upx set to: {}", upx);
+                }
+            } else if !quiet {
                 println!(
                     "Current upx: {}",
                     config
@@ -320,9 +342,11 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>) -> Result<()> {
         ConfigSubcommand::Strip { value } => {
             if let Some(strip) = value {
                 config.set_strip(strip);
-                config.save()?;
-                println!("Strip set to: {}", strip);
-            } else {
+                config.save_quiet(quiet)?;
+                if !quiet {
+                    println!("Strip set to: {}", strip);
+                }
+            } else if !quiet {
                 println!(
                     "Current strip: {}",
                     config

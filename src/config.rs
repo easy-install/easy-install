@@ -65,6 +65,17 @@ impl PersistentConfig {
         Ok(())
     }
 
+    pub fn save_quiet(&self, quiet: bool) -> Result<()> {
+        let config_path = Self::get_config_path()?;
+        let content =
+            serde_json::to_string_pretty(self).context("Failed to serialize configuration")?;
+        std::fs::write(&config_path, content).context("Failed to write configuration file")?;
+        if !quiet {
+            println!("Configuration saved to: {}", config_path.display());
+        }
+        Ok(())
+    }
+
     pub fn set_proxy(&mut self, proxy: Proxy) {
         self.proxy = Some(proxy);
     }

@@ -35,7 +35,9 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
         {
             return install_from_manfiest(manfiest, url, config).await;
         }
-        println!("failed to read dist-manifest from {url}");
+        if !config.quiet {
+            println!("failed to read dist-manifest from {url}");
+        }
     }
     let filename = get_filename(url);
     let name = name_no_ext(&filename);

@@ -3,7 +3,7 @@ use std::process::Command;
 use tracing::trace;
 
 /// Optimize a single executable file by running strip and/or upx
-pub fn optimize_executable(file_path: &str, strip: bool, upx: bool) -> Result<()> {
+pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool) -> Result<()> {
     if !strip && !upx {
         return Ok(());
     }
@@ -14,11 +14,15 @@ pub fn optimize_executable(file_path: &str, strip: bool, upx: bool) -> Result<()
     if strip {
         match run_strip(file_path) {
             Ok(_) => {
-                println!("✓ Stripped debug symbols from: {}", file_path);
+                if !quiet {
+                    println!("✓ Stripped debug symbols from: {}", file_path);
+                }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to strip {}: {}", file_path, e);
-                eprintln!("  Make sure 'strip' is installed and available in PATH");
+                if !quiet {
+                    eprintln!("Warning: Failed to strip {}: {}", file_path, e);
+                    eprintln!("  Make sure 'strip' is installed and available in PATH");
+                }
             }
         }
     }
@@ -27,11 +31,15 @@ pub fn optimize_executable(file_path: &str, strip: bool, upx: bool) -> Result<()
     if upx {
         match run_upx(file_path) {
             Ok(_) => {
-                println!("✓ Compressed with UPX: {}", file_path);
+                if !quiet {
+                    println!("✓ Compressed with UPX: {}", file_path);
+                }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to compress {} with UPX: {}", file_path, e);
-                eprintln!("  Make sure 'upx' is installed and available in PATH");
+                if !quiet {
+                    eprintln!("Warning: Failed to compress {} with UPX: {}", file_path, e);
+                    eprintln!("  Make sure 'upx' is installed and available in PATH");
+                }
             }
         }
     }

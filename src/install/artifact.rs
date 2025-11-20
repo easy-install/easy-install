@@ -82,12 +82,16 @@ pub(crate) fn install_from_download_file(
             if !v.files.is_empty() {
                 check_disk_space(&v.files, &install_dir)?;
                 install_output_files(&mut v.files, config)?;
-                println!("Installation Successful");
+                if !config.quiet {
+                    println!("Installation Successful");
+                }
                 output.insert(url.to_string(), v);
-                println!("{}", display_output(&output, config));
+                if !config.quiet {
+                    println!("{}", display_output(&output, config));
+                }
             }
         }
-    } else {
+    } else if !config.quiet {
         println!("Maybe you should use -d to set the folder");
     }
 
@@ -101,7 +105,9 @@ pub(crate) async fn install_from_artifact_url(
 ) -> Result<Output> {
     trace!("install_from_artifact_url {}", art_url);
     let mut v = Output::new();
-    println!("download {art_url}");
+    if !config.quiet {
+        println!("download {art_url}");
+    }
     if !is_archive_file(art_url) {
         let output = install_from_single_file(art_url, name, config).await?;
         return Ok(output);
