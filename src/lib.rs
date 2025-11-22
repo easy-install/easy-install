@@ -28,6 +28,7 @@ pub struct InstallConfig {
     pub strip: bool,
     pub upx: bool,
     pub quiet: bool,
+    pub install_only: bool,
 }
 
 impl Default for InstallConfig {
@@ -43,11 +44,32 @@ impl Default for InstallConfig {
             strip: false,
             upx: false,
             quiet: false,
+            install_only: false,
         }
     }
 }
 
 impl InstallConfig {
+    /// Load configuration from persistent config file
+    /// Returns InstallConfig with values from config file, or defaults if not set
+    pub fn load() -> Self {
+        let persistent_config = PersistentConfig::load();
+
+        Self {
+            dir: persistent_config.dir,
+            name: Vec::new(),
+            alias: None,
+            target: persistent_config.target,
+            retry: persistent_config.retry.unwrap_or(3) as usize,
+            proxy: persistent_config.proxy.unwrap_or(Proxy::Github),
+            timeout: persistent_config.timeout.unwrap_or(600),
+            strip: persistent_config.strip.unwrap_or(false),
+            upx: persistent_config.upx.unwrap_or(false),
+            quiet: false,
+            install_only: false,
+        }
+    }
+
     pub fn get_local_target(&self) -> Vec<Target> {
         if let Some(t) = self.target {
             return vec![t];
@@ -108,6 +130,8 @@ pub enum Command {
         #[arg(value_enum)]
         shell: clap_complete::Shell,
     },
+    /// Upgrade crash to the latest version
+    Upgrade,
 }
 
 const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -205,6 +229,7 @@ impl From<Args> for InstallConfig {
             strip,
             upx,
             quiet: value.quiet,
+            install_only: value.install_only,
         }
     }
 }
@@ -213,6 +238,10 @@ pub async fn run_main(args: Args) -> Result<()> {
     // Handle completions subcommand
     if let Some(Command::Completions { shell }) = args.cmd {
         return handle_completions_command(shell);
+    }
+
+    if let Some(Command::Upgrade) = args.cmd {
+        return handle_upgrade().await;
     }
 
     // Handle config subcommand
@@ -229,13 +258,16 @@ pub async fn run_main(args: Args) -> Result<()> {
         println!("{s}");
         return Ok(());
     }
-
-    let install_only = args.install_only;
     let config = args.into();
+    ei(&url, &config).await?;
+    Ok(())
+}
 
-    let output = install::install(&url, &config).await?;
+async fn ei(url: &str, config: &InstallConfig) -> Result<()> {
+    let output = install::install(url, config).await?;
+    let install_only = config.install_only;
     if !install_only {
-        add_output_to_path(&output, &config);
+        add_output_to_path(&output, config);
     }
     if output.is_empty() && !config.quiet {
         println!("No file installed from {url}");
@@ -251,6 +283,21 @@ fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
     let bin_name = cmd.get_name().to_string();
 
     generate(shell, &mut cmd, bin_name, &mut io::stdout());
+    Ok(())
+}
+
+async fn handle_upgrade() -> Result<()> {
+    let exe = std::env::current_exe()?;
+    let dir = exe
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("ei dir not found".to_string()))?;
+
+    let config = InstallConfig {
+        dir: Some(dir.to_string_lossy().to_string()),
+        alias: Some("ei".to_string()),
+        ..InstallConfig::load()
+    };
+    ei("easy-install/easy-install", &config).await?;
     Ok(())
 }
 
