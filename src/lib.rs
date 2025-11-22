@@ -115,7 +115,7 @@ const GIT_HASH: &str = git_version::git_version!();
 const VERSION: &str = const_str::concat!(CARGO_PKG_VERSION, " ", GIT_HASH);
 
 #[derive(Parser, Debug, Clone)]
-#[command(version=VERSION, about, long_about)]
+#[command(name="ei", version=VERSION, about, long_about)]
 pub struct Args {
     #[command(subcommand)]
     pub cmd: Option<Command>,
