@@ -173,26 +173,12 @@ async fn try_git_credential_manager() -> Option<String> {
 
     let timeout_duration = Duration::from_secs(5);
 
-    // Platform-specific command execution
-    #[cfg(target_os = "windows")]
-    let mut cmd = {
-        let mut c = Command::new("powershell");
-        c.args(["-c", "git credential fill"]);
-        c.stdin(std::process::Stdio::piped());
-        c.stdout(std::process::Stdio::piped());
-        c.stderr(std::process::Stdio::piped());
-        c
-    };
-
-    #[cfg(not(target_os = "windows"))]
-    let mut cmd = {
-        let mut c = Command::new("git");
-        c.args(["credential", "fill"]);
-        c.stdin(std::process::Stdio::piped());
-        c.stdout(std::process::Stdio::piped());
-        c.stderr(std::process::Stdio::piped());
-        c
-    };
+    let mut cmd = Command::new("git");
+    cmd.args(["credential", "fill"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .env("GIT_TERMINAL_PROMPT", "0");
 
     // Spawn the process
     let mut child = match cmd.spawn() {
