@@ -263,7 +263,7 @@ pub async fn run_main(args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn ei(url: &str, config: &InstallConfig) -> Result<()> {
+pub async fn ei(url: &str, config: &InstallConfig) -> Result<()> {
     let output = install::install(url, config).await?;
     let install_only = config.install_only;
     if !install_only {
