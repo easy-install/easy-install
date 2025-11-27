@@ -175,7 +175,6 @@ pub struct Args {
         long,
         help = "Strip debug symbols from executable",
         default_missing_value = "true",
-        action = ArgAction::Set,
         num_args = 0..=1,
     )]
     pub strip: Option<bool>,
@@ -184,7 +183,6 @@ pub struct Args {
         long,
         help = "Compress executable with UPX",
         default_missing_value = "true",
-        action = ArgAction::Set,
         num_args = 0..=1,
     )]
     pub upx: Option<bool>,
@@ -194,9 +192,8 @@ pub struct Args {
         short,
         help = "Suppress all output messages",
         default_missing_value = "true",
-        action = ArgAction::Set,
         num_args = 0..=1,
-        default_value_t= false
+        default_value_t = false
     )]
     pub quiet: bool,
 }
