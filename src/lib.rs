@@ -171,13 +171,33 @@ pub struct Args {
     #[arg(long, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
 
-    #[arg(long, help = "Strip debug symbols from executable", action = ArgAction::SetTrue)]
+    #[arg(
+        long,
+        help = "Strip debug symbols from executable",
+        default_missing_value = "true",
+        action = ArgAction::Set,
+        num_args = 0..=1,
+    )]
     pub strip: Option<bool>,
 
-    #[arg(long, help = "Compress executable with UPX", action = ArgAction::SetTrue)]
+    #[arg(
+        long,
+        help = "Compress executable with UPX",
+        default_missing_value = "true",
+        action = ArgAction::Set,
+        num_args = 0..=1,
+    )]
     pub upx: Option<bool>,
 
-    #[arg(long, short, help = "Suppress all output messages", action = ArgAction::SetTrue)]
+    #[arg(
+        long,
+        short,
+        help = "Suppress all output messages",
+        default_missing_value = "true",
+        action = ArgAction::Set,
+        num_args = 0..=1,
+        default_value_t= false
+    )]
     pub quiet: bool,
 }
 
