@@ -616,10 +616,14 @@ pub(crate) fn add_execute_permission(file_path: &str) -> Result<()> {
 }
 
 pub(crate) fn expand_path(path: &str) -> String {
-    let expanded = shellexpand::tilde(path);
-    path_clean::PathClean::clean(Path::new(&*expanded))
-        .to_string_lossy()
-        .to_string()
+    if path.starts_with("~") {
+        let expanded = shellexpand::tilde(path);
+        path_clean::PathClean::clean(Path::new(&*expanded))
+            .to_string_lossy()
+            .to_string()
+    } else {
+        abs_path(path).to_string_lossy().to_string()
+    }
 }
 
 pub(crate) fn is_archive_file(s: &str) -> bool {
