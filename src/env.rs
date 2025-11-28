@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use crud_path::{add_github_path, is_github};
 
+use crate::config::DEFAULT_CONFIG_DIR;
+
 pub(crate) fn add_to_path(dir: &str, quiet: bool) {
     let dir = dir.trim_end_matches('/');
     if crud_path::has_path(dir) {
@@ -27,7 +29,7 @@ pub(crate) fn add_to_path(dir: &str, quiet: bool) {
 
 pub(crate) fn get_install_dir() -> Result<PathBuf> {
     let mut home = dirs::home_dir().context("Failed to get home_dir")?;
-    home.push(".ei");
+    home.push(DEFAULT_CONFIG_DIR);
 
     if !home.exists() {
         std::fs::create_dir_all(&home).context("Failed to create_dir home_dir")?;

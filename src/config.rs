@@ -22,42 +22,52 @@ pub struct PersistentConfig {
     pub strip: Option<bool>,
 }
 
-impl PersistentConfig {
-    pub fn get_config_path() -> Result<PathBuf> {
-        let exe_path = std::env::current_exe().context("Failed to get executable path")?;
-        let exe_dir = exe_path
-            .parent()
-            .context("Failed to get executable directory")?;
-        Ok(exe_dir.join("ei_config.json"))
-    }
+pub const DEFAULT_CONFIG_NAME: &str = "ei_config.json";
+pub const DEFAULT_CONFIG_DIR: &str = ".ei";
 
+fn get_config_path() -> Result<PathBuf> {
+    let exe_path = std::env::current_exe().context("Failed to get executable path")?;
+    let exe_dir = exe_path
+        .parent()
+        .context("Failed to get executable directory")?;
+    Ok(exe_dir.join(DEFAULT_CONFIG_NAME))
+}
+
+fn get_default_config_path() -> Result<PathBuf> {
+    let mut home = dirs::home_dir().context("Failed to get home dir")?;
+    home.push(DEFAULT_CONFIG_DIR);
+    home.push(DEFAULT_CONFIG_NAME);
+    Ok(home)
+}
+
+fn read_config(config_path: &PathBuf) -> Result<PersistentConfig> {
+    let content = std::fs::read_to_string(config_path)?;
+    let c = serde_json::from_str::<PersistentConfig>(&content)?;
+    Ok(c)
+}
+
+impl PersistentConfig {
     pub fn load() -> Self {
-        let config_path = match Self::get_config_path() {
+        let config_path = match get_config_path() {
             Ok(path) => path,
             Err(_) => return Self::default(),
         };
 
-        if !config_path.exists() {
-            return Self::default();
+        if !config_path.exists()
+            && let Ok(p) = get_default_config_path()
+            && p.exists()
+            && let Ok(c) = read_config(&p)
+        {
+            return c;
         }
 
-        match std::fs::read_to_string(&config_path) {
-            Ok(content) => match serde_json::from_str::<PersistentConfig>(&content) {
-                Ok(config) => config,
-                Err(e) => {
-                    eprintln!("Warning: Failed to parse config file: {}", e);
-                    eprintln!("Using default configuration and overwriting config file");
-                    let default_config = Self::default();
-                    let _ = default_config.save();
-                    default_config
-                }
-            },
-            Err(_) => Self::default(),
-        }
+        let default_config = Self::default();
+        let _ = default_config.save();
+        default_config
     }
 
     pub fn save(&self) -> Result<()> {
-        let config_path = Self::get_config_path()?;
+        let config_path = get_config_path()?;
         let content =
             serde_json::to_string_pretty(self).context("Failed to serialize configuration")?;
         std::fs::write(&config_path, content).context("Failed to write configuration file")?;
@@ -66,7 +76,7 @@ impl PersistentConfig {
     }
 
     pub fn save_quiet(&self, quiet: bool) -> Result<()> {
-        let config_path = Self::get_config_path()?;
+        let config_path = get_config_path()?;
         let content =
             serde_json::to_string_pretty(self).context("Failed to serialize configuration")?;
         std::fs::write(&config_path, content).context("Failed to write configuration file")?;

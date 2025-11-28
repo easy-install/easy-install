@@ -508,7 +508,7 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
             }
         }
         Err(e) => {
-            println!("Failed to check disk space: {}", e);
+            eprintln!("Failed to check disk space: {}", e);
         }
     }
 
