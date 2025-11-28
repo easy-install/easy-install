@@ -48,18 +48,13 @@ fn read_config(config_path: &PathBuf) -> Result<PersistentConfig> {
 
 impl PersistentConfig {
     pub fn load() -> Self {
-        let config_path = match get_config_path() {
-            Ok(path) => path,
-            Err(_) => return Self::default(),
-        };
-
-        if !config_path.exists()
-            && let Ok(p) = get_default_config_path()
-            && p != config_path
-            && p.exists()
-            && let Ok(c) = read_config(&p)
-        {
-            return c;
+        for get_path in [get_config_path, get_default_config_path] {
+            if let Ok(config_path) = get_path()
+                && config_path.exists()
+                && let Ok(c) = read_config(&config_path)
+            {
+                return c;
+            };
         }
 
         let default_config = Self::default();
