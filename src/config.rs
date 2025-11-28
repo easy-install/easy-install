@@ -55,6 +55,7 @@ impl PersistentConfig {
 
         if !config_path.exists()
             && let Ok(p) = get_default_config_path()
+            && p != config_path
             && p.exists()
             && let Ok(c) = read_config(&p)
         {
