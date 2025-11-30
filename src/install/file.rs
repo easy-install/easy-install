@@ -50,9 +50,6 @@ pub(crate) async fn install_from_single_file(
         }];
         check_disk_space(&files, &install_dir)?;
         install_output_files(&mut files, config)?;
-        if !config.quiet {
-            println!("Installation Successful");
-        }
         let bin_dir_str = path_to_str(&install_dir);
         let item = OutputItem {
             install_dir: bin_dir_str.clone(),

@@ -118,7 +118,16 @@ fn abs_path(p: &str) -> PathBuf {
 
 const MAX_FILE_COUNT: usize = 16;
 pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String {
-    let mut v = vec![];
+    let s: u32 = output
+        .values()
+        .flat_map(|v| v.files.iter().map(|f| f.size))
+        .sum();
+
+    let mut v = vec![format!(
+        "Installation Successful ({})",
+        human_size(s as usize)
+    )];
+
     for i in output.values() {
         if i.files.len() > MAX_FILE_COUNT {
             let sum_size = i.files.iter().fold(0, |pre, cur| pre + cur.size);
