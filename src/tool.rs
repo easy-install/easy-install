@@ -675,8 +675,31 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
     Ok(false)
 }
 
+/// Parse and validate URL before downloading
+/// Returns Ok(Url) if valid, Err with description if invalid
+pub(crate) fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
+    // Check if URL is empty
+    if url.trim().is_empty() {
+        return Err(anyhow::anyhow!("URL cannot be empty"));
+    }
+
+    // Parse URL
+    let parsed = reqwest::Url::parse(url).context(format!("Invalid URL format: {}", url))?;
+
+    // Check scheme (only allow http/https)
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err(anyhow::anyhow!(
+            "Invalid URL scheme '{}': only http and https are allowed",
+            scheme
+        ));
+    }
+
+    Ok(parsed)
+}
+
 pub(crate) fn is_url(s: &str) -> bool {
-    s.starts_with("http://") || s.starts_with("https://")
+    parse_and_validate_url(s).is_ok()
 }
 
 pub(crate) fn is_dist_manfiest(s: &str) -> bool {

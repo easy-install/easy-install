@@ -1,3 +1,4 @@
+use crate::tool::parse_and_validate_url;
 use crate::{manfiest::DistManifest, tool::is_url};
 use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
@@ -236,30 +237,6 @@ async fn try_git_credential_manager() -> Option<String> {
             None
         }
     }
-}
-
-/// Parse and validate URL before downloading
-/// Returns Ok(Url) if valid, Err with description if invalid
-fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
-    // Check if URL is empty
-    if url.trim().is_empty() {
-        return Err(anyhow::anyhow!("URL cannot be empty"));
-    }
-
-    // Parse URL
-    let parsed = reqwest::Url::parse(url).context(format!("Invalid URL format: {}", url))?;
-
-    // Check scheme (only allow http/https)
-    let scheme = parsed.scheme();
-    if scheme != "http" && scheme != "https" {
-        return Err(anyhow::anyhow!(
-            "Invalid URL scheme '{}': only http and https are allowed",
-            scheme
-        ));
-    }
-
-    trace!("URL validation passed: {}", url);
-    Ok(parsed)
 }
 
 fn is_github_url(parsed: &reqwest::Url) -> bool {
