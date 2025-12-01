@@ -82,7 +82,7 @@ pub(crate) fn install_from_download_file(
             if !v.files.is_empty() {
                 check_disk_space(&v.files, &install_dir)?;
                 install_output_files(&mut v.files, config)?;
-                         output.insert(url.to_string(), v);
+                output.insert(url.to_string(), v);
                 if !config.quiet {
                     println!("{}", display_output(&output, config));
                 }

@@ -144,33 +144,47 @@ pub struct Args {
     #[command(subcommand)]
     pub cmd: Option<Command>,
 
+    /// GitHub repo (owner/repo), release URL, or artifact URL
     #[arg(default_value_t = String::new())]
     pub url: String,
 
-    #[arg(short, long)]
+    /// Installation directory for downloaded binaries
+    #[arg(short, long, help = "Installation directory")]
     pub dir: Option<String>,
 
-    #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
+    /// Only install, do not add to PATH
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Only install, do not add to PATH")]
     pub install_only: bool,
 
-    #[arg(long, value_delimiter = ',')]
+    /// Filter artifacts by name (comma-separated)
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Filter artifacts by name (comma-separated)"
+    )]
     pub name: Vec<String>,
 
-    #[arg(long)]
+    /// Rename the installed binary
+    #[arg(long, help = "Rename the installed binary")]
     pub alias: Option<String>,
 
-    #[arg(long)]
+    /// Target platform (e.g., x86_64-unknown-linux-gnu)
+    #[arg(long, help = "Target platform (auto-detected if not specified)")]
     pub target: Option<Target>,
 
-    #[arg(long, default_value_t = 3)]
+    /// Number of retry attempts for failed downloads
+    #[arg(long, default_value_t = 3, help = "Number of retry attempts")]
     pub retry: usize,
 
-    #[arg(long)]
+    /// GitHub proxy to use (github, ghproxy, etc.)
+    #[arg(long, help = "GitHub proxy to use")]
     pub proxy: Option<Proxy>,
 
+    /// Network request timeout in seconds
     #[arg(long, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
 
+    /// Strip debug symbols from executable
     #[arg(
         long,
         help = "Strip debug symbols from executable",
@@ -179,6 +193,7 @@ pub struct Args {
     )]
     pub strip: Option<bool>,
 
+    /// Compress executable with UPX
     #[arg(
         long,
         help = "Compress executable with UPX",
@@ -187,6 +202,7 @@ pub struct Args {
     )]
     pub upx: Option<bool>,
 
+    /// Suppress all output messages
     #[arg(
         long,
         short,
