@@ -238,11 +238,23 @@ async fn try_git_credential_manager() -> Option<String> {
     }
 }
 
-fn is_github_url(url: &str) -> bool {
-    // Parse URL to check the actual host, not just string contains
-    if let Ok(parsed) = reqwest::Url::parse(url)
-        && let Some(host) = parsed.host_str()
-    {
+/// Parse and validate URL before downloading
+/// Returns Ok(Url) if valid, Err with description if invalid
+fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
+    // Check if URL is empty
+    if url.trim().is_empty() {
+        return Err(anyhow::anyhow!("URL cannot be empty"));
+    }
+
+    // Parse URL
+    let parsed = reqwest::Url::parse(url).context(format!("Invalid URL format: {}", url))?;
+
+    trace!("URL validation passed: {}", url);
+    Ok(parsed)
+}
+
+fn is_github_url(parsed: &reqwest::Url) -> bool {
+    if let Some(host) = parsed.host_str() {
         return host == "github.com"
             || host.ends_with(".github.com")
             || host == "githubusercontent.com"
@@ -251,12 +263,12 @@ fn is_github_url(url: &str) -> bool {
     false
 }
 
-async fn get_headers(url: &str) -> Result<HeaderMap> {
+async fn get_headers(parsed: &reqwest::Url) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     headers.append("User-Agent", HeaderValue::from_static("reqwest"));
 
     // Only add GitHub token for GitHub URLs to prevent token leakage
-    if is_github_url(url) {
+    if is_github_url(parsed) {
         if let Some(token) = detect_github_token().await {
             headers.append(
                 "Authorization",
@@ -286,14 +298,15 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
     retry: usize,
     timeout: u64,
 ) -> Result<T> {
-    let url_clone = url.to_string();
+    let parsed = parse_and_validate_url(url)?;
+
     retry_request(
         retry,
         || async {
             let client = create_client(timeout)?;
             let response = match client
-                .get(&url_clone)
-                .headers(get_headers(&url_clone).await?)
+                .get(parsed.clone())
+                .headers(get_headers(&parsed).await?)
                 .send()
                 .await
             {
@@ -303,7 +316,7 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
                         return Err(anyhow::anyhow!(
                             "Request timed out after {} seconds: {}",
                             timeout,
-                            url_clone
+                            url
                         ));
                     }
                     return Err(e).context("send failed");
@@ -343,21 +356,22 @@ pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
 }
 
 pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<reqwest::Response> {
-    let url_clone = url.to_string();
+    let parsed = parse_and_validate_url(url)?;
+
     retry_request(
         retry,
         || async {
-            trace!("download {}", url_clone);
+            trace!("download {}", url);
             let client = create_client(timeout)?;
-            let headers = get_headers(&url_clone).await?;
-            let response = match client.get(&url_clone).headers(headers).send().await {
+            let headers = get_headers(&parsed).await?;
+            let response = match client.get(parsed.clone()).headers(headers).send().await {
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
                         return Err(anyhow::anyhow!(
                             "Request timed out after {} seconds: {}",
                             timeout,
-                            url_clone
+                            url
                         ));
                     }
                     return Err(e).context("send failed");
