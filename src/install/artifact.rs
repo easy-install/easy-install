@@ -4,11 +4,12 @@ use crate::env::get_install_dir;
 use crate::install::file::install_from_single_file;
 use crate::tool::{
     check_disk_space, display_output, expand_path, get_common_prefix_len, get_filename,
-    install_output_files, is_archive_file, path_to_str,
+    install_output_files, is_archive_file, name_no_ext, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
 use anyhow::{Context, Result};
 use easy_archive::Fmt;
+use guess_target::guess_target;
 use tracing::trace;
 
 pub(crate) fn install_from_download_file(
@@ -18,7 +19,7 @@ pub(crate) fn install_from_download_file(
     name: &str,
     config: &InstallConfig,
 ) -> Result<Output> {
-    trace!("install_from_download_file");
+    trace!("install_from_download_file name={}", name);
     let mut install_dir = get_install_dir()?;
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
@@ -35,11 +36,32 @@ pub(crate) fn install_from_download_file(
         }
 
         if let Ok(download_files) = extract_bytes(bytes, fmt) {
+            // Handle nested archive: if there's only one file and it's an archive,
+            // extract it recursively and use the inner archive name for platform/name inference
             if let &[first] = &download_files.as_slice()
-                && let Some(fmt) = Fmt::guess(&first.path)
+                && let Some(inner_fmt) = Fmt::guess(&first.path)
             {
-                let name = get_filename(&first.path);
-                return install_from_download_file(first.buffer.clone(), fmt, url, &name, config);
+                let inner_filename = get_filename(&first.path);
+                // Extract tool name from inner archive (e.g., "bloaty" from "bloaty-x86_64-pc-windows-gnu.tar.gz")
+                let inner_name_no_ext = name_no_ext(&inner_filename);
+                let inner_name = guess_target(&inner_name_no_ext)
+                    .pop()
+                    .map_or(inner_name_no_ext.clone(), |i| i.name);
+                println!(
+                    "detected nested archive: outer={}, inner={}, tool_name={}",
+                    name, inner_filename, inner_name
+                );
+                trace!(
+                    "detected nested archive: outer={}, inner={}, tool_name={}",
+                    name, inner_filename, inner_name
+                );
+                return install_from_download_file(
+                    first.buffer.clone(),
+                    inner_fmt,
+                    url,
+                    &inner_name,
+                    config,
+                );
             }
             let file_list: Vec<_> = download_files.into_iter().filter(|i| !i.is_dir).collect();
             if file_list.len() > 1 {
