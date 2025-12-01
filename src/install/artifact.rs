@@ -47,10 +47,6 @@ pub(crate) fn install_from_download_file(
                 let inner_name = guess_target(&inner_name_no_ext)
                     .pop()
                     .map_or(inner_name_no_ext.clone(), |i| i.name);
-                println!(
-                    "detected nested archive: outer={}, inner={}, tool_name={}",
-                    name, inner_filename, inner_name
-                );
                 trace!(
                     "detected nested archive: outer={}, inner={}, tool_name={}",
                     name, inner_filename, inner_name
