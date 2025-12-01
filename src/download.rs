@@ -249,6 +249,15 @@ fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
     // Parse URL
     let parsed = reqwest::Url::parse(url).context(format!("Invalid URL format: {}", url))?;
 
+    // Check scheme (only allow http/https)
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err(anyhow::anyhow!(
+            "Invalid URL scheme '{}': only http and https are allowed",
+            scheme
+        ));
+    }
+
     trace!("URL validation passed: {}", url);
     Ok(parsed)
 }
