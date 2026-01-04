@@ -63,7 +63,7 @@ pub(crate) fn install_from_download_file(
             if file_list.len() > 1 {
                 if let Some(alias) = &config.alias {
                     install_dir.push(alias);
-                } else {
+                } else if config.dir.is_none() {
                     install_dir.push(name);
                 }
             }
