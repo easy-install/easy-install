@@ -36,15 +36,17 @@ tokio = { version = "1", features = [
   "rt-multi-thread",
   "process",
   "time",
+  "io-util",
 ], default-features = false }
 tracing = "0.1"
 dirs = "6"
-reqwest = { version = "0.12", features = [
+reqwest = { version = "0.13", features = [
   "json",
-  "rustls-tls",
   "gzip",
-  # "native-tls"
-], default-features = false }
+  "rustls-native-certs",
+  "cookies",
+]}
+
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
 cargo-dist-schema = "0.30"
@@ -57,7 +59,7 @@ shellexpand = "3"
 fs4 = "0.13"
 humansize = "2"
 git-version = "0.3"
-const-str = "0.7"
+const-str = "1"
 
 [features]
 default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "zip"]

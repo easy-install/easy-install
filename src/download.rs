@@ -2,6 +2,7 @@ use crate::tool::parse_and_validate_url;
 use crate::{manfiest::DistManifest, tool::is_url};
 use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
+use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
 use std::sync::OnceLock;
@@ -270,13 +271,18 @@ async fn get_headers(parsed: &reqwest::Url) -> Result<HeaderMap> {
     Ok(headers)
 }
 
-fn create_client(timeout_secs: u64) -> Result<reqwest::Client> {
+fn create_client(timeout_secs: u64) -> &'static Client {
+    static CLIENT: OnceLock<Client> = OnceLock::new();
     let timeout = Duration::from_secs(timeout_secs);
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .connect_timeout(timeout)
-        .build()
-        .context("Failed to create HTTP client")
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(timeout)
+            .connect_timeout(timeout)
+            .tcp_keepalive(timeout)
+            .cookie_store(true)
+            .build()
+            .expect("Failed to create HTTP client")
+    })
 }
 
 pub(crate) async fn download_json<T: DeserializeOwned>(
@@ -289,7 +295,7 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
     retry_request(
         retry,
         || async {
-            let client = create_client(timeout)?;
+            let client = create_client(timeout);
             let response = match client
                 .get(parsed.clone())
                 .headers(get_headers(&parsed).await?)
@@ -348,7 +354,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
         retry,
         || async {
             trace!("download {}", url);
-            let client = create_client(timeout)?;
+            let client = create_client(timeout);
             let headers = get_headers(&parsed).await?;
             let response = match client.get(parsed.clone()).headers(headers).send().await {
                 Ok(resp) => resp,
