@@ -15,6 +15,7 @@ A cross-platform command-line tool for effortlessly installing binaries from Git
 - ⚙️ Persistent configuration management
 - ⏱️ Configurable network timeouts
 - 🗜️ Binary optimization with strip and UPX compression
+- 🔄 Self-upgrade support
 
 ## Installation
 
@@ -93,19 +94,63 @@ ei yt-dlp/yt-dlp
 # Specify target platform
 ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
 
-# Set custom name and alias
-ei https://github.com/ip7z/7zip/releases/tag/25.01 --name 7z2501 --alias 7z
+# Set a custom alias for the installed binary
+ei https://github.com/ip7z/7zip/releases/tag/25.01 --alias 7z
 
 # Install specific binary from a multi-binary package
-ei https://github.com/quickjs-ng/quickjs --bin=qjs
+ei https://github.com/quickjs-ng/quickjs --alias=qjs
 
 # Install from a direct download URL
 ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
 ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
 
+# Install without adding to PATH
+ei https://github.com/quickjs-ng/quickjs --install-only
+
 # Optimize binary with strip and UPX compression
 ei https://github.com/boa-dev/boa --strip --upx
 ```
+
+### CLI Reference
+
+Below is the full list of arguments and options accepted by `ei`:
+
+```
+USAGE:
+    ei [OPTIONS] [URL] [COMMAND]
+```
+
+#### Arguments
+
+| Argument | Description                                                                        |
+| -------- | ---------------------------------------------------------------------------------- |
+| `[URL]`  | GitHub repo (`owner/repo`), release URL, or artifact URL. If omitted, prints help. |
+
+#### Options
+
+| Option                | Short | Description                                                                                                | Default     |
+| --------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | ----------- |
+| `--dir <DIR>`         | `-d`  | Installation directory for downloaded binaries. Can be an absolute path or a name (stored under `~/.ei/`). | `~/.ei`     |
+| `--install-only`      |       | Only install the binary, do not add it to PATH.                                                            | `false`     |
+| `--name <NAME>`       |       | Filter artifacts by name. Supports comma-separated values for multiple filters.                            |             |
+| `--alias <ALIAS>`     |       | Rename the installed binary to the given alias.                                                            |             |
+| `--target <TARGET>`   |       | Target platform (e.g., `x86_64-unknown-linux-gnu`). Auto-detected if not specified.                        | auto-detect |
+| `--retry <N>`         |       | Number of retry attempts for failed downloads.                                                             | `3`         |
+| `--proxy <PROXY>`     |       | GitHub proxy to use (`github`, `gh-proxy`, `ghproxy`, `jsdelivr`, etc.).                                   | `github`    |
+| `--timeout <SECONDS>` |       | Network request timeout in seconds.                                                                        | `600`       |
+| `--strip [BOOL]`      |       | Strip debug symbols from executable. Can be used as a flag (`--strip`) or with a value (`--strip true`).   | `false`     |
+| `--upx [BOOL]`        |       | Compress executable with UPX. Can be used as a flag (`--upx`) or with a value (`--upx true`).              | `false`     |
+| `--quiet`             | `-q`  | Suppress all output messages.                                                                              | `false`     |
+| `--version`           | `-V`  | Print version information.                                                                                 |             |
+| `--help`              | `-h`  | Print help information.                                                                                    |             |
+
+#### Subcommands
+
+| Subcommand            | Description                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `config`              | Manage persistent configuration settings. See [Configuration Management](#configuration-management). |
+| `completions <SHELL>` | Generate shell completion scripts. See [Shell Completions](#shell-completions).                      |
+| `upgrade`             | Upgrade `ei` to the latest version.                                                                  |
 
 ### Binary Optimization
 
@@ -142,6 +187,16 @@ ei ./dist-manifest/mpv-easy.json -d c:/mpv-easy
 # Install to a named directory under ~/.ei/
 ei ./dist-manifest/mpv-easy.json -d custom-name
 ```
+
+### Upgrade
+
+Upgrade `ei` itself to the latest version with a single command:
+
+```bash
+ei upgrade
+```
+
+This will download the latest release from the official repository and replace the current binary in-place.
 
 ### Configuration Management
 
