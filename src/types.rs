@@ -450,8 +450,8 @@ mod test {
     #[tokio::test]
     async fn test_nighty() {
         for i in [
-            "https://nightly.link/ahaoboy/cross-env/workflows/release/main",
-            "https://nightly.link/ahaoboy/cross-env/workflows/release/main?preview",
+            "https://nightly.link/mpv-easy/mpv-easy/workflows/release/main",
+            "https://nightly.link/mpv-easy/mpv-easy/workflows/release/main?preview",
         ] {
             let nightly = Nightly::try_from(i).unwrap();
             let v = nightly.get_artifact_url(&Default::default()).await.unwrap();
