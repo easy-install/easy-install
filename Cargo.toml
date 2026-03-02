@@ -14,7 +14,7 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
 is-admin = { git = " https://github.com/ahaoboy/is-admin.git", version = "0.1" }
-crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1" }
+crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1", default-features = false }
 which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "0.1" }
 easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false, features = [
   "tar",
@@ -45,7 +45,7 @@ reqwest = { version = "0.13", features = [
   "gzip",
   "rustls-native-certs",
   "cookies",
-]}
+] }
 
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
