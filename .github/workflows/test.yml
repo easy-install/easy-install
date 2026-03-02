@@ -29,17 +29,20 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: cargo -q  test
+      - name: cargo -q test
         run: |
-          cargo -q  test
-      - name: cargo -q  run
+          cargo -q test
+      - name: cargo install
         run: |
-          cargo -q  run -- --version
+          cargo install --features=logging --path .
+      - name: ei version
+        run: |
+          ei --version
       - name: install
         run: |
           for file in dist-manifest/*.json; do
             echo $file
-            cargo -q  run -- $file
+            ei $file
             source ~/.bashrc
           done
 
@@ -49,15 +52,15 @@ jobs:
           do
               echo $line
               [[ -z "$line" ]] && continue
-              cargo -q  run -- $line
+              ei $line
           done
 
       - name: install alias qjs-next
         run: |
-          cargo -q  run -- https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
+          ei https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
       - name: install alias ladybird
         run: |
-          cargo -q  run -- https://github.com/ahaoboy/ladybird-js-build  --alias ladybird
+          ei https://github.com/ahaoboy/ladybird-js-build  --alias ladybird
 
       - name: test which
         if: matrix.os != 'windows-latest'

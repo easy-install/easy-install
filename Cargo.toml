@@ -69,6 +69,7 @@ tar-xz = ["tar", "easy-archive/tar-xz"]
 tar-bz = ["tar", "easy-archive/tar-bz"]
 tar-zstd = ["tar", "easy-archive/tar-zstd"]
 zip = ["easy-archive/zip"]
+logging = ["crud-path/logging"]
 
 [profile.release]
 debug = false
