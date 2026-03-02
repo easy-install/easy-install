@@ -405,6 +405,12 @@ For tools hosted outside GitHub, you can specify direct download URLs:
 
 Binaries are installed to `~/.ei` by default, which is automatically added to your PATH during installation.
 
+## Similar Tools
+
+- [eget](https://github.com/zyedidia/eget) - Easily install prebuilt binaries from GitHub
+- [ubi](https://github.com/houseabsolute/ubi) - Universal Binary Installer
+- [dra](https://github.com/devmatteini/dra) - Download release assets from GitHub
+
 ## License
 
 MIT
