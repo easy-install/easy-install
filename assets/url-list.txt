@@ -28,7 +28,7 @@ ahaoboy/ansi2
 nushell/nushell
 ahaoboy/heart-rate
 https://github.com/easy-install/easy-install
-https://github.com/easy-install/cross-env
+https://github.com/ahaoboy/cross-env
 https://github.com/ahaoboy/jsc-build
 https://github.com/userdocs/iperf3-static/
 https://github.com/upx/upx

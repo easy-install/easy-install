@@ -43,7 +43,6 @@ jobs:
           for file in dist-manifest/*.json; do
             echo $file
             ei $file
-            source ~/.bashrc
           done
 
       - name: install list
