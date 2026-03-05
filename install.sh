@@ -484,6 +484,18 @@ command_exists() {
   return 1
 }
 
+# Convert path to display format (Windows-style on Windows, unchanged on other platforms)
+# Args: path
+# Returns: display-friendly path string
+display_path() {
+  local path="$1"
+  if [ "$IS_WINDOWS" = true ] && command_exists cygpath; then
+    cygpath -w "$path"
+  else
+    echo "$path"
+  fi
+}
+
 # Check for required dependencies based on compression format
 # Args: format (tar.gz, tgz, tar.xz, zip)
 # Exits with error if dependencies are missing
@@ -516,7 +528,9 @@ check_dependencies() {
       ;;
     zip)
       if ! command_exists unzip; then
-        missing_deps="${missing_deps} unzip"
+        if ! command_exists powershell && ! command_exists pwsh; then
+          missing_deps="${missing_deps} unzip"
+        fi
       fi
       ;;
   esac
@@ -723,7 +737,25 @@ extract_archive() {
       tar -xJf "$archive" -C "$dest_dir"
       ;;
     zip)
-      unzip -q "$archive" -d "$dest_dir"
+      if command_exists unzip; then
+        unzip -q "$archive" -d "$dest_dir"
+      elif command_exists powershell || command_exists pwsh; then
+        local ps_archive="$archive"
+        local ps_dest="$dest_dir"
+        # Convert Unix-style paths to Windows paths in MSYS2/Git Bash/Cygwin
+        if command_exists cygpath; then
+          ps_archive="$(cygpath -w "$archive")"
+          ps_dest="$(cygpath -w "$dest_dir")"
+        fi
+        local ps_cmd="powershell"
+        if ! command_exists powershell; then
+          ps_cmd="pwsh"
+        fi
+        $ps_cmd -c "Expand-Archive -Path '$ps_archive' -DestinationPath '$ps_dest' -Force"
+      else
+        echo "ERROR: No zip extraction tool available (tried: unzip, powershell, pwsh)"
+        exit 1
+      fi
       ;;
     *)
       echo "ERROR: Unsupported compression format: $format"
@@ -743,7 +775,7 @@ cleanup_temp_files() {
   local file_path
   for file_path in "$@"; do
     if [ -f "$file_path" ]; then
-      echo "Cleaning up temporary file: $file_path"
+      echo "Cleaning up temporary file: $(display_path "$file_path")"
       rm -f "$file_path"
     fi
   done
@@ -949,7 +981,7 @@ main() {
   # Setup installation directory
   setup_install_dir
   local abs_path=$(resolve_path $EI_DIR)
-  echo "Installation directory: $abs_path" $EI_DIR
+  echo "Installation directory: $(display_path "$abs_path")"
 
   # Check disk space
   if [ "$EI_MIN_DISK_SPACE" -gt 0 ]; then
@@ -1037,7 +1069,7 @@ main() {
     exit 1
   fi
 
-  echo "Found binary at: $BINARY_PATH"
+  echo "Found binary at: $(display_path "$BINARY_PATH")"
 
   # Move binary to installation directory
   echo "Installing binary..."
@@ -1045,11 +1077,11 @@ main() {
   if [ "$IS_WINDOWS" = true ]; then
     mv "$BINARY_PATH" "$abs_path/${EI_BINARY_NAME}.exe"
     chmod u+x "$abs_path/${EI_BINARY_NAME}.exe"
-    echo "Successfully installed to $abs_path/${EI_BINARY_NAME}.exe"
+    echo "Successfully installed to $(display_path "$abs_path/${EI_BINARY_NAME}.exe")"
   else
     mv "$BINARY_PATH" "$abs_path/$EI_BINARY_NAME"
     chmod u+x "$abs_path/$EI_BINARY_NAME"
-    echo "Successfully installed to $abs_path/$EI_BINARY_NAME"
+    echo "Successfully installed to $(display_path "$abs_path/$EI_BINARY_NAME")"
   fi
 
   # Update PATH
@@ -1064,6 +1096,7 @@ main() {
   fi
 
   cleanup_temp_files "$DOWNLOAD_PATH"
+  echo ""
   echo "Cleanup complete"
 }
 
