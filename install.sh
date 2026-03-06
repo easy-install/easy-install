@@ -436,13 +436,38 @@ parse_arguments() {
 # Args: path
 # Returns: absolute path
 resolve_path() {
-  sh -c "(cd $1 2>/dev/null && pwd -P) || return 1;"
+  local path="$1"
+  # Expand ~ to $HOME (quote ~ in pattern to prevent shell expansion)
+  case "$path" in
+    "~"/*) path="$HOME/${path#\~/}" ;;
+    "~")   path="$HOME" ;;
+  esac
+  # If the directory exists, use cd to get canonical path
+  if [ -d "$path" ]; then
+    (cd "$path" 2>/dev/null && pwd -P)
+  else
+    # Directory doesn't exist yet; resolve the parent and append the basename
+    local parent
+    local base
+    parent="$(dirname "$path")"
+    base="$(basename "$path")"
+    if [ -d "$parent" ]; then
+      echo "$(cd "$parent" 2>/dev/null && pwd -P)/$base"
+    else
+      # Fallback: just return the path with ~ expanded
+      echo "$path"
+    fi
+  fi
 }
 
 resolve_windows_path() {
   local path="$1"
-  local abs_path=$(powershell -c "(Resolve-Path '$path').Path")
-  echo $abs_path
+  if command_exists cygpath; then
+    cygpath -w "$path"
+  else
+    # Fallback: use PowerShell with [System.IO.Path]::GetFullPath which doesn't require path to exist
+    powershell -c "[System.IO.Path]::GetFullPath('$path')"
+  fi
 }
 
 
@@ -549,9 +574,18 @@ get_available_disk_space() {
   local dir="$1"
   local available_space=""
 
+  # Walk up to the nearest existing parent directory
+  while [ ! -d "$dir" ] && [ "$dir" != "/" ] && [ "$dir" != "." ]; do
+    dir="$(dirname "$dir")"
+  done
+
   if [ "$IS_WINDOWS" = true ]; then
-    # Use PowerShell for Windows
-    available_space=$(powershell -c "[int]((Get-Item '$dir').PSDrive.Free / 1MB)" 2>/dev/null)
+    # Convert Unix-style path to Windows path for PowerShell
+    local win_dir="$dir"
+    if command_exists cygpath; then
+      win_dir="$(cygpath -w "$dir")"
+    fi
+    available_space=$(powershell -c "[int]((Get-Item '$win_dir').PSDrive.Free / 1MB)" 2>/dev/null)
   elif [ "$IS_DARWIN" = true ]; then
     # macOS: df uses 512-byte blocks by default, convert to MB
     # Column 4 is available space in 512-byte blocks
@@ -787,11 +821,12 @@ cleanup_temp_files() {
 
 # Setup installation directory based on OS and permissions
 setup_install_dir() {
-  if [ "$IS_WINDOWS" = true ]; then
-    powershell -c "New-Item -Path '$EI_DIR' -ItemType Directory -Force | Out-Null"
-  else
-    sh -c "mkdir -p $EI_DIR"
-  fi
+  # Expand ~ in EI_DIR (quote ~ in pattern to prevent shell expansion)
+  case "$EI_DIR" in
+    "~"/*) EI_DIR="$HOME/${EI_DIR#\~/}" ;;
+    "~")   EI_DIR="$HOME" ;;
+  esac
+  mkdir -p "$EI_DIR"
 }
 
 # Update PATH for Fish shell
@@ -985,7 +1020,7 @@ main() {
 
   # Check disk space
   if [ "$EI_MIN_DISK_SPACE" -gt 0 ]; then
-    echo "Checking disk space..."
+    echo "Checking disk space for $(display_path "$abs_path")..."
     check_disk_space "$EI_DIR" "$EI_MIN_DISK_SPACE"
     echo "Disk space check passed"
   fi
@@ -1096,7 +1131,6 @@ main() {
   fi
 
   cleanup_temp_files "$DOWNLOAD_PATH"
-  echo ""
   echo "Cleanup complete"
 }
 
