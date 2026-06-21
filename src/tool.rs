@@ -239,7 +239,7 @@ pub(crate) fn check(file: &OutputFile) -> Option<String> {
         return None;
     }
     if let Ok(p) = which::which(&name)
-        && !p.is_empty()
+        && !p.as_os_str().is_empty()
         && file_path != &p
     {
         return Some(p.to_string_lossy().to_string());
