@@ -227,28 +227,6 @@ pub(crate) fn get_filename(s: &str) -> String {
     s[i..].to_string()
 }
 
-#[cfg(windows)]
-pub(crate) fn which(name: &str) -> Option<String> {
-    let cmd = std::process::Command::new("powershell")
-        .args(["-c", &format!("(get-command {name}).Source")])
-        .output()
-        .ok()?;
-    String::from_utf8(cmd.stdout)
-        .ok()
-        .map(|i| i.trim().replace("\\", "/").replace("//", "/"))
-}
-
-#[cfg(unix)]
-pub(crate) fn which(name: &str) -> Option<String> {
-    let cmd = std::process::Command::new("which")
-        .arg(name)
-        .output()
-        .ok()?;
-    String::from_utf8(cmd.stdout)
-        .ok()
-        .map(|i| i.trim().to_string().replace("\\", "/").replace("//", "/"))
-}
-
 const EXEC_MASK: u32 = 0o111;
 pub(crate) fn executable(name: &str, mode: &Option<u32>) -> bool {
     ends_with_exe(name) || (!name.contains(".") && mode.unwrap_or(0) & EXEC_MASK != 0)
@@ -260,11 +238,11 @@ pub(crate) fn check(file: &OutputFile) -> Option<String> {
     if !executable(&name, &file.mode) {
         return None;
     }
-    if let Some(p) = which(&name)
+    if let Ok(p) = which::which(&name)
         && !p.is_empty()
         && file_path != &p
     {
-        return Some(p);
+        return Some(p.to_string_lossy().to_string());
     }
     None
 }

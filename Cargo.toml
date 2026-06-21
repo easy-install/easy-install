@@ -46,7 +46,7 @@ reqwest = { version = "0.13", features = [
   "rustls-native-certs",
   "cookies",
 ] }
-
+which = "8"
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
 cargo-dist-schema = "0.30"
