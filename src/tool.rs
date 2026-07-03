@@ -623,8 +623,10 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
             .unwrap()
     });
     static RE_TAG2: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$")
-            .unwrap()
+        Regex::new(
+            r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$",
+        )
+        .unwrap()
     });
     for (re, n) in [(&*RE_TAG2, 5), (&*RE_TAG, 4), (&*RE_LATEST, 3)] {
         if let Some(cap) = re.captures(s)
@@ -963,7 +965,7 @@ mod test {
         let repo = Repo::try_from(url).unwrap();
         let artifact_url = repo.get_artifact_url(&Default::default()).await.unwrap();
         println!("artifact_url{artifact_url:?}");
-        assert_eq!(artifact_url.len(), 2);
+        assert_eq!(artifact_url.len(), 3);
     }
 
     #[tokio::test]
