@@ -369,7 +369,9 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Resul
         ConfigSubcommand::Proxy { value } => {
             let current = config
                 .proxy
-                .map_or("not set (default: Github)".to_string(), |p| format!("{p:?}"));
+                .map_or("not set (default: Github)".to_string(), |p| {
+                    format!("{p:?}")
+                });
             apply_config(
                 &mut config,
                 quiet,
@@ -395,7 +397,9 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Resul
         ConfigSubcommand::Target { value } => {
             let current = config
                 .target
-                .map_or("not set (auto-detect)".to_string(), |t| t.to_str().to_string());
+                .map_or("not set (auto-detect)".to_string(), |t| {
+                    t.to_str().to_string()
+                });
             apply_config(
                 &mut config,
                 quiet,
@@ -409,7 +413,9 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Resul
         ConfigSubcommand::Timeout { value } => {
             let current = config
                 .timeout
-                .map_or("not set (default: 600 seconds)".to_string(), |t| format!("{t} seconds"));
+                .map_or("not set (default: 600 seconds)".to_string(), |t| {
+                    format!("{t} seconds")
+                });
             apply_config(
                 &mut config,
                 quiet,

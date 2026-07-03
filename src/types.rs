@@ -42,15 +42,12 @@ static RE_PROXY_RELEASE: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
-static RE_LATEST_TAG: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"href="/[^/]+/[^/]+/releases/tag/([^"]+)""#).unwrap()
-});
+static RE_LATEST_TAG: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"href="/[^/]+/[^/]+/releases/tag/([^"]+)""#).unwrap());
 
 static RE_RELEASE_HTML: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r#"<a\s+href="(/[^/]+/[^/]+/releases/download/[^/]+/([^"]+))"\s+rel="nofollow""#,
-    )
-    .unwrap()
+    Regex::new(r#"<a\s+href="(/[^/]+/[^/]+/releases/download/[^/]+/([^"]+))"\s+rel="nofollow""#)
+        .unwrap()
 });
 
 static RE_NIGHTLY: LazyLock<Regex> = LazyLock::new(|| {

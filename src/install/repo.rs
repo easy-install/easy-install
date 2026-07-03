@@ -1,6 +1,6 @@
 use crate::InstallConfig;
-use crate::install::manfiest::install_from_manfiest;
 use crate::install::install_artifacts;
+use crate::install::manfiest::install_from_manfiest;
 use crate::tool::{filter_artifacts, not_found_asset_message};
 use crate::types::{Output, Repo};
 use anyhow::Result;

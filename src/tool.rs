@@ -705,7 +705,19 @@ pub(crate) fn get_artifact_url(
             continue;
         }
         let filename = get_filename(&i.browser_download_url);
-        let name = name_no_ext(&filename);
+        let name_no_ext_str = name_no_ext(&filename);
+        // Pre-filter by --name against the raw filename (before
+        // guess_target strips the platform tag). This lets users target
+        // assets whose inferred tool name differs from the filter token,
+        if !config.name.is_empty()
+            && !config
+                .name
+                .iter()
+                .any(|n| filename.contains(n.as_str()) || name_no_ext_str.starts_with(n.as_str()))
+        {
+            continue;
+        }
+        let name = name_no_ext_str;
         let guess = guess_target(&name);
 
         // Match priority:
@@ -792,12 +804,14 @@ pub(crate) fn get_artifact_url(
 ///
 /// - When `--alias` is set and matches at least one artifact name, only those
 ///   matching artifacts are kept (rename happens later in `install_output_files`).
-/// - When `--name` is set, only artifacts whose name is in the list are kept.
+///
+/// Note: `--name` filtering is applied earlier, inside `get_artifact_url`
+/// (against the raw asset filename), so it does not need to be re-applied here.
 pub(crate) fn filter_artifacts(
     artifact_url: Vec<(String, String)>,
     config: &InstallConfig,
 ) -> Vec<(String, String)> {
-    let filtered = if let Some(alias) = &config.alias {
+    if let Some(alias) = &config.alias {
         let matching: Vec<_> = artifact_url
             .iter()
             .filter(|(name, _)| name == alias)
@@ -810,15 +824,6 @@ pub(crate) fn filter_artifacts(
         }
     } else {
         artifact_url
-    };
-
-    if config.name.is_empty() {
-        filtered
-    } else {
-        filtered
-            .into_iter()
-            .filter(|(name, _)| config.name.contains(name))
-            .collect()
     }
 }
 
