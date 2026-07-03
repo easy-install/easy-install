@@ -707,21 +707,64 @@ pub(crate) fn get_artifact_url(
         let filename = get_filename(&i.browser_download_url);
         let name = name_no_ext(&filename);
         let guess = guess_target(&name);
-        if let Some(t) = config.target
-            && let Some(item) = guess.iter().find(|i| t == i.target)
-        {
-            v.push((item.rank, item.name.clone(), i.browser_download_url.clone()));
-        } else if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
+
+        // Match priority:
+        // 1. Exact target match (including abi).
+        // 2. Fuzzy match by (arch, os), ignoring abi (only when --fuzzy is
+        //    set). This catches assets whose filename omits the abi (e.g.
+        //    "mihomo-linux-amd64.tar.gz" parsed as gnu) when the user
+        //    requested musl, since the binary is typically abi-agnostic or
+        //    the provider just didn't tag it. Fuzzy matches are penalized
+        //    by RANK_PENALTY so exact matches win when both exist.
+        const RANK_PENALTY: u32 = 1;
+        let mut penalized = false;
+        let item = if let Some(t) = config.target {
+            let exact = guess.iter().find(|i| i.target == t);
+            if let Some(m) = exact {
+                Some(m)
+            } else if config.fuzzy {
+                let fuzzy = guess
+                    .iter()
+                    .find(|i| i.target.arch() == t.arch() && i.target.os() == t.os());
+                if fuzzy.is_some() {
+                    penalized = true;
+                }
+                fuzzy
+            } else {
+                None
+            }
+        } else {
+            let exact = guess.iter().find(|i| local_target.contains(&i.target));
+            if let Some(m) = exact {
+                Some(m)
+            } else if config.fuzzy {
+                let fuzzy = guess.iter().find(|i| {
+                    local_target
+                        .iter()
+                        .any(|t| t.arch() == i.target.arch() && t.os() == i.target.os())
+                });
+                if fuzzy.is_some() {
+                    penalized = true;
+                }
+                fuzzy
+            } else {
+                None
+            }
+        };
+
+        if let Some(item) = item {
             // HACK: Prioritize using musl on the arm platform
             let hack_musl = match (item.target.arch(), item.target.abi()) {
                 (Arch::Aarch64, Some(Abi::Musl)) => 10,
                 _ => 0,
             };
-            v.push((
-                item.rank + hack_musl,
-                item.name.clone(),
-                i.browser_download_url.clone(),
-            ));
+            let rank = item.rank + hack_musl;
+            let rank = if penalized {
+                rank.saturating_sub(RANK_PENALTY)
+            } else {
+                rank
+            };
+            v.push((rank, item.name.clone(), i.browser_download_url.clone()));
         }
     }
 

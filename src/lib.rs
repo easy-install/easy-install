@@ -29,6 +29,7 @@ pub struct InstallConfig {
     pub upx: bool,
     pub quiet: bool,
     pub install_only: bool,
+    pub fuzzy: bool,
 }
 
 impl Default for InstallConfig {
@@ -45,6 +46,7 @@ impl Default for InstallConfig {
             upx: false,
             quiet: false,
             install_only: false,
+            fuzzy: false,
         }
     }
 }
@@ -67,6 +69,7 @@ impl InstallConfig {
             upx: persistent_config.upx.unwrap_or(false),
             quiet: false,
             install_only: false,
+            fuzzy: false,
         }
     }
 
@@ -212,6 +215,22 @@ pub struct Args {
         default_value_t = false
     )]
     pub quiet: bool,
+
+    /// Use fuzzy target matching (match arch+os, ignoring abi)
+    ///
+    /// By default ei requires an exact target triple match (including the
+    /// abi, e.g. gnu vs musl). Enable this to fall back to a (arch, os)
+    /// match when no exact match is found, so assets whose filenames omit
+    /// the abi (e.g. "mihomo-linux-amd64.tar.gz" parsed as gnu) can still
+    /// be selected when you requested musl.
+    #[arg(
+        long,
+        help = "Use fuzzy target matching (match arch+os, ignoring abi)",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        default_value_t = false
+    )]
+    pub fuzzy: bool,
 }
 
 impl Default for Args {
@@ -230,6 +249,7 @@ impl Default for Args {
             strip: None,
             upx: None,
             quiet: false,
+            fuzzy: false,
         }
     }
 }
@@ -263,6 +283,7 @@ impl From<Args> for InstallConfig {
             upx,
             quiet: value.quiet,
             install_only: value.install_only,
+            fuzzy: value.fuzzy,
         }
     }
 }
