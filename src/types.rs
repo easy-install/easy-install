@@ -9,13 +9,66 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::sync::LazyLock;
 use tracing::trace;
+
+static RE_GH_TAG: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)$",
+    )
+    .unwrap()
+});
+
+static RE_GH_DOWNLOAD_TAG: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$",
+    )
+    .unwrap()
+});
+
+// NOTE: `https?` (not `http?s`) so both http and https are matched.
+static RE_GH_RELEASES: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)").unwrap()
+});
+
+static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$").unwrap()
+});
+
+static RE_PROXY_RELEASE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$",
+    )
+    .unwrap()
+});
+
+static RE_LATEST_TAG: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"href="/[^/]+/[^/]+/releases/tag/([^"]+)""#).unwrap()
+});
+
+static RE_RELEASE_HTML: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"<a\s+href="(/[^/]+/[^/]+/releases/download/[^/]+/([^"]+))"\s+rel="nofollow""#,
+    )
+    .unwrap()
+});
+
+static RE_NIGHTLY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^https://nightly\.link/[^/]+/[^/]+/workflows/[^/]+/[^/?]+(\?preview)?$").unwrap()
+});
+
+static RE_NIGHTLY_ASSETS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#,
+    )
+    .unwrap()
+});
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub(crate) struct OutputFile {
     pub(crate) install_path: String,
     pub(crate) mode: Option<u32>,
-    pub(crate) size: u32,
+    pub(crate) size: u64,
     pub(crate) origin_path: String,
     pub(crate) is_dir: bool,
     pub(crate) buffer: Vec<u8>,
@@ -46,23 +99,9 @@ impl TryFrom<&str> for Repo {
 
     fn try_from(value: &str) -> Result<Self> {
         trace!("get_artifact_api {}", value);
-        let value = if value.ends_with(".git") {
-            &value[0..value.len() - 4]
-        } else {
-            value
-        };
-        let re_gh_tag = Regex::new(
-            r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/tag/(?P<tag>[^/]+)$",
-        )?;
+        let value = value.strip_suffix(".git").unwrap_or(value);
 
-        let re_gh_download_tag = Regex::new(
-            r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$",
-        )?;
-
-        let re_gh_releases = Regex::new(r"^http?s://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)")?;
-
-        let re_short = Regex::new(r"^(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)(?:@(?P<tag>[\w.-]+))?$")?;
-        if let Some(captures) = re_gh_tag.captures(value)
+        if let Some(captures) = RE_GH_TAG.captures(value)
             && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
@@ -76,7 +115,7 @@ impl TryFrom<&str> for Repo {
             });
         }
 
-        if let Some(captures) = re_gh_download_tag.captures(value)
+        if let Some(captures) = RE_GH_DOWNLOAD_TAG.captures(value)
             && let (Some(owner), Some(name), Some(tag)) = (
                 captures.name("owner"),
                 captures.name("repo"),
@@ -90,7 +129,7 @@ impl TryFrom<&str> for Repo {
             });
         }
 
-        if let Some(captures) = re_gh_releases.captures(value)
+        if let Some(captures) = RE_GH_RELEASES.captures(value)
             && let (Some(owner), Some(name)) = (captures.name("owner"), captures.name("repo"))
         {
             return Ok(Repo {
@@ -100,7 +139,7 @@ impl TryFrom<&str> for Repo {
             });
         }
 
-        if let Some(captures) = re_short.captures(value)
+        if let Some(captures) = RE_SHORT.captures(value)
             && let (Some(owner), Some(name), tag) = (
                 captures.name("owner"),
                 captures.name("repo"),
@@ -127,11 +166,7 @@ impl Repo {
             return url.to_string();
         }
 
-        let re = Regex::new(
-            r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$"
-        ).unwrap();
-
-        if let Some(captures) = re.captures(url) {
+        if let Some(captures) = RE_PROXY_RELEASE.captures(url) {
             let owner = captures.name("owner").unwrap().as_str();
             let repo_name = captures.name("repo").unwrap().as_str();
             let tag = captures.name("tag").unwrap().as_str();
@@ -208,9 +243,7 @@ impl Repo {
     }
 
     fn parse_latest_tag(html: &str) -> Result<String> {
-        let re = Regex::new(r#"href="/[^/]+/[^/]+/releases/tag/([^"]+)""#)?;
-
-        if let Some(cap) = re.captures(html) {
+        if let Some(cap) = RE_LATEST_TAG.captures(html) {
             let tag = cap[1].to_string();
             trace!("Found latest tag: {}", tag);
             return Ok(tag);
@@ -266,12 +299,9 @@ impl Repo {
     }
 
     fn parse_release_html(html: &str) -> Result<GhArtifacts> {
-        let re = Regex::new(
-            r#"<a\s+href="(/[^/]+/[^/]+/releases/download/[^/]+/([^"]+))"\s+rel="nofollow""#,
-        )?;
         let mut assets = HashSet::new();
 
-        for cap in re.captures_iter(html) {
+        for cap in RE_RELEASE_HTML.captures_iter(html) {
             let path = &cap[1];
             let name = cap[2].to_string();
 
@@ -386,11 +416,10 @@ impl Nightly {
         if html.contains("class=\"absent\"") {
             return Ok(Default::default());
         }
-        let re = Regex::new(r#"<th><a rel="nofollow" href="[^"]+">([^<]+)</a></th>\s*<td><a rel="nofollow" href="([^"]+)">"#).unwrap();
         let mut assets = HashSet::new();
 
         // Iterate over all matches in the HTML
-        for cap in re.captures_iter(&html) {
+        for cap in RE_NIGHTLY_ASSETS.captures_iter(&html) {
             let name = cap[1].to_string();
             let browser_download_url = cap[2].to_string();
             assets.insert(GhArtifact {
@@ -412,17 +441,14 @@ impl Nightly {
 
 impl Display for Nightly {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.url.to_string())
+        f.write_str(&self.url)
     }
 }
 impl TryFrom<&str> for Nightly {
     type Error = anyhow::Error;
 
     fn try_from(url: &str) -> std::result::Result<Self, Self::Error> {
-        let re =
-            Regex::new(r"^https://nightly\.link/[^/]+/[^/]+/workflows/[^/]+/[^/?]+(\?preview)?$")?;
-        let v = re.is_match(url);
-        if v {
+        if RE_NIGHTLY.is_match(url) {
             Ok(Self {
                 url: url.to_string(),
             })

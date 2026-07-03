@@ -24,10 +24,10 @@ pub(crate) fn install_from_download_file(
     let mut v: OutputItem = Default::default();
     let mut files: Vec<OutputFile> = vec![];
     let mut output = Output::new();
-    if let Some(target_dir) = config
+    let target_dir = config
         .dir
         .clone()
-        .or(Some(path_to_str(&install_dir).to_string()))
+        .unwrap_or_else(|| path_to_str(&install_dir).to_string());
     {
         if target_dir.contains("/") || target_dir.contains("\\") {
             install_dir = expand_path(&target_dir).into();
@@ -79,7 +79,7 @@ pub(crate) fn install_from_download_file(
             );
 
             for entry in file_list {
-                let size = entry.buffer.len() as u32;
+                let size = entry.buffer.len() as u64;
                 let is_dir = entry.is_dir;
                 if is_dir {
                     continue;
@@ -106,8 +106,6 @@ pub(crate) fn install_from_download_file(
                 }
             }
         }
-    } else if !config.quiet {
-        println!("Maybe you should use -d to set the folder");
     }
 
     Ok(output)

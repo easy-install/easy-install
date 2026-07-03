@@ -42,7 +42,7 @@ pub(crate) async fn install_from_single_file(
         let install_path = path_to_str(&install_path);
         let mut files = vec![OutputFile {
             mode: None,
-            size: bin.len() as u32,
+            size: bin.len() as u64,
             origin_path: filename,
             is_dir: false,
             install_path,

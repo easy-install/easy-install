@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 pub(crate) const DEEP: usize = 3;
 pub(crate) const WINDOWS_EXE_EXTS: [&str; 6] = [".exe", ".ps1", ".bat", ".cmd", ".com", ".vbs"];
@@ -118,7 +119,7 @@ fn abs_path(p: &str) -> PathBuf {
 
 const MAX_FILE_COUNT: usize = 16;
 pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String {
-    let s: u32 = output
+    let s: u64 = output
         .values()
         .flat_map(|v| v.files.iter().map(|f| f.size))
         .sum();
@@ -179,16 +180,19 @@ fn file_size(p: &str) -> usize {
 }
 
 pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
+    // Collect candidate executable files (non-skipped, non-license).
+    // If exactly one candidate exists, it is treated as the executable
+    // even without an exec bit or known extension.
     let mut maybe_exe = HashSet::new();
     for v in output.values() {
         for f in &v.files {
-            let skip = !is_skip(&f.install_path) && !is_license_file(&f.install_path);
-            if !skip {
+            let is_installable = !is_skip(&f.install_path) && !is_license_file(&f.install_path);
+            if is_installable {
                 maybe_exe.insert(f.install_path.clone());
             }
             let deep = f.origin_path.split("/").count();
             if deep <= DEEP
-                && !skip
+                && is_installable
                 && let Some(p) = check(f)
                 && !config.quiet
             {
@@ -261,7 +265,7 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
         if meta.is_file() {
             std::fs::remove_file(src).context("failed to remove file")?;
         } else {
-            std::fs::remove_dir_all(src).context("failed to remove dir")?;
+            anyhow::bail!("target path is a directory, refusing to overwrite: {src}");
         }
     }
 
@@ -295,7 +299,6 @@ pub(crate) fn get_artifact_url_from_manfiest(
     config: &InstallConfig,
 ) -> Vec<(String, String)> {
     let mut v = vec![];
-    // let mut filter = vec![];
     let local_target = config.get_local_target();
 
     for (key, art) in manfiest.artifacts.iter() {
@@ -307,21 +310,6 @@ pub(crate) fn get_artifact_url_from_manfiest(
         if ends_with_exe(key) && local_target.iter().any(|t| t.os() != Os::Windows) {
             continue;
         }
-
-        // let guess = guess_target(&filename);
-
-        // if let Some(item) = guess.iter().find(|i| local_target.contains(&i.target)) {
-        //     if filter.contains(&item.name) {
-        //         continue;
-        //     }
-        //     if !is_url(key) {
-        //         v.push((item.rank, item.name.clone(), replace_filename(url, key)));
-        //     } else {
-        //         v.push((item.rank, item.name.clone(), key.clone()));
-        //     }
-        //     filter.push(item.name.clone());
-        //     continue;
-        // }
 
         if has_common_elements(
             &art.target_triples,
@@ -346,16 +334,6 @@ pub(crate) fn get_artifact_url_from_manfiest(
             continue;
         }
     }
-    // let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
-    // v.into_iter()
-    //     .filter_map(|i| {
-    //         if i.0 < max_rank {
-    //             None
-    //         } else {
-    //             Some((i.1, i.2))
-    //         }
-    //     })
-    //     .collect()
     v
 }
 
@@ -471,7 +449,7 @@ fn format_size(n: u64) -> String {
 }
 
 pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()> {
-    let sum = files.iter().map(|i| i.size).sum::<u32>() as usize;
+    let sum: u64 = files.iter().map(|i| i.size).sum();
     let disk = if dir.exists() {
         fs4::available_space(dir).map_err(|e| e.to_string())
     } else if let Some(p) = dir.parent() {
@@ -482,7 +460,7 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
 
     match disk {
         Ok(disk) => {
-            if disk < sum as u64 {
+            if disk < sum {
                 return Err(anyhow::anyhow!(
                     r#"Insufficient disk space for installation
   Installation directory: {}
@@ -490,7 +468,7 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
   Required space: {}"#,
                     dir.to_string_lossy(),
                     format_size(disk),
-                    human_size(sum),
+                    human_size(sum as usize),
                 ));
             }
         }
@@ -563,31 +541,36 @@ pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallCon
 }
 
 pub(crate) fn name_no_ext(s: &str) -> String {
-    let mut exts: Vec<_> = Fmt::iter().flat_map(|i| i.extensions().to_vec()).collect();
-    exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
-    for ext in exts {
-        if s.ends_with(ext) {
+    let exts = known_extensions();
+    for ext in exts.iter() {
+        if s.ends_with(ext.as_str()) {
             return s[0..s.len() - ext.len()].to_string();
         }
     }
-
-    let all: &[&[&str]] = &[
-        &WINDOWS_EXE_EXTS[..],
-        &INSTALLER_EXTS[..],
-        &TEXT_FILE_EXTS[..],
-        &MAYBE_EXECUTABLE_EXTS[..],
-        &SKIP_FMT_LIST[..],
-    ];
-
-    for i in all {
-        for ext in i.iter() {
-            if s.ends_with(ext) {
-                return s[0..s.len() - ext.len()].to_string();
-            }
-        }
-    }
-
     s.to_string()
+}
+
+/// Cached, length-sorted list of all known file extensions (archive formats
+/// plus executable/installer/text/skip extensions). Built once and reused.
+fn known_extensions() -> &'static Vec<String> {
+    static CACHE: LazyLock<Vec<String>> = LazyLock::new(|| {
+        let mut v: Vec<String> = Fmt::iter()
+            .flat_map(|i| i.extensions().to_vec())
+            .map(|e| e.to_string())
+            .chain(
+                WINDOWS_EXE_EXTS
+                    .iter()
+                    .chain(INSTALLER_EXTS.iter())
+                    .chain(TEXT_FILE_EXTS.iter())
+                    .chain(MAYBE_EXECUTABLE_EXTS.iter())
+                    .chain(SKIP_FMT_LIST.iter())
+                    .map(|e| e.to_string()),
+            )
+            .collect();
+        v.sort_by_key(|b| std::cmp::Reverse(b.len()));
+        v
+    });
+    &CACHE
 }
 
 #[cfg(not(windows))]
@@ -631,14 +614,19 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
     if ends_with_exe(s) {
         return Ok(true);
     }
-    let re_latest =
-        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/latest/download/([^/]+)$")?;
-    let re_tag =
-        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")?;
-    let re_tag2 = Regex::new(
-        r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$",
-    )?;
-    for (re, n) in [(re_tag2, 5), (re_tag, 4), (re_latest, 3)] {
+    static RE_LATEST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/latest/download/([^/]+)$")
+            .unwrap()
+    });
+    static RE_TAG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$")
+            .unwrap()
+    });
+    static RE_TAG2: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)/([^/]+)$")
+            .unwrap()
+    });
+    for (re, n) in [(&*RE_TAG2, 5), (&*RE_TAG, 4), (&*RE_LATEST, 3)] {
         if let Some(cap) = re.captures(s)
             && let Some(name) = cap.get(n)
         {
@@ -736,13 +724,6 @@ pub(crate) fn get_artifact_url(
     }
 
     // we should still apply rank-based deduplication (keep only highest-rank per name).
-    // If name is not empty, it means there may be multiple download sources, and in this case, no filtering is performed on the resources.
-    // if !config.name.is_empty() {
-    //     return Ok(v
-    //         .into_iter()
-    //         .map(|(_, name, url)| (name, Repo::convert_github_url_to_proxy(&url, config.proxy)))
-    //         .collect());
-    // }
     let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
     let mut filter = vec![];
     let mut list = vec![];
@@ -760,6 +741,40 @@ pub(crate) fn get_artifact_url(
         list.push((name, proxied_url));
     }
     Ok(list)
+}
+
+/// Apply `--alias` and `--name` filters to a list of (name, url) artifacts.
+///
+/// - When `--alias` is set and matches at least one artifact name, only those
+///   matching artifacts are kept (rename happens later in `install_output_files`).
+/// - When `--name` is set, only artifacts whose name is in the list are kept.
+pub(crate) fn filter_artifacts(
+    artifact_url: Vec<(String, String)>,
+    config: &InstallConfig,
+) -> Vec<(String, String)> {
+    let filtered = if let Some(alias) = &config.alias {
+        let matching: Vec<_> = artifact_url
+            .iter()
+            .filter(|(name, _)| name == alias)
+            .cloned()
+            .collect();
+        if matching.is_empty() {
+            artifact_url
+        } else {
+            matching
+        }
+    } else {
+        artifact_url
+    };
+
+    if config.name.is_empty() {
+        filtered
+    } else {
+        filtered
+            .into_iter()
+            .filter(|(name, _)| config.name.contains(name))
+            .collect()
+    }
 }
 
 pub(crate) fn not_found_asset_message(url: &str, config: &InstallConfig) {

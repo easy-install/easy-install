@@ -62,7 +62,7 @@ where
         }
     }
 
-    Err(last_error.unwrap())
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("retry_request: no error captured")))
 }
 
 async fn detect_github_token() -> Option<String> {
@@ -271,14 +271,11 @@ async fn get_headers(parsed: &reqwest::Url) -> Result<HeaderMap> {
     Ok(headers)
 }
 
-fn create_client(timeout_secs: u64) -> &'static Client {
+fn create_client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
-    let timeout = Duration::from_secs(timeout_secs);
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .timeout(timeout)
-            .connect_timeout(timeout)
-            .tcp_keepalive(timeout)
+            .connect_timeout(Duration::from_secs(30))
             .cookie_store(true)
             .build()
             .expect("Failed to create HTTP client")
@@ -291,13 +288,15 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
     timeout: u64,
 ) -> Result<T> {
     let parsed = parse_and_validate_url(url)?;
+    let timeout_dur = Duration::from_secs(timeout);
 
     retry_request(
         retry,
         || async {
-            let client = create_client(timeout);
+            let client = create_client();
             let response = match client
                 .get(parsed.clone())
+                .timeout(timeout_dur)
                 .headers(get_headers(&parsed).await?)
                 .send()
                 .await
@@ -349,14 +348,21 @@ pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
 
 pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<reqwest::Response> {
     let parsed = parse_and_validate_url(url)?;
+    let timeout_dur = Duration::from_secs(timeout);
 
     retry_request(
         retry,
         || async {
             trace!("download {}", url);
-            let client = create_client(timeout);
+            let client = create_client();
             let headers = get_headers(&parsed).await?;
-            let response = match client.get(parsed.clone()).headers(headers).send().await {
+            let response = match client
+                .get(parsed.clone())
+                .timeout(timeout_dur)
+                .headers(headers)
+                .send()
+                .await
+            {
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
@@ -393,12 +399,6 @@ pub(crate) async fn download_dist_manfiest(
         || async {
             trace!("download_dist_manfiest {}", url_clone);
             let response = download(&url_clone, 0, timeout).await?;
-            if response.status() != reqwest::StatusCode::OK {
-                return Err(anyhow::anyhow!(
-                    "request failed with status: {}",
-                    response.status()
-                ));
-            }
             response.json().await.context("json parse failed")
         },
         &format!("download_dist_manfiest({})", url),

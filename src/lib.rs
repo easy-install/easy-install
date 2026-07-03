@@ -74,7 +74,7 @@ impl InstallConfig {
         if let Some(t) = self.target {
             return vec![t];
         }
-        guess_target::get_local_target()
+        guess_target::get_local_target().to_vec()
     }
 }
 
@@ -323,7 +323,7 @@ async fn handle_upgrade() -> Result<()> {
     let exe = std::env::current_exe()?;
     let dir = exe
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("ei dir not found".to_string()))?;
+        .ok_or_else(|| anyhow::anyhow!("ei dir not found"))?;
 
     let config = InstallConfig {
         dir: Some(dir.to_string_lossy().to_string()),
@@ -346,122 +346,127 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Resul
 
     match subcmd {
         ConfigSubcommand::Proxy { value } => {
-            if let Some(proxy) = value {
-                config.set_proxy(proxy);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Proxy set to: {:?}", proxy);
-                }
-            } else if !quiet {
-                println!(
-                    "Current proxy: {}",
-                    config
-                        .proxy
-                        .map_or("not set (default: Github)".to_string(), |p| format!(
-                            "{:?}",
-                            p
-                        ))
-                );
-            }
+            let current = config
+                .proxy
+                .map_or("not set (default: Github)".to_string(), |p| format!("{p:?}"));
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_proxy,
+                |v| format!("{v:?}"),
+                "Proxy",
+                current,
+            )?
         }
         ConfigSubcommand::Dir { value } => {
-            if let Some(val) = value {
-                config.set_dir(expand_path(&val));
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Directory set to: {}", val);
-                }
-            } else if !quiet {
-                println!(
-                    "Current directory: {}",
-                    config.dir.as_deref().unwrap_or("not set")
-                );
-            }
+            let current = config.dir.as_deref().unwrap_or("not set").to_string();
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                |c, v| c.set_dir(expand_path(&v)),
+                |v: &String| v.to_string(),
+                "Directory",
+                current,
+            )?
         }
         ConfigSubcommand::Target { value } => {
-            if let Some(target) = value {
-                config.set_target(target);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Target set to: {}", target.to_str());
-                }
-            } else if !quiet {
-                println!(
-                    "Current target: {}",
-                    config
-                        .target
-                        .map_or("not set (auto-detect)".to_string(), |t| t
-                            .to_str()
-                            .to_string())
-                );
-            }
+            let current = config
+                .target
+                .map_or("not set (auto-detect)".to_string(), |t| t.to_str().to_string());
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_target,
+                |v| v.to_str().to_string(),
+                "Target",
+                current,
+            )?
         }
         ConfigSubcommand::Timeout { value } => {
-            if let Some(timeout) = value {
-                config.set_timeout(timeout);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Timeout set to: {} seconds", timeout);
-                }
-            } else if !quiet {
-                println!(
-                    "Current timeout: {}",
-                    config.timeout.map_or(
-                        "not set (default: 600 seconds)".to_string(),
-                        |t| format!("{} seconds", t)
-                    )
-                );
-            }
+            let current = config
+                .timeout
+                .map_or("not set (default: 600 seconds)".to_string(), |t| format!("{t} seconds"));
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_timeout,
+                |v: &u64| v.to_string(),
+                "Timeout",
+                current,
+            )?
         }
         ConfigSubcommand::Retry { value } => {
-            if let Some(retry) = value {
-                config.set_retry(retry);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Retry set to: {}", retry);
-                }
-            } else if !quiet {
-                println!(
-                    "Current retry: {}",
-                    config
-                        .retry
-                        .map_or("not set (default: 3)".to_string(), |t| format!("{}", t))
-                );
-            }
+            let current = config
+                .retry
+                .map_or("not set (default: 3)".to_string(), |t| format!("{t}"));
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_retry,
+                |v: &u64| v.to_string(),
+                "Retry",
+                current,
+            )?
         }
         ConfigSubcommand::Upx { value } => {
-            if let Some(upx) = value {
-                config.set_upx(upx);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Upx set to: {}", upx);
-                }
-            } else if !quiet {
-                println!(
-                    "Current upx: {}",
-                    config
-                        .upx
-                        .map_or("not set (default: false)".to_string(), |t| format!("{}", t))
-                );
-            }
+            let current = config
+                .upx
+                .map_or("not set (default: false)".to_string(), |t| format!("{t}"));
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_upx,
+                |v: &bool| v.to_string(),
+                "Upx",
+                current,
+            )?
         }
         ConfigSubcommand::Strip { value } => {
-            if let Some(strip) = value {
-                config.set_strip(strip);
-                config.save_quiet(quiet)?;
-                if !quiet {
-                    println!("Strip set to: {}", strip);
-                }
-            } else if !quiet {
-                println!(
-                    "Current strip: {}",
-                    config
-                        .strip
-                        .map_or("not set (default: false)".to_string(), |t| format!("{}", t))
-                );
-            }
+            let current = config
+                .strip
+                .map_or("not set (default: false)".to_string(), |t| format!("{t}"));
+            apply_config(
+                &mut config,
+                quiet,
+                value,
+                PersistentConfig::set_strip,
+                |v: &bool| v.to_string(),
+                "Strip",
+                current,
+            )?
         }
     }
 
+    Ok(())
+}
+
+/// Generic set-or-show helper for `config` subcommands: if a value is
+/// provided, apply it, persist, and confirm; otherwise print the current
+/// value.
+fn apply_config<T>(
+    config: &mut PersistentConfig,
+    quiet: bool,
+    value: Option<T>,
+    setter: impl FnOnce(&mut PersistentConfig, T),
+    fmt_val: impl Fn(&T) -> String,
+    label: &str,
+    current: String,
+) -> Result<()> {
+    if let Some(v) = value {
+        let msg = format!("{label} set to: {}", fmt_val(&v));
+        setter(config, v);
+        config.save_quiet(quiet)?;
+        if !quiet {
+            println!("{msg}");
+        }
+    } else if !quiet {
+        println!("Current {label}: {current}");
+    }
     Ok(())
 }
