@@ -550,6 +550,18 @@ pub(crate) fn name_no_ext(s: &str) -> String {
     s.to_string()
 }
 
+/// Check whether `name` matches `stem` at a word boundary.
+///
+/// Returns true when `stem` starts with `name` followed by a separator
+/// (`-`, `_`, `.`) or end-of-string. This prevents `--name qjs` from
+/// accidentally matching `qjsc-linux-x86` while still matching
+/// `qjs-linux-x86` and bare `qjs`.
+fn name_boundary_match(stem: &str, name: &str) -> bool {
+    stem == name
+        || (stem.starts_with(name)
+            && matches!(stem.as_bytes().get(name.len()), Some(b'-' | b'_' | b'.')))
+}
+
 /// Cached, length-sorted list of all known file extensions (archive formats
 /// plus executable/installer/text/skip extensions). Built once and reused.
 fn known_extensions() -> &'static Vec<String> {
@@ -757,7 +769,7 @@ pub(crate) fn get_artifact_url(
             && !config
                 .name
                 .iter()
-                .any(|n| filename.contains(n.as_str()) || name_no_ext_str.starts_with(n.as_str()))
+                .any(|n| name_boundary_match(&name_no_ext_str, n))
         {
             continue;
         }
@@ -893,7 +905,10 @@ mod test {
     use crate::{
         InstallConfig,
         download::download_dist_manfiest,
-        tool::{dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url},
+        tool::{
+            dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url,
+            name_boundary_match,
+        },
         types::Repo,
     };
     use github_proxy::Proxy;
@@ -1164,5 +1179,20 @@ mod test {
         for (a, b) in [("a", "a"), ("/a", "/"), ("/a/b", "/a/"), ("a/b/c", "a/b/")] {
             assert_eq!(dirname(a), b);
         }
+    }
+
+    #[test]
+    fn test_name_boundary_match() {
+        // Exact match
+        assert!(name_boundary_match("qjs", "qjs"));
+        // Starts with name followed by separator
+        assert!(name_boundary_match("qjs-linux-x86", "qjs"));
+        assert!(name_boundary_match("qjs_linux-x86", "qjs"));
+        assert!(name_boundary_match("qjs.linux-x86", "qjs"));
+        // Should NOT match: next char is not a separator
+        assert!(!name_boundary_match("qjsc-linux-x86", "qjs"));
+        assert!(!name_boundary_match("qjsc", "qjs"));
+        // Name longer than stem
+        assert!(!name_boundary_match("qjs", "qjsc"));
     }
 }

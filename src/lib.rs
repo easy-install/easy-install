@@ -162,11 +162,15 @@ pub struct Args {
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Only install, do not add to PATH")]
     pub install_only: bool,
 
-    /// Filter artifacts by name (comma-separated)
+    /// Filter artifacts by name (comma-separated, word-boundary match)
+    ///
+    /// Matches filenames whose stem starts with the given name followed
+    /// by a separator (`-`, `_`, `.`) or end-of-string. This prevents
+    /// e.g. `--name qjs` from matching `qjsc-linux-x86`.
     #[arg(
         long,
         value_delimiter = ',',
-        help = "Filter artifacts by name (comma-separated)"
+        help = "Filter artifacts by name (comma-separated, word-boundary match)"
     )]
     pub name: Vec<String>,
 
