@@ -101,7 +101,7 @@ ei https://github.com/ip7z/7zip/releases/tag/25.01 --alias 7z
 ei https://github.com/quickjs-ng/quickjs --alias=qjs
 
 # Combine --regex and --alias for complex filenames
-ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip$" --alias mpv-dev
+ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip" --alias mpv-dev
 
 # Install from a direct download URL
 ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
@@ -118,7 +118,7 @@ ei https://github.com/boa-dev/boa --strip --upx
 
 When a GitHub release contains multiple assets, `ei` automatically detects your platform and picks the right one. But sometimes you need finer control — that's where `--name` and `--regex` come in.
 
-#### --name (works WITH platform detection)
+#### --name
 
 `--name` is used when there are multiple assets matching your platform, and you only want one of them. For example, the [quickjs-ng](https://github.com/quickjs-ng/quickjs) release contains both `qjs` and `qjsc` executables:
 
@@ -129,7 +129,7 @@ ei quickjs-ng/quickjs --name qjs
 
 **How it works:** `ei` first uses `guess_target` to find all assets matching your platform (e.g., `x86_64-pc-windows-msvc`), then applies `--name` to filter the results. It does NOT bypass platform detection.
 
-#### --regex (bypasses platform detection)
+#### --regex
 
 `--regex` is used when asset filenames are too complex for `guess_target` to extract platform information. For example, [mpv](https://github.com/mpv-player/mpv) uses filenames with embedded version hashes:
 
@@ -150,12 +150,16 @@ ei mpv-player/mpv@git-release --regex "macos-15-arm"
 
 **How it works:** The regex is matched directly against each asset's original filename. When a match is found, the asset is selected immediately — `guess_target` is completely bypassed. The regex **must match exactly one asset**; matching zero or multiple is an error.
 
-**Pairing with `--alias`:** Regex-matched assets often have long, unwieldy names. Use `--alias` to give the installed file a clean, memorable name:
+**Pairing with `--alias`:** Regex-matched assets often have long, unwieldy names. Use `--alias` to give the installed file (or directory, for multi-file packages) a clean, memorable name:
 
 ```bash
-# mpv-v0.41.0-dev-g4c220ffd9-28826186115-x86_64-pc-windows-msvc.exe
-# becomes simply mpv-dev.exe after installation
-ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip$" --alias mpv-dev
+# Single-file package: the executable is renamed
+# long-name-x86_64-pc-windows-msvc.exe → tool.exe
+ei some/tool --regex "x86_64-pc-windows-msvc" --alias tool
+
+# Multi-file package (e.g. mpv): the install directory is renamed
+# ~/.ei/long-dir-name/ → ~/.ei/mpv-dev/
+ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip" --alias mpv-dev
 ```
 
 > 💡 **Rule of thumb:** Use `--name` when `guess_target` can recognize your platform in the filenames. Use `--regex` when filenames are non-standard and platform detection fails.
