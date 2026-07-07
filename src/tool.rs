@@ -300,7 +300,10 @@ pub(crate) fn get_artifact_url_from_manfiest(
 ) -> Vec<(String, String)> {
     let mut v = vec![];
     let local_target = config.get_local_target();
-    let local_strs: Vec<String> = local_target.iter().map(|i| i.to_str().to_string()).collect();
+    let local_strs: Vec<String> = local_target
+        .iter()
+        .map(|i| i.to_str().to_string())
+        .collect();
 
     // Pass 1: exact target match
     for (key, art) in manfiest.artifacts.iter() {
@@ -805,19 +808,28 @@ pub(crate) fn get_artifact_url(
             continue;
         }
         let name_no_ext_str = name_no_ext(&filename);
-
-        // Pre-filter by --name against the raw filename (before
-        // guess_target strips the platform tag). This lets users target
-        // assets whose inferred tool name differs from the filter token.
-        if !config.name.is_empty()
-            && !config
-                .name
-                .iter()
-                .any(|n| name_boundary_match(&name_no_ext_str, n))
-        {
-            continue;
-        }
         let guess = guess_target(&name_no_ext_str);
+
+        // --name filter: match against the guess_target-inferred tool name
+        // when available (e.g. "lumen" from "lumen-x86_64-unknown-linux-gnu",
+        // "lumen-cli" from "lumen-cli-x86_64-unknown-linux-gnu"). Falls back
+        // to raw stem boundary-match when guess_target can't parse.
+        if !config.name.is_empty() {
+            let matched = if guess.is_empty() {
+                config
+                    .name
+                    .iter()
+                    .any(|n| name_boundary_match(&name_no_ext_str, n))
+            } else {
+                config
+                    .name
+                    .iter()
+                    .any(|n| guess.iter().any(|g| g.name == n.as_str()))
+            };
+            if !matched {
+                continue;
+            }
+        }
 
         // Match priority:
         // 1. Exact target match (including abi).
@@ -973,8 +985,8 @@ mod test {
         InstallConfig,
         download::download_dist_manfiest,
         tool::{
-            dirname, get_artifact_url_from_manfiest, is_archive_file, is_compatible_abi, is_exe_file,
-            is_url, name_boundary_match,
+            dirname, get_artifact_url_from_manfiest, is_archive_file, is_compatible_abi,
+            is_exe_file, is_url, name_boundary_match,
         },
         types::Repo,
     };
