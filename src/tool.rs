@@ -695,7 +695,51 @@ pub(crate) fn get_artifact_url(
     let mut v = vec![];
     let local_target = config.get_local_target();
 
+    // When --regex is supplied, pre-compute the compiled regex and verify
+    // it matches exactly one asset. The regex is matched against the
+    // original filename (not the stem), and the matching asset is selected
+    // directly — no guess_target, no target-triple inference.
+    let regex_compiled: Option<regex::Regex> = match &config.regex {
+        Some(re_str) => Some(regex::Regex::new(re_str).context("invalid --regex pattern")?),
+        None => None,
+    };
+    if let Some(re) = &regex_compiled {
+        let matched: Vec<String> = artifacts
+            .assets
+            .iter()
+            .filter(|a| {
+                let f = get_filename(&a.browser_download_url);
+                re.is_match(&f)
+            })
+            .map(|a| a.name.clone())
+            .collect();
+        if matched.is_empty() {
+            anyhow::bail!("--regex did not match any assets. Check the pattern and try again.");
+        }
+        if matched.len() > 1 {
+            anyhow::bail!(
+                "--regex matched {} assets, expected exactly 1. Pattern is too permissive.\n  Matched: {:#?}\n  Tighten the regex (e.g. anchor it to the platform triple) so only one asset remains.",
+                matched.len(),
+                matched
+            );
+        }
+    }
+
     for i in artifacts.assets {
+        let filename = get_filename(&i.browser_download_url);
+
+        // --regex mode: match directly against the original filename.
+        // When matched, the asset is selected immediately — no guess_target,
+        // no target-triple matching. The regex is the sole authority.
+        if let Some(re) = &regex_compiled {
+            if re.is_match(&filename) {
+                let rank = u32::MAX;
+                let name = name_no_ext(&filename);
+                v.push((rank, name, i.browser_download_url.clone()));
+            }
+            continue;
+        }
+
         if is_skip(&i.browser_download_url) {
             continue;
         }
@@ -704,11 +748,11 @@ pub(crate) fn get_artifact_url(
         {
             continue;
         }
-        let filename = get_filename(&i.browser_download_url);
         let name_no_ext_str = name_no_ext(&filename);
+
         // Pre-filter by --name against the raw filename (before
         // guess_target strips the platform tag). This lets users target
-        // assets whose inferred tool name differs from the filter token,
+        // assets whose inferred tool name differs from the filter token.
         if !config.name.is_empty()
             && !config
                 .name
@@ -717,8 +761,7 @@ pub(crate) fn get_artifact_url(
         {
             continue;
         }
-        let name = name_no_ext_str;
-        let guess = guess_target(&name);
+        let guess = guess_target(&name_no_ext_str);
 
         // Match priority:
         // 1. Exact target match (including abi).
@@ -1022,6 +1065,31 @@ mod test {
         let artifact_url = repo.get_artifact_url(&Default::default()).await.unwrap();
         println!("{artifact_url:?}");
         assert_eq!(artifact_url.len(), 1);
+    }
+
+    /// --regex matches directly against the original filename (including
+    /// extension) and selects the matching asset bypassing guess_target.
+    /// For complex filenames like
+    /// `mpv-v0.41.0-dev-g4c220ffd9-28826186115-x86_64-pc-windows-msvc.zip`,
+    /// the regex acts as the sole filter — no target-triple inference.
+    #[tokio::test]
+    async fn test_mpv_regex() {
+        let repo =
+            Repo::try_from("https://github.com/mpv-player/mpv/releases/tag/git-release").unwrap();
+        // Match the specific x86_64 windows-msvc asset (non-pdb variant).
+        // The regex is anchored at the end to avoid matching the -pdb.zip
+        // companion, and includes the platform triple to narrow to one asset.
+        let config = InstallConfig {
+            regex: Some(r"mpv-v.+x86_64-pc-windows-msvc\.zip$".to_string()),
+            ..Default::default()
+        };
+        let artifact_url = repo.get_artifact_url(&config).await.unwrap();
+        println!("mpv artifact_url: {artifact_url:?}");
+        assert_eq!(artifact_url.len(), 1);
+        let (name, url) = &artifact_url[0];
+        assert!(!name.is_empty());
+        assert!(url.contains("mpv-v"));
+        assert!(url.ends_with("x86_64-pc-windows-msvc.zip"));
     }
 
     #[test]

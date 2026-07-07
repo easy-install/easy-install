@@ -30,6 +30,7 @@ pub struct InstallConfig {
     pub quiet: bool,
     pub install_only: bool,
     pub fuzzy: bool,
+    pub regex: Option<String>,
 }
 
 impl Default for InstallConfig {
@@ -47,6 +48,7 @@ impl Default for InstallConfig {
             quiet: false,
             install_only: false,
             fuzzy: false,
+            regex: None,
         }
     }
 }
@@ -70,6 +72,7 @@ impl InstallConfig {
             quiet: false,
             install_only: false,
             fuzzy: false,
+            regex: None,
         }
     }
 
@@ -231,6 +234,25 @@ pub struct Args {
         default_value_t = false
     )]
     pub fuzzy: bool,
+
+    /// Regex pattern to match against the original GitHub asset filenames
+    ///
+    /// When supplied, the regex is matched directly against each asset's
+    /// original filename (e.g. "mpv-v0.41.0-dev-g4c220ffd9-x86_64-pc-windows-msvc.zip"),
+    /// bypassing `guess_target` entirely. This gives you full control over
+    /// which asset to select when filenames use non-standard naming that
+    /// confuses automatic target detection.
+    ///
+    /// The regex must match exactly one asset; matching zero or multiple
+    /// is an error. Examples:
+    ///   --regex "x86_64-pc-windows-msvc"        (match a specific triple)
+    ///   --regex "macos-15-arm"                   (match a macOS variant)
+    ///   --regex "aarch64-pc-windows-msvc\\.zip$" (anchor to file extension)
+    #[arg(
+        long,
+        help = "Regex to match asset filenames directly (bypasses guess_target)"
+    )]
+    pub regex: Option<String>,
 }
 
 impl Default for Args {
@@ -250,6 +272,7 @@ impl Default for Args {
             upx: None,
             quiet: false,
             fuzzy: false,
+            regex: None,
         }
     }
 }
@@ -284,6 +307,7 @@ impl From<Args> for InstallConfig {
             quiet: value.quiet,
             install_only: value.install_only,
             fuzzy: value.fuzzy,
+            regex: value.regex,
         }
     }
 }
