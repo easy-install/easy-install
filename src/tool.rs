@@ -300,41 +300,69 @@ pub(crate) fn get_artifact_url_from_manfiest(
 ) -> Vec<(String, String)> {
     let mut v = vec![];
     let local_target = config.get_local_target();
+    let local_strs: Vec<String> = local_target.iter().map(|i| i.to_str().to_string()).collect();
 
+    // Pass 1: exact target match
     for (key, art) in manfiest.artifacts.iter() {
         let filename = get_filename(key);
         if is_skip(&filename) {
             continue;
         }
-
         if ends_with_exe(key) && local_target.iter().any(|t| t.os() != Os::Windows) {
             continue;
         }
-
-        if has_common_elements(
-            &art.target_triples,
-            local_target
-                .iter()
-                .map(|i| i.to_str().to_string())
-                .collect::<Vec<_>>()
-                .as_slice(),
-        ) {
-            if let Some(kind) = &art.kind
-                && !["executable-zip"].contains(&kind.as_str())
-            {
-                continue;
-            }
-            let name = name_no_ext(&filename);
-            let name = guess_target(&name).pop().map_or(name, |i| i.name);
-            if !is_url(key) {
-                v.push((name, replace_filename(url, key)));
-            } else {
-                v.push((name, key.to_string()));
-            }
-            continue;
+        if has_common_elements(&art.target_triples, &local_strs) {
+            push_manifest_artifact(&mut v, url, key, art);
         }
     }
+
+    // Pass 2: ABI fallback (msvc↔gnu, musl↔gnu) — only when pass 1 found nothing
+    if v.is_empty() {
+        for (key, art) in manfiest.artifacts.iter() {
+            let filename = get_filename(key);
+            if is_skip(&filename) {
+                continue;
+            }
+            if ends_with_exe(key) && local_target.iter().any(|t| t.os() != Os::Windows) {
+                continue;
+            }
+            let abi_match = local_target.iter().any(|local_t| {
+                art.target_triples.iter().any(|art_t| {
+                    guess_target::Target::from_str(art_t).is_ok_and(|art_target| {
+                        art_target.arch() == local_t.arch()
+                            && art_target.os() == local_t.os()
+                            && is_compatible_abi(art_target.abi(), local_t.abi())
+                    })
+                })
+            });
+            if abi_match {
+                push_manifest_artifact(&mut v, url, key, art);
+            }
+        }
+    }
+
     v
+}
+
+fn push_manifest_artifact(
+    v: &mut Vec<(String, String)>,
+    url: &str,
+    key: &str,
+    art: &crate::manfiest::Artifact,
+) {
+    if let Some(kind) = &art.kind
+        && !["executable-zip"].contains(&kind.as_str())
+    {
+        return;
+    }
+    let filename = get_filename(key);
+    let name = name_no_ext(&filename);
+    let name = guess_target(&name).pop().map_or(name, |i| i.name);
+    if !is_url(key) {
+        v.push((name, replace_filename(url, key)));
+    } else {
+        v.push((name, key.to_string()));
+    }
 }
 
 pub(crate) fn get_common_prefix_len(list: &[&str]) -> usize {
@@ -562,6 +590,22 @@ fn name_boundary_match(stem: &str, name: &str) -> bool {
             && matches!(stem.as_bytes().get(name.len()), Some(b'-' | b'_' | b'.')))
 }
 
+/// Check whether two ABIs are binary-compatible enough to serve as a
+/// fallback when the exact ABI is unavailable.
+///
+/// Fallback pairs:
+/// - Windows: `msvc` ↔ `gnu`
+/// - Linux:   `musl` ↔ `gnu`
+fn is_compatible_abi(a: Option<Abi>, b: Option<Abi>) -> bool {
+    matches!(
+        (a, b),
+        (Some(Abi::Msvc), Some(Abi::Gnu))
+            | (Some(Abi::Gnu), Some(Abi::Msvc))
+            | (Some(Abi::Musl), Some(Abi::Gnu))
+            | (Some(Abi::Gnu), Some(Abi::Musl))
+    )
+}
+
 /// Cached, length-sorted list of all known file extensions (archive formats
 /// plus executable/installer/text/skip extensions). Built once and reused.
 fn known_extensions() -> &'static Vec<String> {
@@ -777,45 +821,68 @@ pub(crate) fn get_artifact_url(
 
         // Match priority:
         // 1. Exact target match (including abi).
-        // 2. Fuzzy match by (arch, os), ignoring abi (only when --fuzzy is
-        //    set). This catches assets whose filename omits the abi (e.g.
-        //    "mihomo-linux-amd64.tar.gz" parsed as gnu) when the user
-        //    requested musl, since the binary is typically abi-agnostic or
-        //    the provider just didn't tag it. Fuzzy matches are penalized
-        //    by RANK_PENALTY so exact matches win when both exist.
+        // 2. ABI fallback: same (arch, os) with a compatible abi
+        //    (msvc↔gnu on Windows, musl↔gnu on Linux). Always enabled.
+        // 3. Fuzzy match by (arch, os), ignoring abi entirely (only when
+        //    --fuzzy is set). Fuzzy matches have the same penalty as abi
+        //    fallback, so exact matches win over both.
         const RANK_PENALTY: u32 = 1;
         let mut penalized = false;
         let item = if let Some(t) = config.target {
             let exact = guess.iter().find(|i| i.target == t);
             if let Some(m) = exact {
                 Some(m)
-            } else if config.fuzzy {
-                let fuzzy = guess
-                    .iter()
-                    .find(|i| i.target.arch() == t.arch() && i.target.os() == t.os());
-                if fuzzy.is_some() {
-                    penalized = true;
-                }
-                fuzzy
             } else {
-                None
+                // ABI fallback: msvc↔gnu, musl↔gnu
+                let abi_fallback = guess.iter().find(|i| {
+                    i.target.arch() == t.arch()
+                        && i.target.os() == t.os()
+                        && is_compatible_abi(i.target.abi(), t.abi())
+                });
+                if let Some(m) = abi_fallback {
+                    penalized = true;
+                    Some(m)
+                } else if config.fuzzy {
+                    let fuzzy = guess
+                        .iter()
+                        .find(|i| i.target.arch() == t.arch() && i.target.os() == t.os());
+                    if fuzzy.is_some() {
+                        penalized = true;
+                    }
+                    fuzzy
+                } else {
+                    None
+                }
             }
         } else {
             let exact = guess.iter().find(|i| local_target.contains(&i.target));
             if let Some(m) = exact {
                 Some(m)
-            } else if config.fuzzy {
-                let fuzzy = guess.iter().find(|i| {
-                    local_target
-                        .iter()
-                        .any(|t| t.arch() == i.target.arch() && t.os() == i.target.os())
-                });
-                if fuzzy.is_some() {
-                    penalized = true;
-                }
-                fuzzy
             } else {
-                None
+                // ABI fallback: msvc↔gnu, musl↔gnu
+                let abi_fallback = guess.iter().find(|i| {
+                    local_target.iter().any(|t| {
+                        i.target.arch() == t.arch()
+                            && i.target.os() == t.os()
+                            && is_compatible_abi(i.target.abi(), t.abi())
+                    })
+                });
+                if let Some(m) = abi_fallback {
+                    penalized = true;
+                    Some(m)
+                } else if config.fuzzy {
+                    let fuzzy = guess.iter().find(|i| {
+                        local_target
+                            .iter()
+                            .any(|t| t.arch() == i.target.arch() && t.os() == i.target.os())
+                    });
+                    if fuzzy.is_some() {
+                        penalized = true;
+                    }
+                    fuzzy
+                } else {
+                    None
+                }
             }
         };
 
@@ -906,8 +973,8 @@ mod test {
         InstallConfig,
         download::download_dist_manfiest,
         tool::{
-            dirname, get_artifact_url_from_manfiest, is_archive_file, is_exe_file, is_url,
-            name_boundary_match,
+            dirname, get_artifact_url_from_manfiest, is_archive_file, is_compatible_abi, is_exe_file,
+            is_url, name_boundary_match,
         },
         types::Repo,
     };
@@ -1194,5 +1261,23 @@ mod test {
         assert!(!name_boundary_match("qjsc", "qjs"));
         // Name longer than stem
         assert!(!name_boundary_match("qjs", "qjsc"));
+    }
+
+    #[test]
+    fn test_is_compatible_abi() {
+        use guess_target::Abi;
+        // Windows: msvc ↔ gnu
+        assert!(is_compatible_abi(Some(Abi::Msvc), Some(Abi::Gnu)));
+        assert!(is_compatible_abi(Some(Abi::Gnu), Some(Abi::Msvc)));
+        // Linux: musl ↔ gnu
+        assert!(is_compatible_abi(Some(Abi::Musl), Some(Abi::Gnu)));
+        assert!(is_compatible_abi(Some(Abi::Gnu), Some(Abi::Musl)));
+        // NOT compatible
+        assert!(!is_compatible_abi(Some(Abi::Msvc), Some(Abi::Musl)));
+        assert!(!is_compatible_abi(Some(Abi::Musl), Some(Abi::Msvc)));
+        assert!(!is_compatible_abi(Some(Abi::Gnu), Some(Abi::Gnu))); // same abi is exact match, not fallback
+        assert!(!is_compatible_abi(Some(Abi::Msvc), Some(Abi::Msvc)));
+        assert!(!is_compatible_abi(None, Some(Abi::Gnu)));
+        assert!(!is_compatible_abi(Some(Abi::Gnu), None));
     }
 }
