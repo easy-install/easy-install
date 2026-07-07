@@ -1,7 +1,9 @@
 {
   "artifacts": {
-    "https://github.com/NickeManarin/ScreenToGif/releases/latest/download/ScreenToGif.2.42.1.Portable.x64.zip": {
-      "target_triples": ["x86_64-pc-windows-gnu"],
+    "https://github.com/NickeManarin/ScreenToGif/releases/download/2.43.1/ScreenToGif.2.43.1.Portable.x64.zip": {
+      "target_triples": [
+        "x86_64-pc-windows-gnu"
+      ],
       "assets": []
     }
   }
