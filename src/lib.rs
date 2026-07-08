@@ -9,7 +9,7 @@ mod tool;
 mod types;
 
 use crate::tool::expand_path;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
@@ -373,13 +373,34 @@ async fn handle_upgrade() -> Result<()> {
         .parent()
         .ok_or_else(|| anyhow::anyhow!("ei dir not found"))?;
 
+    // On Windows the running exe cannot be overwritten, but it *can* be
+    // renamed. Rename the old binary to free the original filename for the
+    // new version, then install. Clean up previous stale .old files first.
+    let old_exe = exe.with_extension("exe.old");
+    let _ = std::fs::remove_file(&old_exe);
+    std::fs::rename(&exe, &old_exe).context("Failed to rename running ei.exe for upgrade")?;
+
     let config = InstallConfig {
         dir: Some(dir.to_string_lossy().to_string()),
         alias: Some("ei".to_string()),
         ..InstallConfig::load()
     };
-    ei("easy-install/easy-install", &config).await?;
-    Ok(())
+
+    match ei("easy-install/easy-install", &config).await {
+        Ok(()) => {
+            // Upgrade succeeded — try to remove the old binary (best-effort;
+            // it may still be locked and will be cleaned up on next upgrade).
+            let _ = std::fs::remove_file(&old_exe);
+            Ok(())
+        }
+        Err(e) => {
+            // Rollback: restore the old binary so the user isn't left
+            // without a working ei.
+            let _ = std::fs::remove_file(&exe);
+            std::fs::rename(&old_exe, &exe)?;
+            Err(e)
+        }
+    }
 }
 
 fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Result<()> {
