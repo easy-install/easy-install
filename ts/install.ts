@@ -3,7 +3,7 @@ import { runEi } from './ei'
 export function install(
   url: string,
   bin?: string,
-  installOnly?: boolean,
+  noPath?: boolean,
   installDir?: string,
   quiet: boolean = false,
 ) {
@@ -12,10 +12,10 @@ export function install(
     args.push('-d', installDir)
   }
   if (bin) {
-    args.push('--bin', bin)
+    args.push('--alias', bin)
   }
-  if (installOnly) {
-    args.push('--install-only')
+  if (noPath) {
+    args.push('--no-path')
   }
   return runEi(args, quiet)
 }

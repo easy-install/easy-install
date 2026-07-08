@@ -108,7 +108,7 @@ ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-wind
 ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
 
 # Install without adding to PATH
-ei https://github.com/quickjs-ng/quickjs --install-only
+ei https://github.com/quickjs-ng/quickjs --no-path
 
 # Optimize binary with strip and UPX compression
 ei https://github.com/boa-dev/boa --strip --upx
@@ -184,7 +184,7 @@ USAGE:
 | Option                | Short | Description                                                                                                | Default     |
 | --------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | ----------- |
 | `--dir <DIR>`         | `-d`  | Installation directory for downloaded binaries. Can be an absolute path or a name (stored under `~/.ei/`). | `~/.ei`     |
-| `--install-only`      |       | Only install the binary, do not add it to PATH.                                                            | `false`     |
+| `--no-path`           |       | Skip adding installed binaries to PATH.                                                                    | `false`     |
 | `--name <NAME>`       |       | Filter artifacts by name. Supports comma-separated values for multiple filters.                            |             |
 | `--alias <ALIAS>`     |       | Rename the installed binary (or directory, for multi-file packages).                                       |             |
 | `--target <TARGET>`   |       | Target platform (e.g., `x86_64-unknown-linux-gnu`). Auto-detected if not specified.                        | auto-detect |

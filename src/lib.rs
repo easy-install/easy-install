@@ -28,7 +28,7 @@ pub struct InstallConfig {
     pub strip: bool,
     pub upx: bool,
     pub quiet: bool,
-    pub install_only: bool,
+    pub no_path: bool,
     pub fuzzy: bool,
     pub regex: Option<String>,
 }
@@ -46,7 +46,7 @@ impl Default for InstallConfig {
             strip: false,
             upx: false,
             quiet: false,
-            install_only: false,
+            no_path: false,
             fuzzy: false,
             regex: None,
         }
@@ -70,7 +70,7 @@ impl InstallConfig {
             strip: persistent_config.strip.unwrap_or(false),
             upx: persistent_config.upx.unwrap_or(false),
             quiet: false,
-            install_only: false,
+            no_path: false,
             fuzzy: false,
             regex: None,
         }
@@ -158,9 +158,9 @@ pub struct Args {
     #[arg(short, long, help = "Installation directory")]
     pub dir: Option<String>,
 
-    /// Only install, do not add to PATH
-    #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Only install, do not add to PATH")]
-    pub install_only: bool,
+    /// Skip adding installed binaries to PATH
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Skip adding installed binaries to PATH")]
+    pub no_path: bool,
 
     /// Filter artifacts by name (comma-separated, word-boundary match)
     ///
@@ -265,7 +265,7 @@ impl Default for Args {
             cmd: None,
             url: "".to_string(),
             dir: None,
-            install_only: false,
+            no_path: false,
             name: vec![],
             alias: None,
             target: None,
@@ -309,7 +309,7 @@ impl From<Args> for InstallConfig {
             strip,
             upx,
             quiet: value.quiet,
-            install_only: value.install_only,
+            no_path: value.no_path,
             fuzzy: value.fuzzy,
             regex: value.regex,
         }
@@ -347,8 +347,7 @@ pub async fn run_main(args: Args) -> Result<()> {
 
 pub async fn ei(url: &str, config: &InstallConfig) -> Result<()> {
     let output = install::install(url, config).await?;
-    let install_only = config.install_only;
-    if !install_only {
+    if !config.no_path {
         add_output_to_path(&output, config);
     }
     if output.is_empty() && !config.quiet {
