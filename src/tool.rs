@@ -786,6 +786,16 @@ pub(crate) fn get_artifact_url(
 
     for i in artifacts.assets {
         let filename = get_filename(&i.browser_download_url);
+        // When the download URL is an API endpoint (e.g. GitHub Actions
+        // artifact download URL ending in .../zip), get_filename returns
+        // a path segment like "zip" which is useless. Fall back to the
+        // artifact's display name (which was set by the caller, e.g.
+        // "ant-windows-x64.zip" for CI artifacts).
+        let filename = if filename.contains('.') {
+            filename
+        } else {
+            i.name.clone()
+        };
 
         // --regex mode: match directly against the original filename.
         // When matched, the asset is selected immediately — no guess_target,

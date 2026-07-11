@@ -1,12 +1,15 @@
 mod artifact;
+mod ci;
 mod file;
 mod manfiest;
 mod nightly;
 mod repo;
 
 use crate::InstallConfig;
+use crate::ci::{CiRun, RE_CI_WORKFLOW, resolve_ci_workflow};
 use crate::download::{download_dist_manfiest, get_bytes, read_dist_manfiest};
 use crate::install::artifact::install_from_artifact_url;
+use crate::install::ci::install_from_ci;
 use crate::install::file::install_from_single_file;
 use crate::install::manfiest::install_from_manfiest;
 use crate::install::nightly::install_from_nightly;
@@ -65,6 +68,23 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
     let item = guess.iter().find(|i| local.contains(&i.target));
     let name = item.map_or(name, |i| i.name.clone());
 
+    // GitHub Actions CI — must be checked first because CI workflow URLs
+    // end with .yml which would otherwise be treated as a known format
+    // and downloaded directly. CI run URLs also match Repo patterns, so
+    // they must be intercepted here before falling through.
+    //
+    // Workflow URLs (…/actions/workflows/*.yml) require an async API call
+    // to resolve the latest run ID. The API needs authentication — set
+    // GITHUB_TOKEN or run `gh auth login` if you see an auth error.
+    if CiRun::try_from(url).is_ok() || RE_CI_WORKFLOW.is_match(url) {
+        let ci = if let Ok(ci) = CiRun::try_from(url) {
+            ci
+        } else {
+            resolve_ci_workflow(url, config.retry, config.timeout).await?
+        };
+        return install_from_ci(&ci, config).await;
+    }
+
     if is_url(url) {
         let proxied = apply_proxy(url, config.proxy);
 
@@ -89,12 +109,12 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
         }
     }
 
-    if let Ok(repo) = repo {
-        return install_from_github(&repo, config).await;
-    }
-
     if let Ok(nightly) = Nightly::try_from(url) {
         return install_from_nightly(&nightly, config).await;
+    }
+
+    if let Ok(repo) = repo {
+        return install_from_github(&repo, config).await;
     }
 
     install_from_single_file(url, &name, config).await

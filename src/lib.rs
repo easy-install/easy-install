@@ -1,4 +1,5 @@
 mod artifact;
+mod ci;
 mod config;
 mod download;
 mod env;
@@ -159,7 +160,7 @@ pub struct Args {
     pub dir: Option<String>,
 
     /// Skip adding installed binaries to PATH
-    #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Skip adding installed binaries to PATH")]
+    #[arg(long, global = true, default_value_t = false, action = ArgAction::SetTrue, help = "Skip adding installed binaries to PATH")]
     pub no_path: bool,
 
     /// Filter artifacts by name (comma-separated, word-boundary match)
@@ -183,20 +184,26 @@ pub struct Args {
     pub target: Option<Target>,
 
     /// Number of retry attempts for failed downloads
-    #[arg(long, default_value_t = 3, help = "Number of retry attempts")]
+    #[arg(
+        long,
+        global = true,
+        default_value_t = 3,
+        help = "Number of retry attempts"
+    )]
     pub retry: usize,
 
     /// GitHub proxy to use (github, ghproxy, etc.)
-    #[arg(long, help = "GitHub proxy to use")]
+    #[arg(long, global = true, help = "GitHub proxy to use")]
     pub proxy: Option<Proxy>,
 
     /// Network request timeout in seconds
-    #[arg(long, help = "Network request timeout in seconds")]
+    #[arg(long, global = true, help = "Network request timeout in seconds")]
     pub timeout: Option<u64>,
 
     /// Strip debug symbols from executable
     #[arg(
         long,
+        global = true,
         help = "Strip debug symbols from executable",
         default_missing_value = "true",
         num_args = 0..=1,
@@ -206,6 +213,7 @@ pub struct Args {
     /// Compress executable with UPX
     #[arg(
         long,
+        global = true,
         help = "Compress executable with UPX",
         default_missing_value = "true",
         num_args = 0..=1,
@@ -216,6 +224,7 @@ pub struct Args {
     #[arg(
         long,
         short,
+        global = true,
         help = "Suppress all output messages",
         default_missing_value = "true",
         num_args = 0..=1,
@@ -323,7 +332,7 @@ pub async fn run_main(args: Args) -> Result<()> {
     }
 
     if let Some(Command::Upgrade) = args.cmd {
-        return handle_upgrade().await;
+        return handle_upgrade(args.into()).await;
     }
 
     // Handle config subcommand
@@ -367,16 +376,18 @@ fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
     Ok(())
 }
 
-async fn handle_upgrade() -> Result<()> {
+async fn handle_upgrade(user_config: InstallConfig) -> Result<()> {
     let exe = std::env::current_exe()?;
     let dir = exe
         .parent()
         .ok_or_else(|| anyhow::anyhow!("ei dir not found"))?;
 
+    // Merge user CLI options (--no-path, --quiet, --proxy, etc.) with
+    // upgrade-specific overrides: dir = exe directory, alias = "ei".
     let config = InstallConfig {
         dir: Some(dir.to_string_lossy().to_string()),
         alias: Some("ei".to_string()),
-        ..InstallConfig::load()
+        ..user_config
     };
 
     #[cfg(windows)]
