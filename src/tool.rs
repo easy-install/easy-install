@@ -971,22 +971,114 @@ pub(crate) fn filter_artifacts(
     }
 }
 
-pub(crate) fn not_found_asset_message(url: &str, config: &InstallConfig) {
-    if !config.quiet {
+/// Print "not found" message. When `available` is `Some`, also prints
+/// available artifacts sorted by relevance (same-arch first) with their
+/// `guess_target` results.
+pub(crate) fn not_found_asset_message(
+    url: &str,
+    config: &InstallConfig,
+    available: Option<&[String]>,
+) {
+    if config.quiet {
+        return;
+    }
+
+    let target_str = config
+        .get_local_target()
+        .iter()
+        .map(|t| t.to_str().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let active_filters: Vec<String> = [
+        (!config.name.is_empty()).then(|| format!("--name {}", config.name.join(","))),
+        config.alias.as_ref().map(|a| format!("--alias {a}")),
+        config.regex.as_ref().map(|r| format!("--regex {r}")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let filter_hint = if active_filters.is_empty() {
+        String::new()
+    } else {
+        format!(" (with {})", active_filters.join(", "))
+    };
+
+    println!("No {target_str} asset found in {url}{filter_hint}");
+
+    let Some(names) = available else { return };
+    if names.is_empty() {
+        return;
+    }
+
+    let local_targets = config.get_local_target();
+
+    // Build (stem, tool_name, target) rows.
+    #[derive(Clone)]
+    struct Row {
+        stem: String,
+        tool: String,
+        target: String,
+    }
+    let mut rows: Vec<Row> = Vec::new();
+    for name in names {
+        let stem = name_no_ext(name);
+        let guesses = guess_target(&stem);
+        if guesses.is_empty() {
+            rows.push(Row {
+                stem: stem.clone(),
+                tool: stem,
+                target: String::new(),
+            });
+        } else {
+            for g in &guesses {
+                rows.push(Row {
+                    stem: stem.clone(),
+                    tool: g.name.clone(),
+                    target: g.target.to_str().to_string(),
+                });
+            }
+        }
+    }
+
+    // Sort: same-arch targets first, then by target, then by tool name.
+    rows.sort_by(|a, b| {
+        let a_same = !a.target.is_empty()
+            && local_targets.iter().any(|lt| {
+                guess_target::Target::from_str(&a.target).is_ok_and(|p| p.arch() == lt.arch())
+            });
+        let b_same = !b.target.is_empty()
+            && local_targets.iter().any(|lt| {
+                guess_target::Target::from_str(&b.target).is_ok_and(|p| p.arch() == lt.arch())
+            });
+        b_same
+            .cmp(&a_same)
+            .then_with(|| a.target.cmp(&b.target))
+            .then_with(|| a.tool.cmp(&b.tool))
+    });
+
+    println!();
+    let w_stem = rows.iter().map(|r| r.stem.len()).max().unwrap_or(6);
+    let w_tool = rows.iter().map(|r| r.tool.len()).max().unwrap_or(4);
+    let w_target = rows.iter().map(|r| r.target.len()).max().unwrap_or(6);
+    println!(
+        "  {:<w_stem$}  {:<w_tool$}  {:<w_target$}",
+        "ORIGINAL", "NAME", "TARGET",
+    );
+    println!("  {:-<w_stem$}  {:-<w_tool$}  {:-<w_target$}", "", "", "",);
+    for row in &rows {
+        let target = if row.target.is_empty() {
+            "(unknown)"
+        } else {
+            &row.target
+        };
         println!(
-            "Not found asset for os:{} arch:{} target:{} on {}",
-            std::env::consts::OS,
-            std::env::consts::ARCH,
-            config
-                .get_local_target()
-                .iter()
-                .map(|i| i.to_str().to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-            url
+            "  {:<w_stem$}  {:<w_tool$}  {:<w_target$}",
+            row.stem, row.tool, target,
         );
     }
 }
+
 #[cfg(test)]
 mod test {
     use anyhow::Context;

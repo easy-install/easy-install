@@ -93,6 +93,7 @@ impl CiRun {
         Ok(run.id)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn get_artifact_url(
         &self,
         config: &InstallConfig,
@@ -101,7 +102,7 @@ impl CiRun {
         get_artifact_url(artifacts, config)
     }
 
-    async fn get_artifacts(&self, retry: usize, timeout: u64) -> Result<GhArtifacts> {
+    pub(crate) async fn get_artifacts(&self, retry: usize, timeout: u64) -> Result<GhArtifacts> {
         let url = format!(
             "https://api.github.com/repos/{}/{}/actions/runs/{}/artifacts",
             self.owner, self.repo, self.run_id

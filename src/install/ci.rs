@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::ci::CiRun;
 use crate::download::get_bytes;
 use crate::install::artifact::install_from_download_file;
-use crate::tool::{filter_artifacts, not_found_asset_message};
+use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::Output;
 use anyhow::{Context, Result};
 use easy_archive::Fmt;
@@ -16,9 +16,14 @@ static DOWNLOAD_SEM: std::sync::LazyLock<tokio::sync::Semaphore> =
 pub(crate) async fn install_from_ci(ci: &CiRun, config: &InstallConfig) -> Result<Output> {
     trace!("install_from_ci {}", ci);
 
-    let artifact_url = ci.get_artifact_url(config).await?;
+    let artifacts = ci.get_artifacts(config.retry, config.timeout).await?;
+
+    // Collect available names before get_artifact_url consumes the set.
+    let available: Vec<String> = artifacts.assets.iter().map(|a| a.name.clone()).collect();
+
+    let artifact_url = get_artifact_url(artifacts, config)?;
     if artifact_url.is_empty() {
-        not_found_asset_message(&ci.to_string(), config);
+        not_found_asset_message(&ci.to_string(), config, Some(&available));
         return Ok(Output::new());
     }
 

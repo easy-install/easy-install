@@ -1,7 +1,7 @@
 use crate::InstallConfig;
 use crate::install::install_artifacts;
 use crate::install::manfiest::install_from_manfiest;
-use crate::tool::{filter_artifacts, not_found_asset_message};
+use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::{Output, Repo};
 use anyhow::Result;
 use tracing::trace;
@@ -22,9 +22,11 @@ pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> 
         .await;
     }
 
-    let artifact_url = repo.get_artifact_url(config).await?;
+    let artifacts = repo.get_raw_artifacts(config.retry, config.timeout).await?;
+    let available: Vec<String> = artifacts.assets.iter().map(|a| a.name.clone()).collect();
+    let artifact_url = get_artifact_url(artifacts, config)?;
     if artifact_url.is_empty() {
-        not_found_asset_message(&repo.get_gh_url(), config);
+        not_found_asset_message(&repo.get_gh_url(), config, Some(&available));
         return Ok(Output::new());
     }
 

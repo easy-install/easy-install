@@ -335,6 +335,7 @@ impl Repo {
         .await
     }
 
+    #[allow(dead_code)]
     async fn get_artifact_url_from_html(
         &self,
         config: &InstallConfig,
@@ -351,21 +352,32 @@ impl Repo {
         get_artifact_url(artifacts, config)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn get_artifact_url(
         &self,
         config: &InstallConfig,
     ) -> Result<Vec<(String, String)>> {
-        trace!("get_artifact_url {}/{}", self.owner, self.name);
-        let api = self.get_artifact_api();
-        trace!("get_artifact_url api {}", api);
+        let artifacts = self.get_raw_artifacts(config.retry, config.timeout).await?;
+        get_artifact_url(artifacts, config)
+    }
 
-        match download_json::<GhArtifacts>(&api, config.retry, config.timeout).await {
+    /// Fetch raw (unfiltered) release artifacts from the GitHub API, with
+    /// HTML fallback. Useful for diagnostics when no platform match is found.
+    pub(crate) async fn get_raw_artifacts(
+        &self,
+        retry: usize,
+        timeout: u64,
+    ) -> Result<GhArtifacts> {
+        let api = self.get_artifact_api();
+        trace!("get_raw_artifacts api {}", api);
+
+        match download_json::<GhArtifacts>(&api, retry, timeout).await {
             Ok(artifacts) => {
                 trace!(
                     "Successfully retrieved artifacts from API for {}/{}",
                     self.owner, self.name
                 );
-                get_artifact_url(artifacts, config)
+                Ok(artifacts)
             }
             Err(api_error) => {
                 trace!(
@@ -373,22 +385,15 @@ impl Repo {
                     self.owner, self.name, api_error
                 );
 
-                match self.get_artifact_url_from_html(config).await {
-                    Ok(result) => {
-                        trace!(
-                            "Successfully retrieved artifacts from HTML for {}/{}",
-                            self.owner, self.name
-                        );
-                        Ok(result)
-                    }
-                    Err(html_error) => Err(anyhow::anyhow!(
+                let page_url = self.get_release_page_url(retry, timeout).await?;
+                let response = download(&page_url, retry, timeout).await?;
+                let html = response.text().await?;
+                Self::parse_release_html(&html).map_err(|html_error| {
+                    anyhow::anyhow!(
                         "Failed to retrieve artifacts for {}/{}. API error: {}. HTML parsing error: {}",
-                        self.owner,
-                        self.name,
-                        api_error,
-                        html_error
-                    )),
-                }
+                        self.owner, self.name, api_error, html_error
+                    )
+                })
             }
         }
     }
@@ -408,7 +413,11 @@ pub(crate) struct Nightly {
 }
 
 impl Nightly {
-    pub(crate) async fn get_artifact(&self, retry: usize, timeout: u64) -> Result<GhArtifacts> {
+    pub(crate) async fn get_raw_artifacts(
+        &self,
+        retry: usize,
+        timeout: u64,
+    ) -> Result<GhArtifacts> {
         let html = download(&self.url, retry, timeout).await?.text().await?;
         if html.contains("class=\"absent\"") {
             return Ok(Default::default());
@@ -427,11 +436,12 @@ impl Nightly {
 
         Ok(GhArtifacts { assets })
     }
+    #[allow(dead_code)]
     pub(crate) async fn get_artifact_url(
         &self,
         config: &InstallConfig,
     ) -> Result<Vec<(String, String)>> {
-        let artifacts = self.get_artifact(config.retry, config.timeout).await?;
+        let artifacts = self.get_raw_artifacts(config.retry, config.timeout).await?;
         get_artifact_url(artifacts, config)
     }
 }
