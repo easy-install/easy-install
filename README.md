@@ -22,7 +22,7 @@ A cross-platform command-line tool for effortlessly installing binaries from Git
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/easy-install/easy-install/releases/latest/download/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/easy-install/easy-install/main/install.ps1 | iex"
 ```
 
 ### Linux/macOS
