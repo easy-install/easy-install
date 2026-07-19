@@ -311,6 +311,7 @@ impl Repo {
             assets.insert(GhArtifact {
                 name,
                 browser_download_url,
+                url: None,
             });
         }
 
@@ -431,6 +432,7 @@ impl Nightly {
             assets.insert(GhArtifact {
                 name,
                 browser_download_url,
+                url: None,
             });
         }
 

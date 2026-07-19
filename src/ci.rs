@@ -120,6 +120,7 @@ impl CiRun {
             assets.insert(GhArtifact {
                 name: format!("{}.zip", a.name),
                 browser_download_url: a.archive_download_url,
+                url: None,
             });
         }
         Ok(GhArtifacts { assets })

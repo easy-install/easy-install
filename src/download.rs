@@ -1,3 +1,4 @@
+use crate::artifact::GhArtifacts;
 use crate::tool::parse_and_validate_url;
 use crate::{manfiest::DistManifest, tool::is_url};
 use anyhow::{Context, Result};
@@ -5,7 +6,6 @@ use easy_archive::{File, Fmt};
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
@@ -294,18 +294,6 @@ fn create_client() -> &'static Client {
     })
 }
 
-#[derive(Debug, Deserialize)]
-struct GhReleaseAsset {
-    name: String,
-    url: String,
-    browser_download_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GhRelease {
-    assets: Vec<GhReleaseAsset>,
-}
-
 /// `browser_download_url` is a GitHub *web* endpoint: for private repos it
 /// does not accept API tokens (GitHub returns 404 to avoid leaking the
 /// repo's existence), which is why the asset list can be fetched from the
@@ -354,7 +342,7 @@ async fn download_private_release_asset(
         trace!("release api returned status: {}", response.status());
         return Ok(None);
     }
-    let release: GhRelease = response.json().await.context("release api json failed")?;
+    let release: GhArtifacts = response.json().await.context("release api json failed")?;
     let Some(asset) = release
         .assets
         .iter()
@@ -370,7 +358,11 @@ async fn download_private_release_asset(
 
     // The octet-stream Accept header makes the API return the binary
     // (via a 302 to a pre-signed URL) instead of the asset metadata JSON.
-    let asset_parsed = parse_and_validate_url(&asset.url)?;
+    let Some(api_url) = &asset.url else {
+        trace!("asset {} has no API url", filename.as_str());
+        return Ok(None);
+    };
+    let asset_parsed = parse_and_validate_url(api_url)?;
     let mut headers = get_headers(&asset_parsed).await?;
     headers.append(
         "Accept",

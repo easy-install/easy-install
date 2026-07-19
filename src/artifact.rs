@@ -5,6 +5,11 @@ use std::{collections::HashSet, hash::Hasher};
 pub(crate) struct GhArtifact {
     pub(crate) name: String,
     pub(crate) browser_download_url: String,
+    /// API endpoint URL (present in single-release responses from
+    /// `GET /repos/{owner}/{repo}/releases/tags/{tag}`; absent in
+    /// the releases listing endpoint).
+    #[serde(default)]
+    pub(crate) url: Option<String>,
 }
 
 // Manually implement PartialEq and Hash to ensure it will always produce the
