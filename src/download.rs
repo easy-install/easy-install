@@ -2,10 +2,12 @@ use crate::tool::parse_and_validate_url;
 use crate::{manfiest::DistManifest, tool::is_url};
 use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
+use regex::Regex;
 use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -14,6 +16,16 @@ use tracing::{trace, warn};
 
 // Credential cache for GitHub token detection
 static GITHUB_TOKEN_CACHE: OnceLock<Option<String>> = OnceLock::new();
+
+// Matches GitHub release asset download URLs so that private-repo downloads
+// can be retried through the API:
+// https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}
+static RE_GH_RELEASE_DOWNLOAD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>.+)$",
+    )
+    .unwrap()
+});
 
 async fn retry_request<F, Fut, T>(
     max_retries: usize,
@@ -282,6 +294,102 @@ fn create_client() -> &'static Client {
     })
 }
 
+#[derive(Debug, Deserialize)]
+struct GhReleaseAsset {
+    name: String,
+    url: String,
+    browser_download_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GhRelease {
+    assets: Vec<GhReleaseAsset>,
+}
+
+/// `browser_download_url` is a GitHub *web* endpoint: for private repos it
+/// does not accept API tokens (GitHub returns 404 to avoid leaking the
+/// repo's existence), which is why the asset list can be fetched from the
+/// API but the download itself fails. The supported way to download a
+/// private release asset is the asset API endpoint with
+/// `Accept: application/octet-stream`, which 302s to a pre-signed CDN URL.
+async fn download_private_release_asset(
+    parsed: &reqwest::Url,
+    timeout_dur: Duration,
+) -> Result<Option<reqwest::Response>> {
+    let Some(captures) = RE_GH_RELEASE_DOWNLOAD.captures(parsed.as_str()) else {
+        return Ok(None);
+    };
+    let (Some(owner), Some(repo), Some(tag), Some(filename)) = (
+        captures.name("owner"),
+        captures.name("repo"),
+        captures.name("tag"),
+        captures.name("filename"),
+    ) else {
+        return Ok(None);
+    };
+    // Without a token there is no way to authenticate the API request.
+    if detect_github_token().await.is_none() {
+        return Ok(None);
+    }
+
+    trace!("download_private_release_asset {}", parsed.as_str());
+    let client = create_client();
+
+    // Resolve the asset's API URL by matching the filename in the release.
+    let release_api = format!(
+        "https://api.github.com/repos/{}/{}/releases/tags/{}",
+        owner.as_str(),
+        repo.as_str(),
+        tag.as_str()
+    );
+    let api_parsed = parse_and_validate_url(&release_api)?;
+    let response = client
+        .get(api_parsed.clone())
+        .timeout(timeout_dur)
+        .headers(get_headers(&api_parsed).await?)
+        .send()
+        .await
+        .context("release api send failed")?;
+    if response.status() != reqwest::StatusCode::OK {
+        trace!("release api returned status: {}", response.status());
+        return Ok(None);
+    }
+    let release: GhRelease = response.json().await.context("release api json failed")?;
+    let Some(asset) = release
+        .assets
+        .iter()
+        .find(|a| a.name == filename.as_str() || a.browser_download_url == parsed.as_str())
+    else {
+        trace!(
+            "asset {} not found in release {}",
+            filename.as_str(),
+            tag.as_str()
+        );
+        return Ok(None);
+    };
+
+    // The octet-stream Accept header makes the API return the binary
+    // (via a 302 to a pre-signed URL) instead of the asset metadata JSON.
+    let asset_parsed = parse_and_validate_url(&asset.url)?;
+    let mut headers = get_headers(&asset_parsed).await?;
+    headers.append(
+        "Accept",
+        HeaderValue::from_static("application/octet-stream"),
+    );
+    let response = client
+        .get(asset_parsed)
+        .timeout(timeout_dur)
+        .headers(headers)
+        .send()
+        .await
+        .context("asset api send failed")?;
+    if response.status() != reqwest::StatusCode::OK {
+        trace!("asset api returned status: {}", response.status());
+        return Ok(None);
+    }
+    Ok(Some(response))
+}
+
 pub(crate) async fn download_json<T: DeserializeOwned>(
     url: &str,
     retry: usize,
@@ -376,10 +484,20 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
                 }
             };
             if response.status() != reqwest::StatusCode::OK {
-                return Err(anyhow::anyhow!(
-                    "request failed with status: {}",
-                    response.status()
-                ));
+                let status = response.status();
+                // Private release assets: browser_download_url rejects API
+                // tokens, so retry through the GitHub asset API instead.
+                if matches!(
+                    status,
+                    reqwest::StatusCode::UNAUTHORIZED
+                        | reqwest::StatusCode::FORBIDDEN
+                        | reqwest::StatusCode::NOT_FOUND
+                ) && let Some(resp) =
+                    download_private_release_asset(&parsed, timeout_dur).await?
+                {
+                    return Ok(resp);
+                }
+                return Err(anyhow::anyhow!("request failed with status: {}", status));
             }
             Ok(response)
         },
