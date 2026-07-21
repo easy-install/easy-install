@@ -28,4 +28,3 @@ ladybird
 iperf3
 hx
 kibi
-private-repo-test
