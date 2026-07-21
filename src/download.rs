@@ -83,14 +83,15 @@ async fn detect_github_token() -> Option<String> {
         return cached.clone();
     }
 
-    // Try detection methods in order
-    let token = if let Some(t) = try_github_cli_token().await {
+    // Check GITHUB_TOKEN env var first — it's the most reliable and
+    // fastest method in CI runners (no subprocess overhead).
+    let token = if let Ok(t) = std::env::var("GITHUB_TOKEN")
+        && !t.is_empty()
+    {
         Some(t)
-    } else if let Some(t) = try_git_credential_manager().await {
+    } else if let Some(t) = try_github_cli_token().await {
         Some(t)
-    } else {
-        std::env::var("GITHUB_TOKEN").ok()
-    };
+    } else { try_git_credential_manager().await };
 
     // Cache the result (even if None)
     let _ = GITHUB_TOKEN_CACHE.set(token.clone());
