@@ -28,3 +28,4 @@ qjs-next
 iperf3
 hx
 kibi
+private-repo-test
