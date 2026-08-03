@@ -30,6 +30,9 @@ pub(crate) async fn install_from_single_file(
         return Ok(output);
     }
     let filename = get_filename(url);
+    // Callers pass the full source filename (e.g. `cli.ts`, `run.sh`, `bun`),
+    // so known extensions are preserved. get_bin_name only appends a platform
+    // extension (.exe) to bare names.
     let bin = if std::fs::exists(url).unwrap_or(false) {
         Some(std::fs::read(url)?)
     } else {

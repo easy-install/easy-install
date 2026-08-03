@@ -105,7 +105,9 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
                 return install_from_download_file(bytes, fmt, url, &name, config);
             }
         } else {
-            return install_from_single_file(url, &name, config).await;
+            // Same as the URL branch above: pass the full source filename so
+            // known extensions (e.g. `cli.ts`, `run.sh`) are preserved.
+            return install_from_single_file(url, &filename, config).await;
         }
     }
 
