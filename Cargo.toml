@@ -32,7 +32,7 @@ tokio = { version = "1", features = [
   "io-util",
 ], default-features = false }
 tracing = "0.1"
-dirs = "6"
+dirs = "7"
 reqwest = { version = "0.13", features = [
   "json",
   "gzip",
