@@ -39,7 +39,7 @@ pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
     ".nu",
 ];
 
-pub(crate) const SKIP_FMT_LIST: [&str; 20] = [
+pub(crate) const SKIP_FMT_LIST: [&str; 21] = [
     ".sha256sum",
     ".sha256",
     ".sha1",
@@ -60,6 +60,7 @@ pub(crate) const SKIP_FMT_LIST: [&str; 20] = [
     ".jsonl",
     ".sha256",
     ".sha512",
+    ".bsdiff",
 ];
 
 pub(crate) fn is_known_format(s: &str) -> bool {
