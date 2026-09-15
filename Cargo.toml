@@ -5,7 +5,6 @@ edition = "2024"
 license = "MIT"
 description = "easy-install"
 repository = "https://github.com/easy-install/easy-install"
-homepage = "https://github.com/easy-install/easy-install"
 authors = ["ahaoboy"]
 include = ["/src", "/Cargo.toml", "/README.md"]
 
@@ -42,7 +41,6 @@ reqwest = { version = "0.13", features = [
 which = "8"
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
-cargo-dist-schema = "0.32"
 path-clean = "1"
 anyhow = "1"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy", features = [
@@ -55,12 +53,13 @@ git-version = "0.3"
 const-str = "1"
 
 [features]
-default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "zip"]
+default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "gz", "zip"]
 tar = ["easy-archive/tar"]
 tar-gz = ["tar", "easy-archive/tar-gz"]
 tar-xz = ["tar", "easy-archive/tar-xz"]
 tar-bz = ["tar", "easy-archive/tar-bz"]
 tar-zstd = ["tar", "easy-archive/tar-zstd"]
+gz = ["easy-archive/gz"]
 zip = ["easy-archive/zip"]
 logging = ["crud-path/logging"]
 

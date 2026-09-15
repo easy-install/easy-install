@@ -36,6 +36,19 @@ pub(crate) fn install_from_download_file(
         }
 
         if let Ok(download_files) = extract_bytes(bytes, fmt) {
+            // Single-file formats such as plain gzip may omit the original
+            // filename from their header, leaving an empty path. Fall back to
+            // the caller-supplied name (derived from the URL) in that case.
+            let download_files: Vec<_> = download_files
+                .into_iter()
+                .map(|mut f| {
+                    if f.path.is_empty() && !f.is_dir {
+                        f.path = name.to_string();
+                    }
+                    f
+                })
+                .collect();
+
             // Handle nested archive: if there's only one file and it's an archive,
             // extract it recursively and use the inner archive name for platform/name inference
             if let &[first] = &download_files.as_slice()
