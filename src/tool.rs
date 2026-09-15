@@ -1438,4 +1438,37 @@ mod test {
             );
         }
     }
+
+    /// The bare manifest points at npm registry tarballs. The artifact URL
+    /// filename is `bare-runtime-<platform>-<version>.tgz`, so the installed
+    /// binary name must come from the artifact's `name` field (`"bare"`).
+    #[test]
+    fn test_bare_manifest() {
+        use crate::manfiest::DistManifest;
+        use std::str::FromStr;
+
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/bare.json");
+        let s = std::fs::read_to_string(path).unwrap();
+        let manifest: DistManifest = serde_json::from_str(&s).unwrap();
+
+        for (triple, package) in [
+            ("x86_64-pc-windows-msvc", "bare-runtime-win32-x64"),
+            ("x86_64-unknown-linux-gnu", "bare-runtime-linux-x64"),
+            ("aarch64-apple-darwin", "bare-runtime-darwin-arm64"),
+            ("aarch64-linux-android", "bare-runtime-android-arm64"),
+        ] {
+            let config = InstallConfig {
+                target: Some(guess_target::Target::from_str(triple).unwrap()),
+                ..Default::default()
+            };
+            let urls = get_artifact_url_from_manfiest(path, &manifest, &config);
+            assert_eq!(urls.len(), 1, "expected one artifact for {triple}: {urls:?}");
+            assert_eq!(urls[0].0, "bare", "binary name for {triple}");
+            assert!(
+                urls[0].1.contains(package),
+                "url {} should contain {package}",
+                urls[0].1
+            );
+        }
+    }
 }

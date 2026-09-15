@@ -1,0 +1,56 @@
+{
+  "artifacts": {
+    "https://unpkg.com/bare-runtime-android-arm/bin/bare": {
+      "name": "bare",
+      "target_triples": ["armv7-linux-androideabi"]
+    },
+    "https://unpkg.com/bare-runtime-android-arm64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["aarch64-linux-android"]
+    },
+    "https://unpkg.com/bare-runtime-android-ia32/bin/bare": {
+      "name": "bare",
+      "target_triples": ["i686-linux-android"]
+    },
+    "https://unpkg.com/bare-runtime-android-x64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["x86_64-linux-android"]
+    },
+    "https://unpkg.com/bare-runtime-darwin-arm64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["aarch64-apple-darwin"]
+    },
+    "https://unpkg.com/bare-runtime-darwin-x64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["x86_64-apple-darwin"]
+    },
+    "https://unpkg.com/bare-runtime-ios-arm64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["aarch64-apple-ios"]
+    },
+    "https://unpkg.com/bare-runtime-ios-arm64-simulator/bin/bare": {
+      "name": "bare",
+      "target_triples": ["aarch64-apple-ios-sim"]
+    },
+    "https://unpkg.com/bare-runtime-ios-x64-simulator/bin/bare": {
+      "name": "bare",
+      "target_triples": ["x86_64-apple-ios"]
+    },
+    "https://unpkg.com/bare-runtime-linux-arm64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["aarch64-unknown-linux-gnu"]
+    },
+    "https://unpkg.com/bare-runtime-linux-x64/bin/bare": {
+      "name": "bare",
+      "target_triples": ["x86_64-unknown-linux-gnu"]
+    },
+    "https://unpkg.com/bare-runtime-win32-arm64/bin/bare.exe": {
+      "name": "bare",
+      "target_triples": ["aarch64-pc-windows-msvc"]
+    },
+    "https://unpkg.com/bare-runtime-win32-x64/bin/bare.exe": {
+      "name": "bare",
+      "target_triples": ["x86_64-pc-windows-msvc"]
+    }
+  }
+}
