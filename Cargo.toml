@@ -6,7 +6,7 @@ license = "MIT"
 description = "easy-install"
 repository = "https://github.com/easy-install/easy-install"
 authors = ["ahaoboy"]
-include = ["/src", "/Cargo.toml", "/README.md"]
+include = ["/src", "/Cargo.toml", "/README.md", "/build.rs"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

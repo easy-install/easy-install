@@ -146,7 +146,8 @@ pub enum Command {
 
 const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 const GIT_HASH: &str = git_version::git_version!();
-const VERSION: &str = const_str::concat!(CARGO_PKG_VERSION, " ", GIT_HASH);
+const BUILD_TARGET: &str = env!("BUILD_TARGET");
+const VERSION: &str = const_str::concat!(CARGO_PKG_VERSION, " ", GIT_HASH, " ", BUILD_TARGET);
 
 #[derive(Parser, Debug, Clone)]
 #[command(name="ei", version=VERSION, about, long_about)]
