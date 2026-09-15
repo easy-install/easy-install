@@ -348,8 +348,11 @@ After generating the completion script, restart your shell or source the complet
 
 ```bash
 # Install from a remote manifest
+# From release file
 ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
-ei "https://github.com/easy-install/easy-install/releases/latest/download/ffmpeg.json"
+
+# From github file
+ei "https://raw.githubusercontent.com/easy-install/easy-install/main/dist-manifest/ffmpeg.json"
 
 # Install from a local manifest file
 ei "./dist-manifest/screentogif.json"
