@@ -1,0 +1,32 @@
+{
+  "artifacts": {
+    "https://manifest.antjs.org/v1/download/ant/linux-x64": {
+      "name": "ant",
+      "target_triples": ["x86_64-unknown-linux-gnu"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/linux-aarch64": {
+      "name": "ant",
+      "target_triples": ["aarch64-unknown-linux-gnu"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/linux-x64-musl": {
+      "name": "ant",
+      "target_triples": ["x86_64-unknown-linux-musl"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/linux-aarch64-musl": {
+      "name": "ant",
+      "target_triples": ["aarch64-unknown-linux-musl"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/darwin-x64": {
+      "name": "ant",
+      "target_triples": ["x86_64-apple-darwin"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/darwin-aarch64": {
+      "name": "ant",
+      "target_triples": ["aarch64-apple-darwin"]
+    },
+    "https://manifest.antjs.org/v1/download/ant/windows-x64": {
+      "name": "ant",
+      "target_triples": ["x86_64-pc-windows-gnu"]
+    }
+  }
+}

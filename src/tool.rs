@@ -359,9 +359,18 @@ fn push_manifest_artifact(
     {
         return;
     }
-    let filename = get_filename(key);
-    let name = name_no_ext(&filename);
-    let name = guess_target(&name).pop().map_or(name, |i| i.name);
+    // Prefer the manifest's explicit `name` field. It is the authoritative
+    // tool name (e.g. "ant"), whereas the artifact URL/filename may only
+    // carry the platform (e.g. `.../ant/windows-x64` -> "windows").
+    // Fall back to inferring the name from the filename via guess_target.
+    let name = match &art.name {
+        Some(n) if !n.is_empty() => n.clone(),
+        _ => {
+            let filename = get_filename(key);
+            let raw = name_no_ext(&filename);
+            guess_target(&raw).pop().map_or(raw, |i| i.name)
+        }
+    };
     if !is_url(key) {
         v.push((name, replace_filename(url, key)));
     } else {
@@ -1394,5 +1403,39 @@ mod test {
         assert!(!is_compatible_abi(Some(Abi::Msvc), Some(Abi::Msvc)));
         assert!(!is_compatible_abi(None, Some(Abi::Gnu)));
         assert!(!is_compatible_abi(Some(Abi::Gnu), None));
+    }
+
+    /// The antjs manifest downloads bare binaries whose URL path ends in the
+    /// platform name (e.g. `.../ant/windows-x64`) rather than the tool name.
+    /// The installed binary name must therefore come from the artifact's
+    /// `name` field (`"ant"`), not from `guess_target` on the URL.
+    #[test]
+    fn test_antjs_manifest() {
+        use crate::manfiest::DistManifest;
+        use std::str::FromStr;
+
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/antjs.json");
+        let s = std::fs::read_to_string(path).unwrap();
+        let manifest: DistManifest = serde_json::from_str(&s).unwrap();
+
+        for (triple, suffix) in [
+            ("x86_64-pc-windows-gnu", "/windows-x64"),
+            ("x86_64-unknown-linux-gnu", "/linux-x64"),
+            ("aarch64-unknown-linux-musl", "/linux-aarch64-musl"),
+            ("aarch64-apple-darwin", "/darwin-aarch64"),
+        ] {
+            let config = InstallConfig {
+                target: Some(guess_target::Target::from_str(triple).unwrap()),
+                ..Default::default()
+            };
+            let urls = get_artifact_url_from_manfiest(path, &manifest, &config);
+            assert_eq!(urls.len(), 1, "expected one artifact for {triple}: {urls:?}");
+            assert_eq!(urls[0].0, "ant", "binary name for {triple}");
+            assert!(
+                urls[0].1.ends_with(suffix),
+                "url {} should end with {suffix}",
+                urls[0].1
+            );
+        }
     }
 }
