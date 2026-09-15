@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use crate::error::{Context, Result};
 use crud_path::{add_github_path, is_github};
 
 use crate::config::DEFAULT_CONFIG_DIR;

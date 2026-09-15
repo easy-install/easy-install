@@ -3,7 +3,7 @@ use crate::artifact::GhArtifacts;
 use crate::env::add_to_path;
 use crate::manfiest::DistManifest;
 use crate::types::{Output, OutputFile};
-use anyhow::{Context, Result};
+use crate::error::{Context, Result, bail, err};
 use easy_archive::{Fmt, clean};
 use easy_archive::{human_size, mode_to_string, types::IntoEnumIterator};
 use guess_target::{Abi, Arch, Os, guess_target};
@@ -266,7 +266,7 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
         if meta.is_file() {
             std::fs::remove_file(src).context("failed to remove file")?;
         } else {
-            anyhow::bail!("target path is a directory, refusing to overwrite: {src}");
+            bail!("target path is a directory, refusing to overwrite: {src}");
         }
     }
 
@@ -502,7 +502,7 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
     match disk {
         Ok(disk) => {
             if disk < sum {
-                return Err(anyhow::anyhow!(
+                return Err(err!(
                     r#"Insufficient disk space for installation
   Installation directory: {}
   Available space: {}
@@ -717,7 +717,7 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
 pub(crate) fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
     // Check if URL is empty
     if url.trim().is_empty() {
-        return Err(anyhow::anyhow!("URL cannot be empty"));
+        return Err(err!("URL cannot be empty"));
     }
 
     // Parse URL
@@ -726,7 +726,7 @@ pub(crate) fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
     // Check scheme (only allow http/https)
     let scheme = parsed.scheme();
     if scheme != "http" && scheme != "https" {
-        return Err(anyhow::anyhow!(
+        return Err(err!(
             "Invalid URL scheme '{}': only http and https are allowed",
             scheme
         ));
@@ -783,10 +783,10 @@ pub(crate) fn get_artifact_url(
             .map(|a| a.name.clone())
             .collect();
         if matched.is_empty() {
-            anyhow::bail!("--regex did not match any assets. Check the pattern and try again.");
+            bail!("--regex did not match any assets. Check the pattern and try again.");
         }
         if matched.len() > 1 {
-            anyhow::bail!(
+            bail!(
                 "--regex matched {} assets, expected exactly 1. Pattern is too permissive.\n  Matched: {:#?}\n  Tighten the regex (e.g. anchor it to the platform triple) so only one asset remains.",
                 matched.len(),
                 matched
@@ -1091,7 +1091,7 @@ pub(crate) fn not_found_asset_message(
 
 #[cfg(test)]
 mod test {
-    use anyhow::Context;
+    use crate::error::Context;
 
     use crate::{
         InstallConfig,
@@ -1414,7 +1414,7 @@ mod test {
         use crate::manfiest::DistManifest;
         use std::str::FromStr;
 
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/antjs.json");
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/ant.json");
         let s = std::fs::read_to_string(path).unwrap();
         let manifest: DistManifest = serde_json::from_str(&s).unwrap();
 

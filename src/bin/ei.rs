@@ -1,5 +1,5 @@
-use anyhow::Result;
 use clap::Parser;
+use easy_install::error::Result;
 use easy_install::{Args, run_main};
 use std::str::FromStr;
 

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::error::{Context, Result};
 use github_proxy::Proxy;
 use guess_target::Target;
 use serde::{Deserialize, Serialize};

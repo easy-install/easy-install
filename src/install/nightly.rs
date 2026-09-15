@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::install::install_artifacts;
 use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::{Nightly, Output};
-use anyhow::Result;
+use crate::error::Result;
 use tracing::trace;
 
 pub(crate) async fn install_from_nightly(

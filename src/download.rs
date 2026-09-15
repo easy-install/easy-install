@@ -1,7 +1,7 @@
 use crate::artifact::GhArtifacts;
+use crate::error::{Context, Result, err};
 use crate::tool::parse_and_validate_url;
 use crate::{manfiest::DistManifest, tool::is_url};
-use anyhow::{Context, Result};
 use easy_archive::{File, Fmt};
 use regex::Regex;
 use reqwest::Client;
@@ -74,7 +74,7 @@ where
         }
     }
 
-    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("retry_request: no error captured")))
+    Err(last_error.unwrap_or_else(|| err!("retry_request: no error captured")))
 }
 
 async fn detect_github_token() -> Option<String> {
@@ -405,7 +405,7 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
-                        return Err(anyhow::anyhow!(
+                        return Err(err!(
                             "Request timed out after {} seconds: {}",
                             timeout,
                             url
@@ -415,7 +415,7 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
                 }
             };
             if response.status() != reqwest::StatusCode::OK {
-                return Err(anyhow::anyhow!(
+                return Err(err!(
                     "request failed with status: {}",
                     response.status()
                 ));
@@ -467,7 +467,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
-                        return Err(anyhow::anyhow!(
+                        return Err(err!(
                             "Request timed out after {} seconds: {}",
                             timeout,
                             url
@@ -490,7 +490,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
                 {
                     return Ok(resp);
                 }
-                return Err(anyhow::anyhow!("request failed with status: {}", status));
+                return Err(err!("request failed with status: {}", status));
             }
             Ok(response)
         },

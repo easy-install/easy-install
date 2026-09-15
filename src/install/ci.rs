@@ -4,7 +4,7 @@ use crate::download::get_bytes;
 use crate::install::artifact::install_from_download_file;
 use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::Output;
-use anyhow::{Context, Result};
+use crate::error::{Context, Result};
 use easy_archive::Fmt;
 use tokio::task::JoinSet;
 use tracing::trace;

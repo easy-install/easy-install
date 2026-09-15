@@ -1,25 +1,16 @@
-use anyhow::Result;
+use crate::error::Result;
 use std::process::Command;
 use tracing::trace;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 enum OptimizeError {
+    #[error("{0} command not found")]
     CommandNotFound(String),
+    #[error("{0}")]
     AlreadyProcessed(String),
+    #[error("{0}")]
     ProcessingFailed(String),
 }
-
-impl std::fmt::Display for OptimizeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OptimizeError::CommandNotFound(cmd) => write!(f, "{} command not found", cmd),
-            OptimizeError::AlreadyProcessed(msg) => write!(f, "{}", msg),
-            OptimizeError::ProcessingFailed(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl std::error::Error for OptimizeError {}
 
 /// Optimize a single executable file by running strip and/or upx
 pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool) -> Result<()> {

@@ -7,7 +7,7 @@ use crate::tool::{
     install_output_files, is_archive_file, name_no_ext, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
-use anyhow::{Context, Result};
+use crate::error::{Context, Result};
 use easy_archive::Fmt;
 use guess_target::guess_target;
 use tracing::trace;

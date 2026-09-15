@@ -3,7 +3,7 @@ use crate::install::install_artifacts;
 use crate::manfiest::DistManifest;
 use crate::tool::{filter_artifacts, get_artifact_url_from_manfiest};
 use crate::types::Output;
-use anyhow::Result;
+use crate::error::Result;
 use tracing::trace;
 
 pub(crate) async fn install_from_manfiest(

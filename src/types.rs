@@ -3,7 +3,7 @@ use crate::artifact::{GhArtifact, GhArtifacts};
 use crate::download::{download, download_dist_manfiest, download_json};
 use crate::manfiest::DistManifest;
 use crate::tool::get_artifact_url;
-use anyhow::{Context, Result};
+use crate::error::{Context, Result, err};
 use github_proxy::{Proxy, Resource};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ struct JsdelivrPackage {
 }
 
 impl TryFrom<&str> for Repo {
-    type Error = anyhow::Error;
+    type Error = crate::error::Error;
 
     fn try_from(value: &str) -> Result<Self> {
         trace!("get_artifact_api {}", value);
@@ -149,7 +149,7 @@ impl TryFrom<&str> for Repo {
                 tag: tag.map(|i| i.as_str().to_string()),
             });
         }
-        Err(anyhow::anyhow!("Invalid repo string: {value}"))
+        Err(err!("Invalid repo string: {value}"))
     }
 }
 
@@ -246,7 +246,7 @@ impl Repo {
             return Ok(tag);
         }
 
-        Err(anyhow::anyhow!("No release tag found in HTML"))
+        Err(err!("No release tag found in HTML"))
     }
 
     async fn get_latest_tag(&self, retry: usize, timeout: u64) -> Result<String> {
@@ -274,9 +274,7 @@ impl Repo {
             return Ok(v.to_string());
         }
 
-        Err(anyhow::anyhow!(
-            "No latest tag found from GitHub or jsDelivr"
-        ))
+        Err(err!("No latest tag found from GitHub or jsDelivr"))
     }
 
     async fn get_release_page_url(&self, retry: usize, timeout: u64) -> Result<String> {
@@ -316,7 +314,7 @@ impl Repo {
         }
 
         if assets.is_empty() {
-            return Err(anyhow::anyhow!("No assets found in release page HTML"));
+            return Err(err!("No assets found in release page HTML"));
         }
 
         Ok(GhArtifacts { assets })
@@ -390,7 +388,7 @@ impl Repo {
                 let response = download(&page_url, retry, timeout).await?;
                 let html = response.text().await?;
                 Self::parse_release_html(&html).map_err(|html_error| {
-                    anyhow::anyhow!(
+                    err!(
                         "Failed to retrieve artifacts for {}/{}. API error: {}. HTML parsing error: {}",
                         self.owner, self.name, api_error, html_error
                     )
@@ -454,7 +452,7 @@ impl Display for Nightly {
     }
 }
 impl TryFrom<&str> for Nightly {
-    type Error = anyhow::Error;
+    type Error = crate::error::Error;
 
     fn try_from(url: &str) -> std::result::Result<Self, Self::Error> {
         if RE_NIGHTLY.is_match(url) {
@@ -462,7 +460,7 @@ impl TryFrom<&str> for Nightly {
                 url: url.to_string(),
             })
         } else {
-            Err(anyhow::anyhow!("Invalid nightly.link string: {url}"))
+            Err(err!("Invalid nightly.link string: {url}"))
         }
     }
 }

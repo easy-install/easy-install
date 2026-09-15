@@ -42,7 +42,7 @@ which = "8"
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
 path-clean = "1"
-anyhow = "1"
+thiserror = "2"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy", features = [
   "serde",
 ] }

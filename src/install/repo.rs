@@ -3,7 +3,7 @@ use crate::install::install_artifacts;
 use crate::install::manfiest::install_from_manfiest;
 use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::{Output, Repo};
-use anyhow::Result;
+use crate::error::Result;
 use tracing::trace;
 
 pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> Result<Output> {

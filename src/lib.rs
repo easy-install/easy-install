@@ -3,14 +3,17 @@ mod ci;
 mod config;
 mod download;
 mod env;
+pub mod error;
 mod install;
 mod manfiest;
 mod optimize;
 mod tool;
 mod types;
 
+use crate::error::{err, Result};
 use crate::tool::expand_path;
-use anyhow::{Context, Result};
+#[cfg(windows)]
+use crate::error::Context;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
@@ -380,7 +383,7 @@ async fn handle_upgrade(user_config: InstallConfig) -> Result<()> {
     let exe = std::env::current_exe()?;
     let dir = exe
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("ei dir not found"))?;
+        .ok_or_else(|| err!("ei dir not found"))?;
 
     // Merge user CLI options (--no-path, --quiet, --proxy, etc.) with
     // upgrade-specific overrides: dir = exe directory, alias = "ei".

@@ -6,7 +6,7 @@ use crate::tool::{
     install_output_files, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
-use anyhow::Result;
+use crate::error::Result;
 use guess_target::Os;
 
 pub(crate) async fn install_from_single_file(

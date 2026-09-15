@@ -19,7 +19,7 @@ use crate::tool::{
     name_no_ext,
 };
 use crate::types::{Nightly, Output, Repo};
-use anyhow::Result;
+use crate::error::Result;
 use artifact::install_from_download_file;
 use easy_archive::Fmt;
 use guess_target::guess_target;

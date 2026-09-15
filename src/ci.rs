@@ -2,7 +2,7 @@ use crate::InstallConfig;
 use crate::artifact::{GhArtifact, GhArtifacts};
 use crate::download::download_json;
 use crate::tool::get_artifact_url;
-use anyhow::{Context, Result};
+use crate::error::{Context, Result, err};
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -138,7 +138,7 @@ impl Display for CiRun {
 }
 
 impl TryFrom<&str> for CiRun {
-    type Error = anyhow::Error;
+    type Error = crate::error::Error;
 
     fn try_from(url: &str) -> Result<Self> {
         if let Some(cap) = RE_CI_RUN.captures(url) {
@@ -153,12 +153,12 @@ impl TryFrom<&str> for CiRun {
         // store the workflow_file as a special marker. The caller must call
         // `resolve_workflow` before using.
         if let Some(_cap) = RE_CI_WORKFLOW.captures(url) {
-            return Err(anyhow::anyhow!(
+            return Err(err!(
                 "Workflow URLs require async resolution. Use the workflow file as a CI reference."
             ));
         }
 
-        Err(anyhow::anyhow!("Invalid CI URL: {url}"))
+        Err(err!("Invalid CI URL: {url}"))
     }
 }
 
