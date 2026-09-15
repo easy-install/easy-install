@@ -814,7 +814,7 @@ pub(crate) fn get_artifact_url(
             if re.is_match(&filename) {
                 let rank = u32::MAX;
                 let name = name_no_ext(&filename);
-                v.push((rank, name, i.browser_download_url.clone()));
+                v.push((false, rank, name, i.browser_download_url.clone()));
             }
             continue;
         }
@@ -930,16 +930,37 @@ pub(crate) fn get_artifact_url(
             } else {
                 rank
             };
-            v.push((rank, item.name.clone(), i.browser_download_url.clone()));
+            v.push((
+                penalized,
+                rank,
+                item.name.clone(),
+                i.browser_download_url.clone(),
+            ));
         }
     }
 
+    // When an explicit `--target` is given, an exact target match must beat an
+    // ABI fallback. The `rank` measures how specifically the *filename* matched
+    // a platform pattern, not how well it matches the requested target — so a
+    // musl asset (matched by an os-abi-arch rule) can outrank a gnu asset
+    // (matched by a looser os-arch rule) and win the dedup below, even though
+    // only the gnu asset is an exact match for `--target x86_64-unknown-linux-gnu`.
+    // Drop fallback candidates entirely whenever an exact match exists.
+    let v: Vec<_> = if config.target.is_some() {
+        let has_exact = v.iter().any(|(penalized, ..)| !*penalized);
+        v.into_iter()
+            .filter(|(penalized, ..)| !has_exact || !*penalized)
+            .collect()
+    } else {
+        v
+    };
+
     // we should still apply rank-based deduplication (keep only highest-rank per name).
-    let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.0));
+    let max_rank = v.iter().fold(0, |pre, cur| pre.max(cur.1));
     let mut filter = vec![];
     let mut list = vec![];
     // FIXME: Need user to select eg: llrt-no-sdk llrt-full-sdk
-    for (rank, name, url) in v {
+    for (_penalized, rank, name, url) in v {
         if rank < max_rank {
             continue;
         }
@@ -1342,6 +1363,41 @@ mod test {
                 b
             );
         }
+    }
+
+    /// With an explicit `--target`, an exact target match must win over an
+    /// ABI fallback. Regression: requesting `x86_64-unknown-linux-gnu` must
+    /// select `lo-linux-x64.gz`, not the higher-filename-ranked
+    /// `lo-linux-musl-x64.gz`.
+    #[test]
+    fn test_target_exact_beats_abi_fallback() {
+        use crate::artifact::{GhArtifact, GhArtifacts};
+        use crate::tool::get_artifact_url;
+        use std::collections::HashSet;
+        use std::str::FromStr;
+
+        let mut assets = HashSet::new();
+        for f in ["lo-linux-x64.gz", "lo-linux-musl-x64.gz"] {
+            assets.insert(GhArtifact {
+                name: f.to_string(),
+                browser_download_url: format!(
+                    "https://github.com/just-js/lo/releases/download/0.0.33-pre/{f}"
+                ),
+                url: None,
+            });
+        }
+        let artifacts = GhArtifacts { assets };
+
+        let config = InstallConfig {
+            target: Some(guess_target::Target::from_str("x86_64-unknown-linux-gnu").unwrap()),
+            ..Default::default()
+        };
+        let list = get_artifact_url(artifacts, &config).unwrap();
+        assert_eq!(list.len(), 1, "expected exactly one artifact: {list:?}");
+        assert!(
+            list[0].1.ends_with("lo-linux-x64.gz"),
+            "gnu target must select the gnu asset, got: {list:?}"
+        );
     }
 
     #[test]
