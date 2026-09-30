@@ -18,7 +18,7 @@ pub(crate) fn add_to_path(dir: &str, quiet: bool) {
         }
     }
 
-    if let Some(sh) = crud_path::add_path(dir) {
+    if let Some(sh) = crud_path::add_path(dir, true) {
         if !quiet {
             println!("Successfully added {dir} to {sh}'s $PATH");
         }
