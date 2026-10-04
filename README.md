@@ -31,6 +31,9 @@ powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/eas
 # Direct installation
 curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
+# Set target
+curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh -s - --target aarch64-unknown-linux-musl
+
 # wget
 wget -qO- https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
 
