@@ -21,6 +21,12 @@ A cross-platform command-line tool for effortlessly installing binaries from Git
 
 ### Windows
 
+Using Windows Package Manager (WinGet):
+```powershell
+winget install easy-install
+```
+
+Using PowerShell directly:
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/easy-install/easy-install/main/install.ps1 | iex"
 ```
