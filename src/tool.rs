@@ -256,24 +256,38 @@ pub(crate) fn check(file: &OutputFile) -> Option<String> {
 
 pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
     let d = std::path::PathBuf::from_str(src).context("invalid path for write_to_file")?;
-    if let Some(p) = d.parent()
-        && !std::fs::exists(p).unwrap_or(false)
-    {
-        std::fs::create_dir_all(p).context("failed to create_dir_all")?;
+    if let Some(p) = d.parent() {
+        if std::fs::exists(p).unwrap_or(false) {
+            // A directory is required here. If a regular file occupies the
+            // same path (e.g. a leftover single-file install named like the
+            // package), create_dir_all is skipped and the later write fails
+            // with a confusing "path not found" OS error. Report the real cause.
+            if !std::fs::metadata(p).map(|m| m.is_dir()).unwrap_or(false) {
+                bail!(
+                    "cannot install to '{}': a file with the same name already exists.\nRemove it first, or choose a different install directory with --dir or --alias.",
+                    path_to_str(p)
+                );
+            }
+        } else {
+            std::fs::create_dir_all(p)
+                .with_context(|| format!("failed to create directory '{}'", path_to_str(p)))?;
+        }
     }
 
     if std::fs::exists(src).unwrap_or(false)
         && let Ok(meta) = std::fs::metadata(src)
     {
         if meta.is_file() {
-            std::fs::remove_file(src).context("failed to remove file")?;
+            std::fs::remove_file(src)
+                .with_context(|| format!("failed to remove existing file '{src}'"))?;
         } else {
             bail!("target path is a directory, refusing to overwrite: {src}");
         }
     }
 
     if !buffer.is_empty() {
-        std::fs::write(src, buffer).context("failed to write file")?;
+        std::fs::write(src, buffer)
+            .with_context(|| format!("failed to write file '{src}'"))?;
     }
 
     #[cfg(unix)]
@@ -282,7 +296,7 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
         && !buffer.is_empty()
     {
         std::fs::set_permissions(src, PermissionsExt::from_mode(*mode))
-            .context("failed to set_permissions")?;
+            .with_context(|| format!("failed to set permissions on '{src}'"))?;
     }
 
     #[cfg(windows)]

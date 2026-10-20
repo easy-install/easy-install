@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     }
     let args = Args::parse();
     if let Err(e) = run_main(args).await {
-        eprintln!("Error: {e:?}");
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
     Ok(())

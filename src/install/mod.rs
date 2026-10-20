@@ -19,7 +19,7 @@ use crate::tool::{
     name_no_ext,
 };
 use crate::types::{Nightly, Output, Repo};
-use crate::error::Result;
+use crate::error::{Result, bail};
 use artifact::install_from_download_file;
 use easy_archive::Fmt;
 use guess_target::guess_target;
@@ -136,6 +136,24 @@ pub(crate) async fn install_artifacts(
     artifact_url: Vec<(String, String)>,
     config: &InstallConfig,
 ) -> Result<Output> {
+    // `--alias` renames the installed file to a single fixed name. When more
+    // than one artifact is selected they would all be written to the same
+    // path, silently overwriting each other and making the final result
+    // non-deterministic. Refuse instead of guessing.
+    if let Some(alias) = &config.alias
+        && artifact_url.len() > 1
+    {
+        let names = artifact_url
+            .iter()
+            .map(|(name, _)| format!("  - {name}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        bail!(
+            "--alias '{alias}' is ambiguous: {} installable artifacts matched:\n{names}\n\nUse --name or --regex to select exactly one artifact,\nor drop --alias so each artifact keeps its own name.",
+            artifact_url.len()
+        );
+    }
+
     // Fast path: zero or one artifact — no need to spawn tasks.
     if artifact_url.len() <= 1 {
         let mut v = Output::new();
