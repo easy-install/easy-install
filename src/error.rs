@@ -19,11 +19,18 @@ pub enum Error {
 
     /// A context message attached to an underlying error
     /// (replaces `anyhow::Context::context`).
-    #[error("{context}: {inner}")]
+    ///
+    /// `Display` only prints the context; use [`format_chain`] to render the
+    /// complete `caused by:` chain. Previously the `Display` impl inlined the
+    /// inner error, but `reqwest`'s own `Display` is generic ("error sending
+    /// request for url (...)") and drops its sources, which made network
+    /// failures on Android/Termux impossible to diagnose.
+    #[error("{context}")]
     WithContext {
         /// Human-readable description of the failed operation.
         context: String,
         /// The underlying error.
+        #[source]
         inner: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 
@@ -57,6 +64,43 @@ impl Error {
     pub fn msg(message: impl Into<String>) -> Self {
         Error::Msg(message.into())
     }
+}
+
+/// Render an error together with every underlying `source()`.
+///
+/// `reqwest` (and most async stacks) wrap the useful detail in nested
+/// sources, e.g.:
+///
+/// ```text
+/// send failed
+///   caused by: error sending request for url (https://...)
+///   caused by: client error (Connect)
+///   caused by: tls handshake eof
+/// ```
+///
+/// The nested lines are what actually identify Android/Termux networking
+/// problems, so the CLI prints them instead of only the top-level message.
+pub fn format_chain(err: &(dyn std::error::Error + 'static)) -> String {
+    const MAX_DEPTH: usize = 8;
+
+    let mut out = err.to_string();
+    let mut source = err.source();
+    let mut depth = 0;
+    while let Some(e) = source {
+        if depth >= MAX_DEPTH {
+            out.push_str("\n  caused by: ...");
+            break;
+        }
+        let msg = e.to_string();
+        // Some chains repeat the parent message verbatim; skip duplicates.
+        if !out.ends_with(&msg) {
+            out.push_str("\n  caused by: ");
+            out.push_str(&msg);
+        }
+        source = e.source();
+        depth += 1;
+    }
+    out
 }
 
 /// `anyhow`-style context extension for `Result` and `Option`.

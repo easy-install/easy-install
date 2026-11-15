@@ -5,14 +5,20 @@ use crate::{manfiest::DistManifest, tool::is_url};
 use easy_archive::{File, Fmt};
 use regex::Regex;
 use reqwest::Client;
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
-use std::sync::{LazyLock, OnceLock};
+use std::net::SocketAddr;
+use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::time::{sleep, timeout};
 use tracing::{trace, warn};
+
+/// Upper bound for a single DNS lookup. Without it a stuck resolver (seen on
+/// some Android/Termux networks) blocks the request forever.
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(10);
 
 // Credential cache for GitHub token detection
 static GITHUB_TOKEN_CACHE: OnceLock<Option<String>> = OnceLock::new();
@@ -288,12 +294,75 @@ fn create_client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
+            // Use rustls with the bundled (webpki) Mozilla root store.
+            //
+            // On Android/Termux the OS trust store is not exposed to native
+            // CLI processes, and `rustls-platform-verifier` (what reqwest 0.13
+            // uses by default) requires a JNI-initialized Android context and
+            // panics with "Expect rustls-platform-verifier to be initialized".
+            // Bundled roots avoid both problems and behave identically on
+            // every platform.
+            .use_rustls_tls()
+            .tls_built_in_root_certs(true)
+            // HTTP/2 is not needed here and h1-only avoids ALPN negotiation
+            // issues on mobile networks.
+            .http1_only()
+            // Prefer IPv4; see `PreferIpv4Resolver`.
+            .dns_resolver(Arc::new(PreferIpv4Resolver))
             .connect_timeout(Duration::from_secs(30))
             .cookie_store(true)
             .build()
             .expect("Failed to create HTTP client")
     })
 }
+
+/// Resolver that returns IPv4 addresses before IPv6 ones.
+///
+/// reqwest/hyper try the resolved addresses **in order** and the whole
+/// attempt (including DNS and the TLS handshake) is bounded by a single
+/// connect timeout. On Android/mobile networks an advertised but unroutable
+/// IPv6 address is common: it silently drops packets, consumes the entire
+/// connect timeout, and the request fails even though IPv4 works. That is why
+/// `curl` (which implements Happy Eyeballs and falls back to IPv4) succeeds
+/// while a reqwest client fails.
+///
+/// Sorting IPv4 first makes the reachable addresses win immediately while
+/// still keeping IPv6 as a fallback. The lookup itself is also bounded so a
+/// hung resolver produces a real error instead of an endless hang.
+#[derive(Debug, Default)]
+struct PreferIpv4Resolver;
+
+impl Resolve for PreferIpv4Resolver {
+    fn resolve(&self, name: Name) -> Resolving {
+        let host = name.as_str().to_owned();
+        Box::pin(async move {
+            let lookup = tokio::net::lookup_host((host.as_str(), 0));
+            let collected: Vec<SocketAddr> = timeout(DNS_LOOKUP_TIMEOUT, lookup)
+                .await
+                .map_err(|_| -> BoxError {
+                    format!("DNS lookup timed out for {host}").into()
+                })?
+                .map_err(|e| -> BoxError {
+                    format!("DNS lookup failed for {host}: {e}").into()
+                })?
+                .collect();
+
+            if collected.is_empty() {
+                return Err::<Addrs, BoxError>(
+                    format!("DNS lookup returned no addresses for {host}").into(),
+                );
+            }
+
+            let (mut ipv4, ipv6): (Vec<_>, Vec<_>) =
+                collected.into_iter().partition(SocketAddr::is_ipv4);
+            ipv4.extend(ipv6);
+
+            Ok(Box::new(ipv4.into_iter()) as Addrs)
+        })
+    }
+}
+
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// `browser_download_url` is a GitHub *web* endpoint: for private repos it
 /// does not accept API tokens (GitHub returns 404 to avoid leaking the

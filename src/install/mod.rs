@@ -54,7 +54,10 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
             }
             Err(e) => {
                 if !config.quiet {
-                    println!("failed to read dist-manifest from {url}: {e}");
+                    println!(
+                        "failed to read dist-manifest from {url}: {}",
+                        crate::error::format_chain(&e)
+                    );
                 }
                 return Ok(Output::new());
             }
