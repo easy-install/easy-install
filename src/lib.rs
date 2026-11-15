@@ -25,8 +25,8 @@ use guess_target::Target;
 #[cfg(feature = "ssh")]
 pub use remote::SshClient;
 pub use remote::{
-    PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
-    sh_quote,
+    DirStatus, PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target,
+    is_supported_target, sh_quote,
 };
 
 #[derive(Debug, Clone)]

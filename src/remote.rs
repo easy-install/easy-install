@@ -28,95 +28,12 @@ use std::time::Duration;
 
 /// POSIX shell probe used to infer the remote platform.
 ///
-/// The script is passed to `sh -c` on the remote host, so it works no matter
-/// which login shell (bash/zsh/fish/…) the user has. It prints `KEY=value`
-/// lines consumed by [`RemotePlatform::parse`].
-///
-/// Detection rules mirror the mho installer:
-/// * Linux: `uname -m` + musl/glibc detection (`/etc/os-release`,
-///   `ldd --version`, the dynamic loader paths). ARM targets prefer musl
-///   because glibc builds frequently do not run on those systems.
-/// * Android: `uname -o` = Android, `$ANDROID_ROOT`, or `/system/build.prop`.
-/// * macOS / Windows / FreeBSD: plain `uname -s` + `uname -m` mapping.
+/// The script lives in `src/shell/platform_probe.sh` (syntax highlighting and
+/// standalone testing) and is embedded at compile time. It runs via `sh -c`,
+/// so it works no matter which login shell (bash/zsh/fish/…) the user has.
+/// It prints `KEY=value` lines consumed by [`RemotePlatform::parse`].
 #[cfg_attr(not(feature = "ssh"), allow(dead_code))]
-const PLATFORM_PROBE: &str = r#"
-OS=$(uname -s 2>/dev/null || echo unknown)
-ARCH=$(uname -m 2>/dev/null || echo unknown)
-KERNEL=$(uname -o 2>/dev/null || echo unknown)
-
-LIBC=gnu
-if [ "$OS" = Linux ]; then
-  if [ -f /etc/os-release ] && grep -qi alpine /etc/os-release 2>/dev/null; then
-    LIBC=musl
-  elif [ -f /lib/ld-musl-x86_64.so.1 ] || [ -f /lib/ld-musl-aarch64.so.1 ] \
-    || [ -f /lib/ld-musl-armhf.so.1 ]; then
-    LIBC=musl
-  elif command -v ldd >/dev/null 2>&1 \
-    && ldd --version 2>&1 | head -n 1 | grep -qi musl; then
-    LIBC=musl
-  fi
-fi
-
-ANDROID=no
-if [ "$KERNEL" = Android ] || [ -n "${ANDROID_ROOT:-}" ] || [ -f /system/build.prop ]; then
-  ANDROID=yes
-fi
-
-TARGET=
-case "$OS" in
-  Linux)
-    if [ "$ANDROID" = yes ]; then
-      case "$ARCH" in
-        aarch64|arm64) TARGET=aarch64-linux-android ;;
-        armv7*|armv8l) TARGET=armv7-linux-androideabi ;;
-        i686|x86)      TARGET=i686-linux-android ;;
-        x86_64)        TARGET=x86_64-linux-android ;;
-      esac
-    else
-      case "$ARCH" in
-        x86_64|amd64)
-          TARGET="x86_64-unknown-linux-$LIBC" ;;
-        aarch64|arm64)
-          if [ "$LIBC" = gnu ]; then TARGET=aarch64-unknown-linux-musl
-          else TARGET="aarch64-unknown-linux-$LIBC"; fi ;;
-        armv7*|armv8l)
-          if [ "$LIBC" = gnu ]; then TARGET=armv7-unknown-linux-musleabihf
-          else TARGET="armv7-unknown-linux-${LIBC}eabihf"; fi ;;
-        armv6*|arm)
-          if [ "$LIBC" = gnu ]; then TARGET=arm-unknown-linux-musleabihf
-          else TARGET="arm-unknown-linux-${LIBC}eabihf"; fi ;;
-        i686|i386) TARGET="i686-unknown-linux-$LIBC" ;;
-        riscv64)   TARGET="riscv64gc-unknown-linux-$LIBC" ;;
-        loongarch64) TARGET="loongarch64-unknown-linux-$LIBC" ;;
-        s390x)     TARGET=s390x-unknown-linux-gnu ;;
-        ppc64le|powerpc64le) TARGET="powerpc64le-unknown-linux-$LIBC" ;;
-      esac
-    fi
-    ;;
-  Darwin)
-    case "$ARCH" in
-      arm64|aarch64) TARGET=aarch64-apple-darwin ;;
-      *)             TARGET=x86_64-apple-darwin ;;
-    esac
-    ;;
-  MINGW*|MSYS*|CYGWIN*|Windows*)
-    case "$ARCH" in
-      aarch64|arm64) TARGET=aarch64-pc-windows-msvc ;;
-      i686|i386)     TARGET=i686-pc-windows-msvc ;;
-      *)             TARGET=x86_64-pc-windows-msvc ;;
-    esac
-    ;;
-  FreeBSD)
-    TARGET=x86_64-unknown-freebsd
-    ;;
-esac
-
-echo "OS=$OS"
-echo "ARCH=$ARCH"
-echo "LIBC=$LIBC"
-echo "ANDROID=$ANDROID"
-echo "TARGET=$TARGET"
-"#;
+const PLATFORM_PROBE: &str = include_str!("shell/platform_probe.sh");
 
 /// Platform information detected on the remote host.
 #[cfg_attr(not(feature = "ssh"), allow(dead_code))]
@@ -129,6 +46,68 @@ pub struct RemotePlatform {
     pub android: bool,
     /// Detected Rust target triple (empty when unsupported).
     pub target: String,
+}
+
+/// POSIX script that inspects a directory.
+///
+/// Lives in `src/shell/dir_status.sh` and is embedded at compile time; the
+/// `__DIR__` placeholder is replaced with a shell-quoted path before it is
+/// sent to the remote host.
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+const DIR_STATUS_SCRIPT: &str = include_str!("shell/dir_status.sh");
+
+/// State of a directory on a remote host.
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DirStatus {
+    /// Expanded (absolute or `~`-free) path that was inspected.
+    pub dir: String,
+    pub exists: bool,
+    pub writable: bool,
+    /// The directory does not exist but its parent is writable.
+    pub creatable: bool,
+    pub total_bytes: u64,
+    pub available_bytes: u64,
+    /// Why the directory is unusable, when it is.
+    pub error: Option<String>,
+}
+
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+impl DirStatus {
+    fn parse(dir: String, stdout: &str) -> Self {
+        let exists = stdout.contains("EXISTS=yes");
+        let mut status = Self {
+            writable: stdout.contains("WRITABLE=yes"),
+            creatable: stdout.contains("CREATABLE=yes"),
+            exists,
+            dir,
+            ..Default::default()
+        };
+
+        // Last line is `filesystem 1024-blocks used available …`.
+        let df = stdout.lines().last().unwrap_or_default();
+        let fields: Vec<&str> = df.split_whitespace().collect();
+        if fields.len() > 3 {
+            let bytes = |value: &str| value.parse::<u64>().unwrap_or(0).saturating_mul(1024);
+            status.total_bytes = bytes(fields[1]);
+            status.available_bytes = bytes(fields[3]);
+        }
+
+        status.error = if !exists && !status.creatable {
+            Some("directory does not exist and cannot be created".to_string())
+        } else if exists && !status.writable {
+            Some("directory is not writable".to_string())
+        } else {
+            None
+        };
+
+        status
+    }
+
+    /// Whether files can be written to the directory (creating it if needed).
+    pub fn usable(&self) -> bool {
+        self.writable || (!self.exists && self.creatable)
+    }
 }
 
 // ── Target / proxy catalogue ────────────────────────────────────────────
@@ -375,7 +354,7 @@ impl SshClient {
             platform: tokio::sync::OnceCell::new(),
         };
         client.home = client
-            .exec("printf '%s' \"$HOME\"")
+            .exec_sh(r#"printf '%s' "$HOME""#)
             .await
             .map(|o| o.stdout.trim().to_string())
             .unwrap_or_default();
@@ -405,10 +384,7 @@ impl SshClient {
     }
 
     async fn probe_platform(&self) -> Result<RemotePlatform> {
-        // `sh -c '<script>'` is understood by every login shell, including
-        // fish and zsh, so the probe does not depend on the user's shell.
-        let command = format!("sh -c {}", sh_quote(PLATFORM_PROBE));
-        let output = self.exec(&command).await?;
+        let output = self.exec_sh(PLATFORM_PROBE).await?;
         if !output.success() {
             return Err(err!(
                 "failed to detect remote platform on {}: {}",
@@ -426,24 +402,41 @@ impl SshClient {
     pub async fn resolve_executable(&self, path_or_name: &str) -> Option<String> {
         let path = self.expand_path(path_or_name);
         let quoted = sh_quote(&path);
-        let direct = self
-            .exec(&format!("test -x {quoted} && printf %s {quoted}"))
-            .await
-            .ok()?;
-        let resolved = direct.stdout.trim();
-        if !resolved.is_empty() {
-            return Some(resolved.to_string());
-        }
-
-        let found = self
-            .exec(&format!(
-                "command -v {} 2>/dev/null || true",
-                sh_quote(path_or_name)
-            ))
-            .await
-            .ok()?;
+        let script = format!(
+            "if [ -x {quoted} ]; then printf %s {quoted}; \
+             else command -v {} 2>/dev/null || true; fi",
+            sh_quote(path_or_name)
+        );
+        let found = self.exec_sh(&script).await.ok()?;
         let found = found.stdout.trim();
         (!found.is_empty()).then(|| found.to_string())
+    }
+
+    /// Inspect a directory on the remote host.
+    ///
+    /// Reports whether it exists, whether it can be written to (or created),
+    /// and the free/total space of the filesystem that holds it.
+    pub async fn dir_status(&self, dir: &str) -> Result<DirStatus> {
+        let dir = self.expand_path(dir);
+        let script = DIR_STATUS_SCRIPT.replace("__DIR__", &sh_quote(&dir));
+        let output = self.exec_sh(&script).await?;
+        if !output.success() {
+            return Err(err!(
+                "failed to inspect '{dir}' on {}: {}",
+                self.label(),
+                output.stderr.trim()
+            ));
+        }
+        Ok(DirStatus::parse(dir, &output.stdout))
+    }
+
+    /// Run a POSIX shell script, regardless of the login shell.
+    ///
+    /// The remote shell may be fish or zsh, which reject POSIX constructs
+    /// such as `d=$(…)` or `while …; do …; done`. Handing the script to
+    /// `sh -c` keeps behaviour identical everywhere.
+    pub async fn exec_sh(&self, script: &str) -> Result<CommandResult> {
+        self.exec(&format!("sh -c {}", sh_quote(script))).await
     }
 
     /// Run a command with no stdin and capture its output.
@@ -717,5 +710,45 @@ mod tests {
             platform.target,
             platform.describe()
         );
+    }
+
+    #[test]
+    fn parses_dir_status_output() {
+        let stdout = "EXISTS=yes\nWRITABLE=yes\noverlay 1000 10 900 1% /root\n";
+        let status = DirStatus::parse("/root".into(), stdout);
+        assert!(status.exists && status.writable && status.usable());
+        assert_eq!(status.total_bytes, 1000 * 1024);
+        assert_eq!(status.available_bytes, 900 * 1024);
+        assert_eq!(status.error, None);
+    }
+
+    #[test]
+    fn reports_unusable_dir_status() {
+        let status = DirStatus::parse("/sys/locked".into(), "overlay 1000 10 900 1% /\n");
+        assert!(!status.exists && !status.creatable && !status.usable());
+        assert!(status.error.is_some());
+    }
+
+    /// Run the directory probe locally so the script stays POSIX-valid.
+    #[test]
+    fn dir_status_script_runs() {
+        use std::process::Command;
+
+        let script = DIR_STATUS_SCRIPT.replace("__DIR__", "'~/.ei-dir-status-test'");
+        let Ok(output) = Command::new("sh").arg("-c").arg(&script).output() else {
+            eprintln!("skipping: no `sh` available");
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "script failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let status = DirStatus::parse(
+            "~/.ei-dir-status-test".into(),
+            &String::from_utf8_lossy(&output.stdout),
+        );
+        assert!(status.usable(), "unexpected status: {status:?}");
+        assert!(status.available_bytes > 0, "df was not parsed");
     }
 }
