@@ -496,7 +496,7 @@ impl SshClient {
         command: &str,
         input: Option<Vec<u8>>,
     ) -> Result<CommandResult> {
-        let mut channel = self
+        let channel = self
             .handle
             .channel_open_session()
             .await
@@ -507,28 +507,25 @@ impl SshClient {
             .await
             .map_err(|e| err!("failed to execute remote command: {e}"))?;
 
-        // `Channel` is `Clone`; the writer needs its own handle because the
-        // read loop keeps the original borrowed mutably.
-        let writer = match input {
-            Some(data) if !data.is_empty() => {
-                let mut tx = channel.clone();
-                Some(tokio::spawn(async move {
-                    if tx.data_bytes(data).await.is_ok() {
-                        let _ = tx.eof().await;
-                    }
-                }))
+        // Split into read/write halves so the payload can be streamed while
+        // the read loop drains output.
+        let (mut rx, tx) = channel.split();
+
+        let writer = tokio::spawn(async move {
+            if let Some(data) = input.filter(|data| !data.is_empty()) {
+                if tx.data_bytes(data).await.is_err() {
+                    // The command stopped reading (early exit, disk full…);
+                    // the read loop below still collects its output.
+                    return;
+                }
             }
-            _ => {
-                // No stdin: signal EOF immediately so commands that read
-                // stdin do not block waiting for input that never arrives.
-                let _ = channel.eof().await;
-                None
-            }
-        };
+            // Always signal EOF so commands that read stdin terminate.
+            let _ = tx.eof().await;
+        });
 
         let mut out = CommandResult::default();
         loop {
-            match channel.wait().await {
+            match rx.wait().await {
                 Some(russh::ChannelMsg::Data { data }) => {
                     out.stdout.push_str(&String::from_utf8_lossy(&data));
                 }
@@ -543,12 +540,9 @@ impl SshClient {
             }
         }
 
-        // The command may have exited without draining stdin; drop the writer
+        // The command may have exited without draining stdin; stop the writer
         // instead of waiting for window space that will never be granted.
-        if let Some(writer) = writer {
-            writer.abort();
-        }
-        let _ = channel.close().await;
+        writer.abort();
 
         Ok(out)
     }
