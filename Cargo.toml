@@ -32,12 +32,14 @@ tokio = { version = "1", features = [
 ], default-features = false }
 tracing = "0.1"
 dirs = "7"
-reqwest = { version = "0.13", features = [
+# FIXME: https://github.com/easy-install/easy-install/issues/59
+reqwest = { version = "0.12", features = [
   "json",
+  "rustls-tls",
   "gzip",
-  "rustls-native-certs",
   "cookies",
-] }
+], default-features = false }
+
 which = "8"
 regex = { version = "1", default-features = false, features = ["std"] }
 tracing-subscriber = "0.3"
