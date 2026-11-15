@@ -35,6 +35,11 @@ else
   fi
 fi
 
+# The path actually measured. It differs from DIR when DIR does not exist:
+# the nearest existing ancestor is used, and the caller should say so instead
+# of blaming DIR for a full parent filesystem.
+echo "PROBE=$probe"
+
 # `stat -f` is unambiguous: "%b total blocks, %a blocks free, %S block size".
 # Supported by both GNU coreutils and BusyBox. The multiplication happens on
 # the Rust side so 32-bit ash on small routers cannot overflow.

@@ -74,6 +74,12 @@ pub struct DirStatus {
     /// unparsable output) — which is different from a genuine `0` on a full
     /// filesystem.
     pub space_known: bool,
+    /// Path the space figures were taken from.
+    ///
+    /// Equals [`Self::dir`] when it exists; otherwise it is the nearest
+    /// existing ancestor (often `/`), which is the filesystem that would hold
+    /// a newly created directory.
+    pub space_from: String,
     /// Why the directory is unusable, when it is.
     pub error: Option<String>,
 }
@@ -86,6 +92,7 @@ impl DirStatus {
             writable: stdout.contains("WRITABLE=yes"),
             creatable: stdout.contains("CREATABLE=yes"),
             exists,
+            space_from: get_str(stdout, "PROBE").unwrap_or_else(|| dir.clone()),
             dir,
             ..Default::default()
         };
@@ -122,6 +129,15 @@ impl DirStatus {
     pub fn usable(&self) -> bool {
         self.writable || (!self.exists && self.creatable)
     }
+}
+
+/// Read a string `KEY=value` marker from probe output.
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+fn get_str(stdout: &str, key: &str) -> Option<String> {
+    stdout.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        (name.trim() == key).then(|| value.trim().to_string())
+    })
 }
 
 /// Read a numeric `KEY=value` marker from probe output.
@@ -841,6 +857,23 @@ mod tests {
         let out = "EXISTS=yes\nFilesystem 1024-blocks Used Available Capacity Mounted on\n";
         let status = DirStatus::parse("/x".into(), out);
         assert!(!status.space_known);
+    }
+
+    #[test]
+    fn tracks_which_path_was_measured() {
+        // DIR does not exist: the space figures come from `/`.
+        let out = "CREATABLE=yes\nPROBE=/\nTOTAL_BLOCKS=100\nAVAIL_BLOCKS=0\nBLOCK_SIZE=4096\n";
+        let status = DirStatus::parse("/mhossh3".into(), out);
+        assert_eq!(status.dir, "/mhossh3");
+        assert_eq!(status.space_from, "/");
+        assert_eq!(status.available_bytes, 0);
+    }
+
+    #[test]
+    fn measured_path_defaults_to_dir() {
+        let out = "EXISTS=yes\nWRITABLE=yes\nTOTAL_BLOCKS=100\nAVAIL_BLOCKS=50\nBLOCK_SIZE=1024\n";
+        let status = DirStatus::parse("/root".into(), out);
+        assert_eq!(status.space_from, "/root");
     }
 
     #[test]
