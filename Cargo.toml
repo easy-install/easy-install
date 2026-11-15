@@ -29,7 +29,17 @@ tokio = { version = "1", features = [
   "process",
   "time",
   "io-util",
+  "net",
+  "sync",
 ], default-features = false }
+# Optional SSH transport, used to install onto a remote host
+# (`--dir user@host:/path`). Disable with `--no-default-features` or by
+# selecting the feature set manually (`--features tar-gz`).
+russh = { version = "0.65", default-features = false, features = [
+  "ring",
+  "flate2",
+  "rsa",
+], optional = true }
 tracing = "0.1"
 dirs = "7"
 # FIXME: https://github.com/easy-install/easy-install/issues/59
@@ -55,7 +65,20 @@ git-version = "0.3"
 const-str = "1"
 
 [features]
-default = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "gz", "zip"]
+default = [
+  "tar",
+  "tar-gz",
+  "tar-xz",
+  "tar-bz",
+  "tar-zstd",
+  "gz",
+  "zip",
+  "ssh",
+]
+# Remote installation over SSH (`--dir user@host:/path`). Enabled by default.
+# Library users that only install locally can drop it:
+#   easy-install = { version = "1", default-features = false, features = ["tar-gz"] }
+ssh = ["dep:russh"]
 tar = ["easy-archive/tar"]
 tar-gz = ["tar", "easy-archive/tar-gz"]
 tar-xz = ["tar", "easy-archive/tar-xz"]

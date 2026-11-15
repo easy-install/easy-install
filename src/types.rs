@@ -1,9 +1,9 @@
 use crate::InstallConfig;
 use crate::artifact::{GhArtifact, GhArtifacts};
-use crate::download::{download, download_dist_manfiest, download_json};
-use crate::manfiest::DistManifest;
-use crate::tool::get_artifact_url;
+use crate::download::{download, download_dist_manifest, download_json};
 use crate::error::{Context, Result, err};
+use crate::manifest::DistManifest;
+use crate::tool::get_artifact_url;
 use github_proxy::{Proxy, Resource};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -212,7 +212,7 @@ impl Repo {
         proxy.url(release)
     }
 
-    pub(crate) async fn get_manfiest_url(
+    pub(crate) async fn get_manifest_url(
         &self,
         proxy: Proxy,
         retry: usize,
@@ -320,14 +320,14 @@ impl Repo {
         Ok(GhArtifacts { assets })
     }
 
-    pub(crate) async fn get_manfiest(
+    pub(crate) async fn get_manifest(
         &self,
         retry: usize,
         proxy: Proxy,
         timeout: u64,
     ) -> Result<DistManifest> {
-        download_dist_manfiest(
-            &self.get_manfiest_url(proxy, retry, timeout).await?,
+        download_dist_manifest(
+            &self.get_manifest_url(proxy, retry, timeout).await?,
             retry,
             timeout,
         )
@@ -481,7 +481,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_nighty() {
+    async fn test_nightly() {
         for i in [
             "https://nightly.link/mpv-easy/mpv-easy/workflows/release/main",
             "https://nightly.link/mpv-easy/mpv-easy/workflows/release/main?preview",

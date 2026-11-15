@@ -1,9 +1,9 @@
 use crate::InstallConfig;
 use crate::artifact::GhArtifacts;
-use crate::env::add_to_path;
-use crate::manfiest::DistManifest;
-use crate::types::{Output, OutputFile};
+use crate::backend::{Backend, Host};
 use crate::error::{Context, Result, bail, err};
+use crate::manifest::DistManifest;
+use crate::types::{Output, OutputFile};
 use easy_archive::{Fmt, clean};
 use easy_archive::{human_size, mode_to_string, types::IntoEnumIterator};
 use guess_target::{Abi, Arch, Os, guess_target};
@@ -119,7 +119,7 @@ fn abs_path(p: &str) -> PathBuf {
 }
 
 const MAX_FILE_COUNT: usize = 16;
-pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String {
+pub(crate) fn display_output(output: &Output, config: &InstallConfig, backend: &Backend) -> String {
     let s: u64 = output
         .values()
         .flat_map(|v| v.files.iter().map(|f| f.size))
@@ -137,7 +137,7 @@ pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String 
                 [
                     human_size(sum_size as usize).as_str(),
                     format!("(total {})", i.files.len()).as_str(),
-                    &path_to_str(abs_path(&i.install_dir).as_path()),
+                    &backend.expand(&i.install_dir),
                 ]
                 .join(" "),
             );
@@ -150,18 +150,23 @@ pub(crate) fn display_output(output: &Output, config: &InstallConfig) -> String 
             let is_single = i.files.len() == 1;
 
             for k in &i.files {
-                let s = human_size(k.size as usize);
-                let install_info = if is_single && config.strip | config.upx {
-                    let size = human_size(file_size(&k.install_path));
-                    format!("{} {}", size, k.install_path)
+                let size = human_size(k.size as usize);
+                // The post-optimisation size is only measurable locally.
+                let info = if is_single && (config.strip || config.upx) {
+                    let new_size = if backend.is_remote() {
+                        String::new()
+                    } else {
+                        human_size(file_size(&k.install_path))
+                    };
+                    format!("{new_size} {}", k.install_path).trim().to_string()
                 } else {
-                    k.install_path.to_string()
+                    k.install_path.clone()
                 };
                 v.push(
                     [
                         mode_to_string(k.mode.unwrap_or(0), k.is_dir),
-                        " ".repeat(max_size_len - s.len()) + &s,
-                        [k.origin_path.as_str(), &install_info].join(" -> "),
+                        " ".repeat(max_size_len - size.len()) + &size,
+                        [k.origin_path.as_str(), &info].join(" -> "),
                     ]
                     .join(" "),
                 );
@@ -180,7 +185,20 @@ fn file_size(p: &str) -> usize {
     std::fs::metadata(p).map(|i| i.len()).unwrap_or(0) as usize
 }
 
-pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
+pub(crate) async fn add_output_to_path(backend: &Backend, output: &Output, config: &InstallConfig) {
+    // The remote shell's PATH is the user's business; print a hint instead of
+    // editing their rc files behind their back.
+    if backend.is_remote() {
+        let mut seen = HashSet::new();
+        for v in output.values() {
+            let dir = backend.expand(&v.install_dir);
+            if seen.insert(dir.clone()) {
+                let _ = backend.add_to_path(&dir, config.quiet).await;
+            }
+        }
+        return;
+    }
+
     // Collect candidate executable files (non-skipped, non-license).
     // If exactly one candidate exists, it is treated as the executable
     // even without an exec bit or known extension.
@@ -209,7 +227,7 @@ pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
 
     let mut filter = HashSet::new();
     for v in output.values() {
-        add_to_path(&v.install_dir, config.quiet);
+        let _ = backend.add_to_path(&v.install_dir, config.quiet).await;
 
         for f in &v.files {
             let deep = f.origin_path.split("/").count();
@@ -218,7 +236,7 @@ pub(crate) fn add_output_to_path(output: &Output, config: &InstallConfig) {
                 || (f.mode.unwrap_or(0) & EXEC_MASK != 0);
             let dir = dirname(&f.install_path);
             if deep <= DEEP && is_exe && !filter.contains(&dir) {
-                add_to_path(&dir, config.quiet);
+                let _ = backend.add_to_path(&dir, config.quiet).await;
                 filter.insert(dir);
             }
         }
@@ -286,8 +304,7 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
     }
 
     if !buffer.is_empty() {
-        std::fs::write(src, buffer)
-            .with_context(|| format!("failed to write file '{src}'"))?;
+        std::fs::write(src, buffer).with_context(|| format!("failed to write file '{src}'"))?;
     }
 
     #[cfg(unix)]
@@ -310,20 +327,20 @@ fn has_common_elements(arr1: &[String], arr2: &[String]) -> bool {
     arr1.iter().any(|x| arr2.contains(x))
 }
 
-pub(crate) fn get_artifact_url_from_manfiest(
+pub(crate) fn get_artifact_url_from_manifest(
     url: &str,
-    manfiest: &DistManifest,
+    manifest: &DistManifest,
     config: &InstallConfig,
 ) -> Vec<(String, String)> {
     let mut v = vec![];
-    let local_target = config.get_local_target();
+    let local_target = config.targets();
     let local_strs: Vec<String> = local_target
         .iter()
         .map(|i| i.to_str().to_string())
         .collect();
 
     // Pass 1: exact target match
-    for (key, art) in manfiest.artifacts.iter() {
+    for (key, art) in manifest.artifacts.iter() {
         let filename = get_filename(key);
         if is_skip(&filename) {
             continue;
@@ -338,7 +355,7 @@ pub(crate) fn get_artifact_url_from_manfiest(
 
     // Pass 2: ABI fallback (msvc↔gnu, musl↔gnu) — only when pass 1 found nothing
     if v.is_empty() {
-        for (key, art) in manfiest.artifacts.iter() {
+        for (key, art) in manifest.artifacts.iter() {
             let filename = get_filename(key);
             if is_skip(&filename) {
                 continue;
@@ -368,7 +385,7 @@ fn push_manifest_artifact(
     v: &mut Vec<(String, String)>,
     url: &str,
     key: &str,
-    art: &crate::manfiest::Artifact,
+    art: &crate::manifest::Artifact,
 ) {
     if let Some(kind) = &art.kind
         && !["executable-zip"].contains(&kind.as_str())
@@ -505,17 +522,15 @@ fn format_size(n: u64) -> String {
     )
 }
 
-pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()> {
+pub(crate) async fn check_disk_space(
+    backend: &Backend,
+    files: &[OutputFile],
+    dir: &Path,
+) -> Result<()> {
     let sum: u64 = files.iter().map(|i| i.size).sum();
-    let disk = if dir.exists() {
-        fs4::available_space(dir).map_err(|e| e.to_string())
-    } else if let Some(p) = dir.parent() {
-        fs4::available_space(p).map_err(|e| e.to_string())
-    } else {
-        Err(format!("Not found: {:?}", dir))
-    };
+    let dir_str = path_to_str(dir);
 
-    match disk {
+    match backend.free_space(&dir_str).await {
         Ok(disk) => {
             if disk < sum {
                 return Err(err!(
@@ -523,7 +538,7 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
   Installation directory: {}
   Available space: {}
   Required space: {}"#,
-                    dir.to_string_lossy(),
+                    dir_str,
                     format_size(disk),
                     human_size(sum as usize),
                 ));
@@ -537,7 +552,11 @@ pub(crate) fn check_disk_space(files: &[OutputFile], dir: &PathBuf) -> Result<()
     Ok(())
 }
 
-pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallConfig) -> Result<()> {
+pub(crate) async fn install_output_files(
+    backend: &Backend,
+    files: &mut [OutputFile],
+    config: &InstallConfig,
+) -> Result<()> {
     if let Some(alias) = config.alias.clone() {
         rename_alias(files, &alias);
     }
@@ -555,19 +574,19 @@ pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallCon
         if origin_path.starts_with("__MACOSX") {
             continue;
         }
-        write_to_file(install_path, buffer, mode)?;
+        backend.write(install_path, buffer, *mode).await?;
     }
 
-    #[cfg(not(windows))]
-    {
-        let maybe_exe = files
-            .iter()
-            .filter(|i| !is_skip(&i.origin_path))
-            .collect::<Vec<_>>();
+    // If the archive contained exactly one candidate executable, make sure it
+    // is executable. `LocalHost` is a no-op on Windows; the SSH host runs
+    // `chmod +x` remotely.
+    let maybe_exe = files
+        .iter()
+        .filter(|i| !is_skip(&i.origin_path))
+        .collect::<Vec<_>>();
 
-        if let [single_exe] = maybe_exe.as_slice() {
-            add_execute_permission(&single_exe.install_path)?;
-        }
+    if let [single_exe] = maybe_exe.as_slice() {
+        backend.chmod(&single_exe.install_path).await?;
     }
 
     // Optimize single executable if strip or upx flags are enabled
@@ -580,11 +599,13 @@ pub(crate) fn install_output_files(files: &mut [OutputFile], config: &InstallCon
         if let [single_exe] = executables.as_slice() {
             use crate::optimize::optimize_executable;
             let _ = optimize_executable(
+                backend,
                 &single_exe.install_path,
                 config.strip,
                 config.upx,
                 config.quiet,
-            );
+            )
+            .await;
         } else if !executables.is_empty() && !config.quiet {
             eprintln!("Warning: --strip and --upx only work with single executable installations");
             eprintln!(
@@ -755,7 +776,7 @@ pub(crate) fn is_url(s: &str) -> bool {
     parse_and_validate_url(s).is_ok()
 }
 
-pub(crate) fn is_dist_manfiest(s: &str) -> bool {
+pub(crate) fn is_dist_manifest(s: &str) -> bool {
     s.ends_with(".json")
 }
 
@@ -778,7 +799,7 @@ pub(crate) fn get_artifact_url(
     use crate::types::Repo;
 
     let mut v = vec![];
-    let local_target = config.get_local_target();
+    let local_target = config.targets();
 
     // When --regex is supplied, pre-compute the compiled regex and verify
     // it matches exactly one asset. The regex is matched against the
@@ -1031,7 +1052,7 @@ pub(crate) fn not_found_asset_message(
     }
 
     let target_str = config
-        .get_local_target()
+        .targets()
         .iter()
         .map(|t| t.to_str().to_string())
         .collect::<Vec<_>>()
@@ -1058,7 +1079,7 @@ pub(crate) fn not_found_asset_message(
         return;
     }
 
-    let local_targets = config.get_local_target();
+    let local_targets = config.targets();
 
     // Build (stem, tool_name, target) rows.
     #[derive(Clone)]
@@ -1132,9 +1153,9 @@ mod test {
 
     use crate::{
         InstallConfig,
-        download::download_dist_manfiest,
+        download::download_dist_manifest,
         tool::{
-            dirname, get_artifact_url_from_manfiest, is_archive_file, is_compatible_abi,
+            dirname, get_artifact_url_from_manifest, is_archive_file, is_compatible_abi,
             is_exe_file, is_url, name_boundary_match,
         },
         types::Repo,
@@ -1240,56 +1261,56 @@ mod test {
         );
     }
     #[tokio::test]
-    async fn test_get_manfiest() {
+    async fn test_get_manifest() {
         // TODO: support latest tag
         // let repo = Repo::try_from("https://github.com/axodotdev/cargo-dist/releases").unwrap();
-        // let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
+        // let url = repo.get_manifest_url(Proxy::Github, 3, 600).await.unwrap();
         // assert_eq!(
         //     url,
         //     "https://github.com/axodotdev/cargo-dist/releases/latest/download/dist-manifest.json"
         // );
-        // assert!(repo.get_manfiest(3, Proxy::Github, 30).await.is_ok());
+        // assert!(repo.get_manifest(3, Proxy::Github, 30).await.is_ok());
 
         let repo =
             Repo::try_from("https://github.com/axodotdev/cargo-dist/releases/tag/v0.25.1").unwrap();
-        let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
+        let url = repo.get_manifest_url(Proxy::Github, 3, 600).await.unwrap();
         assert_eq!(
             url,
             "https://github.com/axodotdev/cargo-dist/releases/download/v0.25.1/dist-manifest.json"
         );
 
-        let manfiest = repo.get_manfiest(3, Proxy::Github, 30).await.unwrap();
-        assert!(!manfiest.artifacts.is_empty());
+        let manifest = repo.get_manifest(3, Proxy::Github, 30).await.unwrap();
+        assert!(!manifest.artifacts.is_empty());
 
         let repo =
             Repo::try_from("https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.2").unwrap();
-        let url = repo.get_manfiest_url(Proxy::Github, 3, 600).await.unwrap();
+        let url = repo.get_manifest_url(Proxy::Github, 3, 600).await.unwrap();
         assert_eq!(
             url,
             "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.2/dist-manifest.json"
         );
 
-        let manfiest = repo.get_manfiest(3, Proxy::Github, 30).await.unwrap();
-        assert!(!manfiest.artifacts.is_empty())
+        let manifest = repo.get_manifest(3, Proxy::Github, 30).await.unwrap();
+        assert!(!manifest.artifacts.is_empty())
     }
 
     // #[tokio::test]
-    // async fn test_install_from_manfiest() {
+    // async fn test_install_from_manifest() {
     //     let url =
     //         "https://github.com/ahaoboy/mujs-build/releases/latest/download/dist-manifest.json";
-    //     let manfiest = download_dist_manfiest(url)
+    //     let manifest = download_dist_manifest(url)
     //         .await
-    //         .context("failed to download_dist_manfiest")
+    //         .context("failed to download_dist_manifest")
     //         .unwrap();
-    //     let art_url = get_artifact_url_from_manfiest(url, &manfiest);
+    //     let art_url = get_artifact_url_from_manifest(url, &manifest);
     //     assert!(!art_url.is_empty())
     // }
 
     #[tokio::test]
     async fn test_cargo_dist() {
         let url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
-        let manfiest = download_dist_manfiest(url, 3, 30).await.unwrap();
-        let art_url = get_artifact_url_from_manfiest(url, &manfiest, &InstallConfig::default());
+        let manifest = download_dist_manifest(url, 3, 30).await.unwrap();
+        let art_url = get_artifact_url_from_manifest(url, &manifest, &InstallConfig::default());
         assert!(!art_url.is_empty())
     }
 
@@ -1483,7 +1504,7 @@ mod test {
     /// `name` field (`"ant"`), not from `guess_target` on the URL.
     #[test]
     fn test_antjs_manifest() {
-        use crate::manfiest::DistManifest;
+        use crate::manifest::DistManifest;
         use std::str::FromStr;
 
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/ant.json");
@@ -1500,8 +1521,12 @@ mod test {
                 target: Some(guess_target::Target::from_str(triple).unwrap()),
                 ..Default::default()
             };
-            let urls = get_artifact_url_from_manfiest(path, &manifest, &config);
-            assert_eq!(urls.len(), 1, "expected one artifact for {triple}: {urls:?}");
+            let urls = get_artifact_url_from_manifest(path, &manifest, &config);
+            assert_eq!(
+                urls.len(),
+                1,
+                "expected one artifact for {triple}: {urls:?}"
+            );
             assert_eq!(urls[0].0, "ant", "binary name for {triple}");
             assert!(
                 urls[0].1.ends_with(suffix),
@@ -1516,7 +1541,7 @@ mod test {
     /// binary name must come from the artifact's `name` field (`"bare"`).
     #[test]
     fn test_bare_manifest() {
-        use crate::manfiest::DistManifest;
+        use crate::manifest::DistManifest;
         use std::str::FromStr;
 
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/dist-manifest/bare.json");
@@ -1533,8 +1558,12 @@ mod test {
                 target: Some(guess_target::Target::from_str(triple).unwrap()),
                 ..Default::default()
             };
-            let urls = get_artifact_url_from_manfiest(path, &manifest, &config);
-            assert_eq!(urls.len(), 1, "expected one artifact for {triple}: {urls:?}");
+            let urls = get_artifact_url_from_manifest(path, &manifest, &config);
+            assert_eq!(
+                urls.len(),
+                1,
+                "expected one artifact for {triple}: {urls:?}"
+            );
             assert_eq!(urls[0].0, "bare", "binary name for {triple}");
             assert!(
                 urls[0].1.contains(package),

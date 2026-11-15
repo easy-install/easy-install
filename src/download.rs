@@ -1,7 +1,7 @@
 use crate::artifact::GhArtifacts;
 use crate::error::{Context, Result, err};
 use crate::tool::parse_and_validate_url;
-use crate::{manfiest::DistManifest, tool::is_url};
+use crate::{manifest::DistManifest, tool::is_url};
 use easy_archive::{File, Fmt};
 use regex::Regex;
 use reqwest::Client;
@@ -97,7 +97,9 @@ async fn detect_github_token() -> Option<String> {
         Some(t)
     } else if let Some(t) = try_github_cli_token().await {
         Some(t)
-    } else { try_git_credential_manager().await };
+    } else {
+        try_git_credential_manager().await
+    };
 
     // Cache the result (even if None)
     let _ = GITHUB_TOKEN_CACHE.set(token.clone());
@@ -339,12 +341,8 @@ impl Resolve for PreferIpv4Resolver {
             let lookup = tokio::net::lookup_host((host.as_str(), 0));
             let collected: Vec<SocketAddr> = timeout(DNS_LOOKUP_TIMEOUT, lookup)
                 .await
-                .map_err(|_| -> BoxError {
-                    format!("DNS lookup timed out for {host}").into()
-                })?
-                .map_err(|e| -> BoxError {
-                    format!("DNS lookup failed for {host}: {e}").into()
-                })?
+                .map_err(|_| -> BoxError { format!("DNS lookup timed out for {host}").into() })?
+                .map_err(|e| -> BoxError { format!("DNS lookup failed for {host}: {e}").into() })?
                 .collect();
 
             if collected.is_empty() {
@@ -474,20 +472,13 @@ pub(crate) async fn download_json<T: DeserializeOwned>(
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
-                        return Err(err!(
-                            "Request timed out after {} seconds: {}",
-                            timeout,
-                            url
-                        ));
+                        return Err(err!("Request timed out after {} seconds: {}", timeout, url));
                     }
                     return Err(e).context("send failed");
                 }
             };
             if response.status() != reqwest::StatusCode::OK {
-                return Err(err!(
-                    "request failed with status: {}",
-                    response.status()
-                ));
+                return Err(err!("request failed with status: {}", response.status()));
             }
             response.json::<T>().await.context("json parse failed")
         },
@@ -536,11 +527,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
                 Ok(resp) => resp,
                 Err(e) => {
                     if e.is_timeout() {
-                        return Err(err!(
-                            "Request timed out after {} seconds: {}",
-                            timeout,
-                            url
-                        ));
+                        return Err(err!("Request timed out after {} seconds: {}", timeout, url));
                     }
                     return Err(e).context("send failed");
                 }
@@ -568,7 +555,7 @@ pub(crate) async fn download(url: &str, retry: usize, timeout: u64) -> Result<re
     .await
 }
 
-pub(crate) async fn download_dist_manfiest(
+pub(crate) async fn download_dist_manifest(
     url: &str,
     retry: usize,
     timeout: u64,
@@ -577,11 +564,11 @@ pub(crate) async fn download_dist_manfiest(
     retry_request(
         retry,
         || async {
-            trace!("download_dist_manfiest {}", url_clone);
+            trace!("download_dist_manifest {}", url_clone);
             let response = download(&url_clone, 0, timeout).await?;
             response.json().await.context("json parse failed")
         },
-        &format!("download_dist_manfiest({})", url),
+        &format!("download_dist_manifest({})", url),
     )
     .await
 }
@@ -601,8 +588,8 @@ pub(crate) async fn download_binary(url: &str, retry: usize, timeout: u64) -> Re
     .await
 }
 
-pub(crate) fn read_dist_manfiest(url: &str) -> Result<DistManifest> {
-    trace!("read_dist_manfiest {}", url);
+pub(crate) fn read_dist_manifest(url: &str) -> Result<DistManifest> {
+    trace!("read_dist_manifest {}", url);
     let s = std::fs::read_to_string(url).context(format!("read file error: {url}"))?;
     serde_json::from_str(&s).context("json parse failed")
 }

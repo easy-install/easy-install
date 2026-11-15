@@ -1,11 +1,13 @@
 use crate::InstallConfig;
-use crate::install::install_artifacts;
+use crate::backend::Backend;
+use crate::error::Result;
+use crate::install::{Kind, install_artifacts};
 use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::{Nightly, Output};
-use crate::error::Result;
 use tracing::trace;
 
 pub(crate) async fn install_from_nightly(
+    backend: &Backend,
     nightly: &Nightly,
     config: &InstallConfig,
 ) -> Result<Output> {
@@ -22,5 +24,5 @@ pub(crate) async fn install_from_nightly(
     }
 
     let artifact_url = filter_artifacts(artifact_url, config);
-    install_artifacts(artifact_url, config).await
+    install_artifacts(backend, Kind::Auto, artifact_url, config).await
 }

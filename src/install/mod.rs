@@ -1,25 +1,26 @@
 mod artifact;
 mod ci;
 mod file;
-mod manfiest;
+mod manifest;
 mod nightly;
 mod repo;
 
 use crate::InstallConfig;
+use crate::backend::{Backend, Host};
 use crate::ci::{CiRun, RE_CI_WORKFLOW, resolve_ci_workflow};
-use crate::download::{download_dist_manfiest, get_bytes, read_dist_manfiest};
+use crate::download::{download_dist_manifest, get_bytes, read_dist_manifest};
+use crate::error::{Context, Result, bail};
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::ci::install_from_ci;
 use crate::install::file::install_from_single_file;
-use crate::install::manfiest::install_from_manfiest;
+use crate::install::manifest::install_from_manifest;
 use crate::install::nightly::install_from_nightly;
 use crate::install::repo::install_from_github;
 use crate::tool::{
-    get_filename, is_archive_file, is_dist_manfiest, is_exe_file, is_known_format, is_url,
+    get_filename, is_archive_file, is_dist_manifest, is_exe_file, is_known_format, is_url,
     name_no_ext,
 };
 use crate::types::{Nightly, Output, Repo};
-use crate::error::{Result, bail};
 use artifact::install_from_download_file;
 use easy_archive::Fmt;
 use guess_target::guess_target;
@@ -32,19 +33,109 @@ use tracing::trace;
 static DOWNLOAD_SEM: LazyLock<tokio::sync::Semaphore> =
     LazyLock::new(|| tokio::sync::Semaphore::new(4));
 
-pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output> {
+/// How a single artifact is installed.
+#[derive(Clone, Copy)]
+pub(crate) enum Kind {
+    /// Infer the format from the URL (archive / single file).
+    Auto,
+    /// Always treat the payload as a ZIP (GitHub Actions artifacts).
+    Zip,
+}
+
+/// Download and install every `(name, url)` pair, merging the results.
+///
+/// Artifacts are installed concurrently unless there is only one, or the
+/// target is remote (a single SSH connection is reused and interleaved writes
+/// would only garble the output).
+pub(crate) async fn install_artifacts(
+    backend: &Backend,
+    kind: Kind,
+    items: Vec<(String, String)>,
+    config: &InstallConfig,
+) -> Result<Output> {
+    // `--alias` renames the installed file to a single fixed name. With more
+    // than one artifact they would all target the same path, silently
+    // overwriting each other and making the result non-deterministic.
+    if let Some(alias) = &config.alias
+        && items.len() > 1
+    {
+        let names = items
+            .iter()
+            .map(|(name, _)| format!("  - {name}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        bail!(
+            "--alias '{alias}' is ambiguous: {} installable artifacts matched:\n{names}\n\nUse --name or --regex to select exactly one artifact,\nor drop --alias so each artifact keeps its own name.",
+            items.len()
+        );
+    }
+
+    if items.len() <= 1 || backend.is_remote() {
+        let mut out = Output::new();
+        for (name, url) in items {
+            out.extend(install_one(backend, kind, &name, &url, config).await?);
+        }
+        return Ok(out);
+    }
+
+    let mut tasks: JoinSet<Result<Output>> = JoinSet::new();
+    for (name, url) in items {
+        let config = config.clone();
+        tasks.spawn(async move {
+            let _permit = DOWNLOAD_SEM.acquire().await.expect("semaphore closed");
+            // One connection per task keeps the writes independent.
+            let backend = Backend::connect(&config).await?;
+            install_one(&backend, kind, &name, &url, &config).await
+        });
+    }
+
+    let mut out = Output::new();
+    while let Some(res) = tasks.join_next().await {
+        out.extend(res??);
+    }
+    Ok(out)
+}
+
+async fn install_one(
+    backend: &Backend,
+    kind: Kind,
+    name: &str,
+    url: &str,
+    config: &InstallConfig,
+) -> Result<Output> {
+    match kind {
+        Kind::Auto => install_from_artifact_url(backend, url, name, config).await,
+        Kind::Zip => {
+            if !config.quiet {
+                println!("download {url}");
+            }
+            // The download URL is an API endpoint (…/artifacts/{id}/zip) that
+            // `Fmt::guess` may not recognise, hence the explicit format.
+            let bytes = get_bytes(url, config.retry, config.timeout)
+                .await
+                .context("Failed to download CI artifact")?;
+            install_from_download_file(backend, bytes, Fmt::Zip, url, name, config).await
+        }
+    }
+}
+
+pub(crate) async fn install(
+    url: &str,
+    config: &InstallConfig,
+    backend: &Backend,
+) -> Result<Output> {
     trace!("install {}", url);
     let repo = Repo::try_from(url);
 
-    if is_dist_manfiest(url) {
+    if is_dist_manifest(url) {
         let manifest = if is_url(url) {
-            download_dist_manfiest(url, config.retry, config.timeout).await
+            download_dist_manifest(url, config.retry, config.timeout).await
         } else {
-            read_dist_manfiest(url)
+            read_dist_manifest(url)
         };
         match manifest {
             Ok(m) if !m.artifacts.is_empty() => {
-                return install_from_manfiest(m, url, config).await;
+                return install_from_manifest(backend, m, url, config).await;
             }
             Ok(_) => {
                 if !config.quiet {
@@ -67,7 +158,7 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
     let filename = get_filename(url);
     let name = name_no_ext(&filename);
     let guess = guess_target(&name);
-    let local = config.get_local_target();
+    let local = config.targets();
     let item = guess.iter().find(|i| local.contains(&i.target));
     let name = item.map_or(name, |i| i.name.clone());
 
@@ -85,18 +176,18 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
         } else {
             resolve_ci_workflow(url, config.retry, config.timeout).await?
         };
-        return install_from_ci(&ci, config).await;
+        return install_from_ci(backend, &ci, config).await;
     }
 
     if is_url(url) {
         let proxied = apply_proxy(url, config.proxy);
 
         if is_archive_file(&proxied) {
-            return install_from_artifact_url(&proxied, &name, config).await;
+            return install_from_artifact_url(backend, &proxied, &name, config).await;
         }
 
         if is_exe_file(&proxied).unwrap_or(false) || is_known_format(&proxied) {
-            return install_from_single_file(&proxied, &filename, config).await;
+            return install_from_single_file(backend, &proxied, &filename, config).await;
         }
     }
 
@@ -105,24 +196,24 @@ pub(crate) async fn install(url: &str, config: &InstallConfig) -> Result<Output>
             if let Ok(bytes) = get_bytes(url, config.retry, config.timeout).await
                 && let Some(fmt) = Fmt::guess(url)
             {
-                return install_from_download_file(bytes, fmt, url, &name, config);
+                return install_from_download_file(backend, bytes, fmt, url, &name, config).await;
             }
         } else {
             // Same as the URL branch above: pass the full source filename so
             // known extensions (e.g. `cli.ts`, `run.sh`) are preserved.
-            return install_from_single_file(url, &filename, config).await;
+            return install_from_single_file(backend, url, &filename, config).await;
         }
     }
 
     if let Ok(nightly) = Nightly::try_from(url) {
-        return install_from_nightly(&nightly, config).await;
+        return install_from_nightly(backend, &nightly, config).await;
     }
 
     if let Ok(repo) = repo {
-        return install_from_github(&repo, config).await;
+        return install_from_github(backend, &repo, config).await;
     }
 
-    install_from_single_file(url, &name, config).await
+    install_from_single_file(backend, url, &name, config).await
 }
 
 /// Apply the configured GitHub proxy to a URL if it is a GitHub resource.
@@ -131,53 +222,4 @@ fn apply_proxy(url: &str, proxy: github_proxy::Proxy) -> String {
         Ok(r) => r.url(&proxy).unwrap_or_else(|| url.to_string()),
         Err(_) => url.to_string(),
     }
-}
-
-/// Install a list of (name, url) artifacts, downloading concurrently when
-/// there is more than one. Results are merged into a single `Output`.
-pub(crate) async fn install_artifacts(
-    artifact_url: Vec<(String, String)>,
-    config: &InstallConfig,
-) -> Result<Output> {
-    // `--alias` renames the installed file to a single fixed name. When more
-    // than one artifact is selected they would all be written to the same
-    // path, silently overwriting each other and making the final result
-    // non-deterministic. Refuse instead of guessing.
-    if let Some(alias) = &config.alias
-        && artifact_url.len() > 1
-    {
-        let names = artifact_url
-            .iter()
-            .map(|(name, _)| format!("  - {name}"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        bail!(
-            "--alias '{alias}' is ambiguous: {} installable artifacts matched:\n{names}\n\nUse --name or --regex to select exactly one artifact,\nor drop --alias so each artifact keeps its own name.",
-            artifact_url.len()
-        );
-    }
-
-    // Fast path: zero or one artifact — no need to spawn tasks.
-    if artifact_url.len() <= 1 {
-        let mut v = Output::new();
-        for (name, url) in artifact_url {
-            v.extend(install_from_artifact_url(&url, &name, config).await?);
-        }
-        return Ok(v);
-    }
-
-    let mut tasks: JoinSet<Result<Output>> = JoinSet::new();
-    for (name, url) in artifact_url {
-        let config = config.clone();
-        tasks.spawn(async move {
-            let _permit = DOWNLOAD_SEM.acquire().await.expect("semaphore closed");
-            install_from_artifact_url(&url, &name, &config).await
-        });
-    }
-
-    let mut v = Output::new();
-    while let Some(res) = tasks.join_next().await {
-        v.extend(res??);
-    }
-    Ok(v)
 }

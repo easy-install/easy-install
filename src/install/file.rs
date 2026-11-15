@@ -1,20 +1,22 @@
 use crate::InstallConfig;
+use crate::backend::{Backend, Host};
 use crate::download::download_binary;
-use crate::env::get_install_dir;
+use crate::error::Result;
 use crate::tool::{
-    check_disk_space, display_output, ends_with_exe, expand_path, get_bin_name, get_filename,
+    check_disk_space, display_output, ends_with_exe, get_bin_name, get_filename,
     install_output_files, path_to_str,
 };
 use crate::types::{Output, OutputFile, OutputItem};
-use crate::error::Result;
 use guess_target::Os;
+use std::path::PathBuf;
 
 pub(crate) async fn install_from_single_file(
+    backend: &Backend,
     url: &str,
     name: &str,
     config: &InstallConfig,
 ) -> Result<Output> {
-    let local_target = config.get_local_target();
+    let local_target = config.targets();
     if ends_with_exe(url) && local_target.iter().any(|t| t.os() != Os::Windows) {
         return Ok(Output::new());
     }
@@ -27,7 +29,7 @@ pub(crate) async fn install_from_single_file(
     } else {
         download_binary(url, config.retry, config.timeout).await?
     };
-    install_from_buffer(bin, &filename, name, url, config)
+    install_from_buffer(backend, bin, &filename, name, url, config).await
 }
 
 /// Install an already-downloaded (or decompressed) in-memory file.
@@ -35,19 +37,20 @@ pub(crate) async fn install_from_single_file(
 /// * `origin_path` - the source file name (used for executable detection), e.g. `tool.exe`.
 /// * `name` - the base name used for the installed file (platform extension applied).
 /// * `key` - the key stored in the returned `Output` map (typically the source URL).
-pub(crate) fn install_from_buffer(
+pub(crate) async fn install_from_buffer(
+    backend: &Backend,
     buffer: Vec<u8>,
     origin_path: &str,
     name: &str,
     key: &str,
     config: &InstallConfig,
 ) -> Result<Output> {
-    let mut install_dir = get_install_dir()?;
+    let mut install_dir = PathBuf::from(backend.home_dir());
     let mut output = Output::new();
 
     if let Some(target_dir) = &config.dir {
         if target_dir.contains("/") || target_dir.contains("\\") {
-            install_dir = expand_path(target_dir).into();
+            install_dir = backend.expand(target_dir).into();
         } else {
             install_dir.push(target_dir);
         }
@@ -65,8 +68,9 @@ pub(crate) fn install_from_buffer(
         install_path,
         buffer,
     }];
-    check_disk_space(&files, &install_dir)?;
-    install_output_files(&mut files, config)?;
+    backend.mkdir(&path_to_str(&install_dir)).await?;
+    check_disk_space(backend, &files, &install_dir).await?;
+    install_output_files(backend, &mut files, config).await?;
     let item = OutputItem {
         install_dir: path_to_str(&install_dir),
         files,
@@ -74,7 +78,7 @@ pub(crate) fn install_from_buffer(
     output.insert(key.to_string(), item);
 
     if !config.quiet {
-        println!("{}", display_output(&output, config));
+        println!("{}", display_output(&output, config, backend));
     }
     Ok(output)
 }

@@ -117,6 +117,78 @@ ei https://github.com/quickjs-ng/quickjs --no-path
 ei https://github.com/boa-dev/boa --strip --upx
 ```
 
+### Remote Installation (SSH)
+
+Install onto another machine with an scp-like destination. The artifact is
+downloaded locally and streamed over SSH; `--strip` / `--upx` run **on the
+remote host**.
+
+```bash
+# Install to a remote directory (positional destination)
+ei ahaoboy/mho user@192.168.1.100:/root/
+
+# Same thing with -d
+ei ahaoboy/mho -d user@192.168.1.100:/root/
+
+# Custom SSH port
+ei ahaoboy/mho -P 2222 user@192.168.1.100:/root/
+
+# Password authentication
+ei ahaoboy/mho -p 'secret' user@192.168.1.100:/root/
+
+# Private key authentication
+ei ahaoboy/mho -i ~/.ssh/id_ed25519 user@192.168.1.100:/root/
+
+# Install a local archive remotely and run upx there
+ei ./app-linux-amd64.tar.gz me@host:~/.ei --upx
+
+# Without a path the default remote directory is ~/.ei
+ei ahaoboy/mho user@host:
+
+# Pin the target manually when auto-detection is wrong or unavailable
+ei ahaoboy/mho user@host:/root/ --target aarch64-unknown-linux-musl
+```
+
+#### How the remote target is detected
+
+`ei` never reuses the local platform for a remote install. It opens one SSH
+exec channel and runs a small POSIX probe (`sh -c`, so it works with bash,
+zsh and fish as the login shell):
+
+| Signal | Used for |
+| --- | --- |
+| `uname -s` | `Linux`, `Darwin`, `FreeBSD`, `MINGW*/MSYS*/CYGWIN*` |
+| `uname -m` | `x86_64`, `aarch64`, `armv7l`, `i686`, `riscv64`, `loongarch64`, … |
+| `uname -o` / `$ANDROID_ROOT` / `/system/build.prop` | Android (`*-linux-android*`) |
+| `ldd --version`, `/lib/ld-musl-*.so.1`, `/etc/os-release` (alpine) | musl vs glibc |
+
+The result is printed and used for artifact matching:
+
+```
+$ ei ahaoboy/mho root@192.168.1.100:/root/
+Installing to root@192.168.1.100 over SSH
+Detected remote platform: linux/x86_64 (gnu) → x86_64-unknown-linux-gnu
+```
+
+Notes:
+
+- ARM targets prefer **musl** (`aarch64-unknown-linux-musl`,
+  `armv7-unknown-linux-musleabihf`): glibc builds often do not run on those
+  systems.
+- Detection costs one extra SSH command; the probe result is cached for the
+  rest of the install.
+- If the host cannot be probed (unsupported OS, or a Windows OpenSSH server
+  without `sh`), `ei` stops and asks for `--target` instead of silently
+  installing the wrong binary.
+- An explicit `--target` always wins: the probe is skipped.
+
+Remote support is an optional cargo feature (`ssh`, enabled by default). Library
+users that only install locally can turn it off:
+
+```toml
+easy-install = { version = "1", default-features = false, features = ["tar-gz"] }
+```
+
 ### Filtering Artifacts: --name vs --regex
 
 When a GitHub release contains multiple assets, `ei` automatically detects your platform and picks the right one. But sometimes you need finer control — that's where `--name` and `--regex` come in.
@@ -190,7 +262,7 @@ USAGE:
 | `--no-path`           |       | Skip adding installed binaries to PATH.                                                                    | `false`     |
 | `--name <NAME>`       |       | Filter artifacts by name. Supports comma-separated values for multiple filters.                            |             |
 | `--alias <ALIAS>`     |       | Rename the installed binary (or directory, for multi-file packages).                                       |             |
-| `--target <TARGET>`   |       | Target platform (e.g., `x86_64-unknown-linux-gnu`). Auto-detected if not specified.                        | auto-detect |
+| `--target <TARGET>`   |       | Target platform (e.g., `x86_64-unknown-linux-gnu`). Auto-detected from the local machine if not specified; **required for SSH installs**. | auto-detect |
 | `--retry <N>`         |       | Number of retry attempts for failed downloads.                                                             | `3`         |
 | `--proxy <PROXY>`     |       | GitHub proxy to use (`github`, `gh-proxy`, `ghproxy`, `jsdelivr`, etc.).                                   | `github`    |
 | `--timeout <SECONDS>` |       | Network request timeout in seconds.                                                                        | `600`       |

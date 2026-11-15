@@ -1,24 +1,27 @@
 mod artifact;
+mod backend;
 mod ci;
 mod config;
 mod download;
 mod env;
 pub mod error;
 mod install;
-mod manfiest;
+mod manifest;
 mod optimize;
+mod remote;
 mod tool;
 mod types;
 
-use crate::error::{err, Result};
-use crate::tool::expand_path;
+use crate::backend::{Backend, Host};
 #[cfg(windows)]
 use crate::error::Context;
+use crate::error::{Result, err};
+use crate::remote::RemoteConfig;
+use crate::tool::expand_path;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
-use tool::add_output_to_path;
 
 #[derive(Debug, Clone)]
 pub struct InstallConfig {
@@ -35,6 +38,14 @@ pub struct InstallConfig {
     pub no_path: bool,
     pub fuzzy: bool,
     pub regex: Option<String>,
+    /// When set, install to this SSH host instead of the local filesystem.
+    pub remote: Option<RemoteConfig>,
+    /// Target platform probed from the install backend (e.g. the remote host).
+    ///
+    /// Filled in by [`ei`] when no explicit `--target` was given. Kept
+    /// separate from `target` so a user-supplied value always wins and the
+    /// probed value can be recomputed for each invocation.
+    pub resolved_targets: Option<Vec<Target>>,
 }
 
 impl Default for InstallConfig {
@@ -48,11 +59,13 @@ impl Default for InstallConfig {
             proxy: Proxy::Github,
             timeout: 600,
             strip: false,
+            resolved_targets: None,
             upx: false,
             quiet: false,
             no_path: false,
             fuzzy: false,
             regex: None,
+            remote: None,
         }
     }
 }
@@ -77,12 +90,25 @@ impl InstallConfig {
             no_path: false,
             fuzzy: false,
             regex: None,
+            remote: None,
+            resolved_targets: None,
         }
     }
 
-    pub fn get_local_target(&self) -> Vec<Target> {
+    /// Target triples to match artifacts against.
+    ///
+    /// Priority: explicit `--target` → platform probed from the install
+    /// backend (e.g. the remote host) → compile-time local target.
+    pub fn targets(&self) -> Vec<Target> {
         if let Some(t) = self.target {
             return vec![t];
+        }
+        // A remote install probes the remote host first; that result takes
+        // precedence over the compile-time target of this binary.
+        if let Some(t) = &self.resolved_targets
+            && !t.is_empty()
+        {
+            return t.clone();
         }
         guess_target::get_local_target().to_vec()
     }
@@ -140,7 +166,7 @@ pub enum Command {
         #[arg(value_enum)]
         shell: clap_complete::Shell,
     },
-    /// Upgrade crash to the latest version
+    /// Upgrade ei to the latest version
     Upgrade,
 }
 
@@ -159,8 +185,49 @@ pub struct Args {
     #[arg(default_value_t = String::new())]
     pub url: String,
 
+    /// Destination (scp style). Either a local directory or
+    /// `[user@]host:/path` to install on a remote machine over SSH.
+    ///
+    /// Examples:
+    ///   ei ahaoboy/mho user@192.168.1.100:/root/
+    ///   ei ./app.tar.gz me@host:~/.ei
+    #[arg(default_value_t = String::new())]
+    pub dest: String,
+
+    /// SSH port for remote installs (default: 22)
+    #[arg(
+        short = 'P',
+        long,
+        global = true,
+        help = "SSH port for remote installs"
+    )]
+    pub port: Option<u16>,
+
+    /// SSH password for remote installs
+    #[arg(
+        short = 'p',
+        long,
+        global = true,
+        help = "SSH password for remote installs"
+    )]
+    pub password: Option<String>,
+
+    /// SSH private key file for remote installs
+    #[arg(
+        short = 'i',
+        long,
+        global = true,
+        value_name = "FILE",
+        help = "SSH private key file for remote installs"
+    )]
+    pub identity: Option<String>,
+
     /// Installation directory for downloaded binaries
-    #[arg(short, long, help = "Installation directory")]
+    #[arg(
+        short,
+        long,
+        help = "Installation directory (local path or [user@]host:/path)"
+    )]
     pub dir: Option<String>,
 
     /// Skip adding installed binaries to PATH
@@ -184,7 +251,14 @@ pub struct Args {
     pub alias: Option<String>,
 
     /// Target platform (e.g., x86_64-unknown-linux-gnu)
-    #[arg(long, help = "Target platform (auto-detected if not specified)")]
+    ///
+    /// Auto-detected from the local machine when omitted. Required for SSH
+    /// remote installs (`user@host:/path`): the local platform says nothing
+    /// about the remote host, so guessing would download the wrong binary.
+    #[arg(
+        long,
+        help = "Target platform (auto-detected locally if not specified; required for SSH installs)"
+    )]
     pub target: Option<Target>,
 
     /// Number of retry attempts for failed downloads
@@ -277,6 +351,10 @@ impl Default for Args {
         Self {
             cmd: None,
             url: "".to_string(),
+            dest: "".to_string(),
+            port: None,
+            password: None,
+            identity: None,
             dir: None,
             no_path: false,
             name: vec![],
@@ -307,9 +385,31 @@ impl From<Args> for InstallConfig {
 
         let dir = value.dir.clone().or(persistent_config.dir);
 
+        // scp-style destination positional: `ei <src> [user@]host:/path`
+        let dir = if value.dest.trim().is_empty() {
+            dir
+        } else {
+            Some(value.dest.clone())
+        };
+
         let target = value.target.or(persistent_config.target);
         let strip = value.strip.or(persistent_config.strip).unwrap_or(false);
         let upx = value.upx.or(persistent_config.upx).unwrap_or(false);
+
+        // A `user@host:/path` directory switches the install to SSH.
+        let (dir, remote) = match dir {
+            Some(spec) => match parse_remote_dest(&spec) {
+                Some((mut remote, path)) => {
+                    remote.port = value.port.unwrap_or(22);
+                    remote.password = value.password.clone();
+                    remote.identity = value.identity.clone();
+                    let dir = if path.is_empty() { None } else { Some(path) };
+                    (dir, Some(remote))
+                }
+                None => (Some(spec), None),
+            },
+            None => (None, None),
+        };
 
         InstallConfig {
             dir,
@@ -325,8 +425,15 @@ impl From<Args> for InstallConfig {
             no_path: value.no_path,
             fuzzy: value.fuzzy,
             regex: value.regex,
+            remote,
+            resolved_targets: None,
         }
     }
+}
+
+/// Parse `[user@]host:/path`; `None` for plain local paths.
+fn parse_remote_dest(value: &str) -> Option<(RemoteConfig, String)> {
+    remote::parse_remote(value)
 }
 
 pub async fn run_main(args: Args) -> Result<()> {
@@ -346,27 +453,93 @@ pub async fn run_main(args: Args) -> Result<()> {
     }
 
     // Regular install command
-    let url = args.url.clone();
-
-    if url.is_empty() {
-        let s = Args::command().render_help();
-        println!("{s}");
+    if args.url.is_empty() {
+        println!("{}", Args::command().render_help());
         return Ok(());
     }
+    let url = args.url.clone();
     let config = args.into();
     ei(&url, &config).await?;
     Ok(())
 }
 
 pub async fn ei(url: &str, config: &InstallConfig) -> Result<()> {
-    let output = install::install(url, config).await?;
+    let mut config = config.clone();
+    let backend = Backend::connect(&config).await?;
+
+    if backend.is_remote() && !config.quiet {
+        println!("Installing to {} over SSH", backend.label());
+    }
+
+    resolve_remote_targets(url, &mut config, &backend).await?;
+
+    let output = install::install(url, &config, &backend).await?;
     if !config.no_path {
-        add_output_to_path(&output, config);
+        tool::add_output_to_path(&backend, &output, &config).await;
     }
     if output.is_empty() && !config.quiet {
         println!("No file installed from {url}");
     }
     Ok(())
+}
+
+/// Pick the artifact target for a remote install.
+///
+/// The local platform says nothing about the remote host, so it is never used
+/// as a fallback: the remote platform is probed instead, and the install fails
+/// with instructions when that is impossible.
+async fn resolve_remote_targets(
+    url: &str,
+    config: &mut InstallConfig,
+    backend: &Backend,
+) -> Result<()> {
+    let Some(remote) = &config.remote else {
+        return Ok(());
+    };
+    if config.target.is_some() {
+        return Ok(()); // `--target` is authoritative
+    }
+
+    if let Some(targets) = backend.targets().await.filter(|t| !t.is_empty()) {
+        if !config.quiet {
+            let platform = backend.platform().await.unwrap_or_else(|| "unknown".into());
+            println!(
+                "Detected remote platform: {platform} → {}",
+                join_targets(&targets)
+            );
+        }
+        config.resolved_targets = Some(targets);
+        return Ok(());
+    }
+
+    let local = join_targets(guess_target::get_local_target());
+    let path = config.dir.as_deref().unwrap_or_default();
+    let dest = format!("{}:{path}", remote.label());
+    let port = if remote.port == 22 {
+        String::new()
+    } else {
+        format!(" -P {}", remote.port)
+    };
+    Err(err!(
+        "could not detect the target platform of {}
+
+  Refusing to fall back to the LOCAL platform ({local}), which is almost
+  never the remote host's platform.
+
+  Pass the remote platform explicitly, e.g.:
+    ei {url} -d {dest}{port} --target aarch64-unknown-linux-gnu
+    ei {url} -d {dest}{port} --target x86_64-unknown-linux-musl",
+        remote.label()
+    ))
+}
+
+/// Comma-separated target triples, for log/error messages.
+fn join_targets(targets: &[Target]) -> String {
+    targets
+        .iter()
+        .map(|t| t.to_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
@@ -382,9 +555,7 @@ fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
 
 async fn handle_upgrade(user_config: InstallConfig) -> Result<()> {
     let exe = std::env::current_exe()?;
-    let dir = exe
-        .parent()
-        .ok_or_else(|| err!("ei dir not found"))?;
+    let dir = exe.parent().ok_or_else(|| err!("ei dir not found"))?;
 
     // Merge user CLI options (--no-path, --quiet, --proxy, etc.) with
     // upgrade-specific overrides: dir = exe directory, alias = "ei".
@@ -455,7 +626,14 @@ fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Resul
                 &mut config,
                 quiet,
                 value,
-                |c, v| c.set_dir(expand_path(&v)),
+                |c, v| {
+                    // Keep `user@host:/path` specs intact for remote installs.
+                    if parse_remote_dest(&v).is_some() {
+                        c.set_dir(v);
+                    } else {
+                        c.set_dir(expand_path(&v));
+                    }
+                },
                 |v: &String| v.to_string(),
                 "Directory",
                 current,
@@ -563,4 +741,67 @@ fn apply_config<T>(
         println!("Current {label}: {current}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+
+    /// Parse args into an install config (every test supplies an explicit
+    /// destination, which overrides any persistent config on disk).
+    fn resolve(argv: &[&str]) -> InstallConfig {
+        let args = Args::try_parse_from(argv).expect("args should parse");
+        args.into()
+    }
+
+    #[test]
+    fn scp_style_destination_is_remote() {
+        let config = resolve(&[
+            "ei",
+            "-P",
+            "2222",
+            "./app.tar.gz",
+            "user@192.168.1.100:/root/",
+        ]);
+        assert_eq!(config.dir.as_deref(), Some("/root/"));
+        let remote = config.remote.expect("remote should be set");
+        assert_eq!(remote.user, "user");
+        assert_eq!(remote.host, "192.168.1.100");
+        assert_eq!(remote.port, 2222);
+    }
+
+    #[test]
+    fn dir_flag_accepts_remote_spec() {
+        let config = resolve(&["ei", "ahaoboy/mho", "-d", "me@host:~/.ei"]);
+        assert_eq!(config.dir.as_deref(), Some("~/.ei"));
+        assert_eq!(config.remote.expect("remote").host, "host");
+    }
+
+    #[test]
+    fn password_and_key_are_forwarded() {
+        let config = resolve(&["ei", "ahaoboy/mho", "-p", "secret", "me@host:/opt"]);
+        assert_eq!(
+            config.remote.expect("remote").password.as_deref(),
+            Some("secret")
+        );
+
+        let config = resolve(&[
+            "ei",
+            "ahaoboy/mho",
+            "-i",
+            "~/.ssh/id_ed25519",
+            "me@host:/opt",
+        ]);
+        assert_eq!(
+            config.remote.expect("remote").identity.as_deref(),
+            Some("~/.ssh/id_ed25519")
+        );
+    }
+
+    #[test]
+    fn local_destination_stays_local() {
+        let config = resolve(&["ei", "./app.tar.gz", "/tmp/out"]);
+        assert!(config.remote.is_none());
+        assert_eq!(config.dir.as_deref(), Some("/tmp/out"));
+    }
 }

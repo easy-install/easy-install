@@ -1,21 +1,27 @@
 use crate::InstallConfig;
-use crate::install::install_artifacts;
-use crate::install::manfiest::install_from_manfiest;
+use crate::backend::Backend;
+use crate::error::Result;
+use crate::install::manifest::install_from_manifest;
+use crate::install::{Kind, install_artifacts};
 use crate::tool::{filter_artifacts, get_artifact_url, not_found_asset_message};
 use crate::types::{Output, Repo};
-use crate::error::Result;
 use tracing::trace;
 
-pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> Result<Output> {
+pub(crate) async fn install_from_github(
+    backend: &Backend,
+    repo: &Repo,
+    config: &InstallConfig,
+) -> Result<Output> {
     trace!("install_from_git {}", repo);
     if let Ok(man) = repo
-        .get_manfiest(config.retry, config.proxy, config.timeout)
+        .get_manifest(config.retry, config.proxy, config.timeout)
         .await
     {
-        return install_from_manfiest(
+        return install_from_manifest(
+            backend,
             man,
             &repo
-                .get_manfiest_url(config.proxy, config.retry, config.timeout)
+                .get_manifest_url(config.proxy, config.retry, config.timeout)
                 .await?,
             config,
         )
@@ -31,5 +37,5 @@ pub(crate) async fn install_from_github(repo: &Repo, config: &InstallConfig) -> 
     }
 
     let artifact_url = filter_artifacts(artifact_url, config);
-    install_artifacts(artifact_url, config).await
+    install_artifacts(backend, Kind::Auto, artifact_url, config).await
 }

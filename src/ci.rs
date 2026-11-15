@@ -1,8 +1,8 @@
 use crate::InstallConfig;
 use crate::artifact::{GhArtifact, GhArtifacts};
 use crate::download::download_json;
-use crate::tool::get_artifact_url;
 use crate::error::{Context, Result, err};
+use crate::tool::get_artifact_url;
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashSet;

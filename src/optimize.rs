@@ -1,5 +1,5 @@
+use crate::backend::{Backend, CommandResult, Host};
 use crate::error::Result;
-use std::process::Command;
 use tracing::trace;
 
 #[derive(Debug, thiserror::Error)]
@@ -12,8 +12,17 @@ enum OptimizeError {
     ProcessingFailed(String),
 }
 
-/// Optimize a single executable file by running strip and/or upx
-pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool) -> Result<()> {
+/// Optimize a single executable file by running strip and/or upx.
+///
+/// The commands are executed through `backend`, so a remote install runs
+/// them on the remote host.
+pub async fn optimize_executable(
+    backend: &Backend,
+    file_path: &str,
+    strip: bool,
+    upx: bool,
+    quiet: bool,
+) -> Result<()> {
     if !strip && !upx {
         return Ok(());
     }
@@ -22,7 +31,7 @@ pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool)
 
     // Run strip first if enabled
     if strip {
-        match run_strip(file_path) {
+        match run_strip(backend, file_path).await {
             Ok(_) => {
                 if !quiet {
                     println!("✓ Stripped debug symbols from: {}", file_path);
@@ -49,7 +58,7 @@ pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool)
 
     // Run upx after strip if enabled
     if upx {
-        match run_upx(file_path) {
+        match run_upx(backend, file_path).await {
             Ok(_) => {
                 if !quiet {
                     println!("✓ Compressed with UPX: {}", file_path);
@@ -77,103 +86,83 @@ pub fn optimize_executable(file_path: &str, strip: bool, upx: bool, quiet: bool)
     Ok(())
 }
 
-fn run_strip(file_path: &str) -> Result<(), OptimizeError> {
+async fn run_strip(backend: &Backend, file_path: &str) -> Result<(), OptimizeError> {
     trace!("Running strip on: {}", file_path);
 
-    let output = Command::new("strip").arg(file_path).output().map_err(|e| {
-        // Check if the error is because the command was not found
-        if e.kind() == std::io::ErrorKind::NotFound {
-            OptimizeError::CommandNotFound("strip".to_string())
-        } else {
-            OptimizeError::ProcessingFailed(format!("Failed to execute strip command: {}", e))
-        }
-    })?;
+    let output = backend
+        .run("strip", &[file_path])
+        .await
+        .map_err(|e| OptimizeError::ProcessingFailed(e.to_string()))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-
-        // Check for specific error patterns
-        let stderr_lower = stderr.to_lowercase();
-        if stderr_lower.contains("no symbols") || stderr_lower.contains("already stripped") {
-            return Err(OptimizeError::AlreadyProcessed(
-                "File has no debug symbols or is already stripped".to_string(),
-            ));
-        }
-
-        return Err(OptimizeError::ProcessingFailed(stderr.to_string()));
-    }
-
-    Ok(())
+    check_status("strip", output)
 }
 
-fn run_upx(file_path: &str) -> Result<(), OptimizeError> {
+async fn run_upx(backend: &Backend, file_path: &str) -> Result<(), OptimizeError> {
     trace!("Running upx on: {}", file_path);
 
     // First check if the file is already compressed with UPX
-    let test_output = Command::new("upx")
-        .arg("-t")
-        .arg(file_path)
-        .output()
-        .map_err(|e| {
-            // Check if the error is because the command was not found
-            if e.kind() == std::io::ErrorKind::NotFound {
-                OptimizeError::CommandNotFound("upx".to_string())
-            } else {
-                OptimizeError::ProcessingFailed(format!(
-                    "Failed to execute upx test command: {}",
-                    e
-                ))
-            }
-        })?;
+    let test = backend
+        .run("upx", &["-t", file_path])
+        .await
+        .map_err(|e| OptimizeError::ProcessingFailed(e.to_string()))?;
 
-    // If test succeeds, the file is already compressed
-    if test_output.status.success() {
+    // If the test succeeds, the file is already compressed
+    if test.success() {
         return Err(OptimizeError::AlreadyProcessed(
             "File is already compressed with UPX".to_string(),
         ));
     }
 
     // Check if the error indicates the file is already packed
-    let test_stderr = String::from_utf8_lossy(&test_output.stderr);
-    if test_stderr.contains("already packed")
-        || test_stderr.contains("already compressed")
-        || test_stderr.contains("NotPackable")
-    {
+    if is_already_packed(&test.stderr) {
         return Err(OptimizeError::AlreadyProcessed(
             "File is already compressed with UPX".to_string(),
         ));
     }
 
     // Proceed with compression
-    let output = Command::new("upx")
-        .arg("--best")
-        .arg("--lzma")
-        .arg(file_path)
-        .output()
-        .map_err(|e| {
-            // Check if the error is because the command was not found
-            if e.kind() == std::io::ErrorKind::NotFound {
-                OptimizeError::CommandNotFound("upx".to_string())
-            } else {
-                OptimizeError::ProcessingFailed(format!("Failed to execute upx command: {}", e))
-            }
-        })?;
+    let output = backend
+        .run("upx", &["--best", "--lzma", file_path])
+        .await
+        .map_err(|e| OptimizeError::ProcessingFailed(e.to_string()))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-
-        // Check for specific error messages
-        if stderr.contains("already packed")
-            || stderr.contains("already compressed")
-            || stderr.contains("NotPackable")
-        {
-            return Err(OptimizeError::AlreadyProcessed(
-                "File is already compressed with UPX".to_string(),
-            ));
-        }
-
-        return Err(OptimizeError::ProcessingFailed(stderr.to_string()));
+    if !output.success() && is_already_packed(&output.stderr) {
+        return Err(OptimizeError::AlreadyProcessed(
+            "File is already compressed with UPX".to_string(),
+        ));
     }
 
-    Ok(())
+    check_status("upx", output)
+}
+
+fn is_already_packed(stderr: &str) -> bool {
+    stderr.contains("already packed")
+        || stderr.contains("already compressed")
+        || stderr.contains("NotPackable")
+}
+
+fn check_status(tool: &str, output: CommandResult) -> Result<(), OptimizeError> {
+    if output.success() {
+        return Ok(());
+    }
+
+    let stderr = output.stderr.trim();
+
+    // Local runs surface a missing binary as an I/O error (mapped to this
+    // message by the backend); remote runs produce "command not found".
+    if stderr.contains("command not found") {
+        return Err(OptimizeError::CommandNotFound(tool.to_string()));
+    }
+
+    let lower = stderr.to_lowercase();
+    if lower.contains("no symbols") || lower.contains("already stripped") {
+        return Err(OptimizeError::AlreadyProcessed(
+            "File has no debug symbols or is already stripped".to_string(),
+        ));
+    }
+
+    Err(OptimizeError::ProcessingFailed(format!(
+        "{tool} exited with code {}: {stderr}",
+        output.exit_code
+    )))
 }
