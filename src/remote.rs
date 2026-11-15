@@ -131,6 +131,44 @@ pub struct RemotePlatform {
     pub target: String,
 }
 
+// ── Target / proxy catalogue ────────────────────────────────────────────
+
+/// Rust target triples that commonly publish prebuilt release assets.
+///
+/// UIs can use this to populate a target dropdown; `--target` itself accepts
+/// any triple `guess-target` understands.
+pub const SUPPORTED_TARGETS: &[&str] = &[
+    "x86_64-unknown-linux-musl",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-musl",
+    "aarch64-unknown-linux-gnu",
+    "armv7-unknown-linux-musleabihf",
+    "armv7-unknown-linux-gnueabihf",
+    "arm-unknown-linux-musleabihf",
+    "arm-unknown-linux-gnueabihf",
+    "i686-unknown-linux-musl",
+    "i686-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+];
+
+/// Download proxies accepted by `--proxy`.
+pub const PROXIES: &[&str] = &["github", "gh-proxy", "xget", "jsdelivr", "statically"];
+
+/// Target of the machine this binary was built for.
+pub fn default_target() -> String {
+    Target::default().to_string()
+}
+
+/// Whether `target` is one of [`SUPPORTED_TARGETS`].
+pub fn is_supported_target(target: &str) -> bool {
+    SUPPORTED_TARGETS.contains(&target)
+}
+
 #[cfg_attr(not(feature = "ssh"), allow(dead_code))]
 impl RemotePlatform {
     /// Parse the `KEY=value` output of [`PLATFORM_PROBE`].
@@ -183,6 +221,9 @@ pub struct RemoteConfig {
     pub password: Option<String>,
     /// Path to a private key file (local path).
     pub identity: Option<String>,
+    /// Private key material, for embedders that store keys in memory
+    /// instead of a file. Takes precedence over [`Self::identity`].
+    pub key: Option<String>,
 }
 
 impl RemoteConfig {
@@ -224,6 +265,7 @@ pub fn parse_remote(value: &str) -> Option<(RemoteConfig, String)> {
         port: 22,
         password: None,
         identity: None,
+        key: None,
     };
 
     Some((remote, path.to_string()))
@@ -238,7 +280,7 @@ fn default_user() -> String {
 
 /// Quote a value for safe interpolation into a POSIX shell command.
 #[cfg_attr(not(feature = "ssh"), allow(dead_code))]
-pub(crate) fn sh_quote(value: &str) -> String {
+pub fn sh_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', r"'\''"))
 }
 
@@ -289,7 +331,16 @@ impl SshClient {
         .map_err(|_| err!("SSH connect to {} timed out", target.label()))?
         .with_context(|| format!("SSH connect to {} failed", target.label()))?;
 
-        let auth = if let Some(identity) = &target.identity {
+        let auth = if let Some(key_str) = target.key.as_deref().filter(|k| !k.trim().is_empty()) {
+            let key = decode_secret_key(key_str, None)
+                .map_err(|e| err!("invalid SSH private key: {e}"))?;
+            // RSA keys default to SHA-1 in russh, which modern servers reject.
+            let key = PrivateKeyWithHashAlg::new(Arc::new(key), Some(HashAlg::Sha256));
+            handle
+                .authenticate_publickey(&target.user, key)
+                .await
+                .map_err(|e| err!("SSH authentication with key failed: {e}"))?
+        } else if let Some(identity) = &target.identity {
             let path = crate::tool::expand_path(identity);
             let key_str = std::fs::read_to_string(&path)
                 .with_context(|| format!("failed to read SSH key '{path}'"))?;
@@ -366,6 +417,33 @@ impl SshClient {
             ));
         }
         Ok(RemotePlatform::parse(&output.stdout))
+    }
+
+    /// Resolve `path_or_name` to an executable on the remote host.
+    ///
+    /// Accepts an absolute or `~`-relative path, or a bare command name that
+    /// is looked up in `PATH`. Returns `None` when nothing executable matches.
+    pub async fn resolve_executable(&self, path_or_name: &str) -> Option<String> {
+        let path = self.expand_path(path_or_name);
+        let quoted = sh_quote(&path);
+        let direct = self
+            .exec(&format!("test -x {quoted} && printf %s {quoted}"))
+            .await
+            .ok()?;
+        let resolved = direct.stdout.trim();
+        if !resolved.is_empty() {
+            return Some(resolved.to_string());
+        }
+
+        let found = self
+            .exec(&format!(
+                "command -v {} 2>/dev/null || true",
+                sh_quote(path_or_name)
+            ))
+            .await
+            .ok()?;
+        let found = found.stdout.trim();
+        (!found.is_empty()).then(|| found.to_string())
     }
 
     /// Run a command with no stdin and capture its output.

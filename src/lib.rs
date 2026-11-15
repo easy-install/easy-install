@@ -16,12 +16,18 @@ use crate::backend::{Backend, Host};
 #[cfg(windows)]
 use crate::error::Context;
 use crate::error::{Result, err};
-use crate::remote::RemoteConfig;
 use crate::tool::expand_path;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
+
+#[cfg(feature = "ssh")]
+pub use remote::SshClient;
+pub use remote::{
+    PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
+    sh_quote,
+};
 
 #[derive(Debug, Clone)]
 pub struct InstallConfig {
