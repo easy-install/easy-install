@@ -3,9 +3,12 @@
 #
 # Usage: dir_status.sh [DIR]
 #
-# Prints KEY=value markers followed by one `df -Pk` line:
+# Prints KEY=value markers:
 #   EXISTS=yes | WRITABLE=yes | CREATABLE=yes
-#   filesystem 1024-blocks used available capacity mountpoint
+#   TOTAL_BLOCKS=n AVAIL_BLOCKS=n BLOCK_SIZE=n   (from `stat -f`, preferred)
+#
+# When `stat -f` is unavailable the raw `df -Pk` table is printed instead and
+# the Rust side parses it.
 #
 # When DIR does not exist (yet), the nearest existing ancestor is inspected
 # instead, so the free-space figure and the "can be created" verdict stay
@@ -32,4 +35,20 @@ else
   fi
 fi
 
-df -Pk "$probe" 2>/dev/null | tail -n 1
+# `stat -f` is unambiguous: "%b total blocks, %a blocks free, %S block size".
+# Supported by both GNU coreutils and BusyBox. The multiplication happens on
+# the Rust side so 32-bit ash on small routers cannot overflow.
+space=$(stat -f -c '%b %a %S' "$probe" 2>/dev/null) || space=
+if [ -n "$space" ]; then
+  set -- $space
+  if [ $# -eq 3 ]; then
+    echo "TOTAL_BLOCKS=$1"
+    echo "AVAIL_BLOCKS=$2"
+    echo "BLOCK_SIZE=$3"
+    exit 0
+  fi
+fi
+
+# Fallback: `df -Pk` table. Emitted in full because BusyBox prints only the
+# header when the path is missing, and `tail -n 1` would hide that.
+df -Pk "$probe" 2>/dev/null

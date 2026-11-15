@@ -84,13 +84,19 @@ impl DirStatus {
             ..Default::default()
         };
 
-        // Last line is `filesystem 1024-blocks used available …`.
-        let df = stdout.lines().last().unwrap_or_default();
-        let fields: Vec<&str> = df.split_whitespace().collect();
-        if fields.len() > 3 {
-            let bytes = |value: &str| value.parse::<u64>().unwrap_or(0).saturating_mul(1024);
-            status.total_bytes = bytes(fields[1]);
-            status.available_bytes = bytes(fields[3]);
+        // `stat -f` markers (preferred, unambiguous), else the `df` table.
+        if let (Some(total), Some(avail), Some(size)) = (
+            get_num(stdout, "TOTAL_BLOCKS"),
+            get_num(stdout, "AVAIL_BLOCKS"),
+            get_num(stdout, "BLOCK_SIZE"),
+        ) {
+            if size > 0 {
+                status.total_bytes = total.saturating_mul(size);
+                status.available_bytes = avail.saturating_mul(size);
+            }
+        } else if let Some((total, available)) = parse_df(stdout) {
+            status.total_bytes = total;
+            status.available_bytes = available;
         }
 
         status.error = if !exists && !status.creatable {
@@ -110,8 +116,42 @@ impl DirStatus {
     }
 }
 
-// ── Target / proxy catalogue ────────────────────────────────────────────
+/// Read a numeric `KEY=value` marker from probe output.
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+fn get_num(stdout: &str, key: &str) -> Option<u64> {
+    stdout.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        (name.trim() == key)
+            .then(|| value.trim().parse::<u64>().ok())
+            .flatten()
+    })
+}
 
+/// Extract `(total, available)` bytes from `df -Pk` output.
+///
+/// Handles every `df` flavour encountered in practice:
+///
+/// * GNU coreutils prints a header followed by one row per filesystem.
+/// * BusyBox (Alpine, embedded routers) prints the same header and then **no
+///   rows at all** when the path is missing — `None` is returned.
+/// * Long device names may wrap onto a second physical line; only lines whose
+///   2nd and 4th fields are numeric are considered, scanning from the bottom.
+#[cfg_attr(not(feature = "ssh"), allow(dead_code))]
+fn parse_df(stdout: &str) -> Option<(u64, u64)> {
+    stdout.lines().rev().find_map(|line| {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 4 {
+            return None;
+        }
+        let kb = |value: &str| value.parse::<u64>().ok();
+        Some((
+            kb(fields[1])?.saturating_mul(1024),
+            kb(fields[3])?.saturating_mul(1024),
+        ))
+    })
+}
+
+// ── Target / proxy catalogue ────────────────────────────────────────────
 /// Rust target triples that commonly publish prebuilt release assets.
 ///
 /// UIs can use this to populate a target dropdown; `--target` itself accepts
@@ -445,6 +485,12 @@ impl SshClient {
     }
 
     /// Run a command, optionally streaming `input` to its stdin.
+    ///
+    /// The write runs **concurrently** with the read loop. Writing first and
+    /// reading afterwards deadlocks whenever the remote command exits early
+    /// (disk full, `cat: write error`): the command no longer consumes stdin,
+    /// the SSH window never reopens, and the pending write only completes
+    /// after the client timeout — or never.
     pub async fn exec_with_input(
         &self,
         command: &str,
@@ -461,14 +507,24 @@ impl SshClient {
             .await
             .map_err(|e| err!("failed to execute remote command: {e}"))?;
 
-        if let Some(data) = input {
-            channel
-                .data_bytes(data)
-                .await
-                .map_err(|e| err!("failed to send data over SSH: {e}"))?;
-        }
-        // Always signal EOF so commands reading stdin terminate.
-        let _ = channel.eof().await;
+        // `Channel` is `Clone`; the writer needs its own handle because the
+        // read loop keeps the original borrowed mutably.
+        let writer = match input {
+            Some(data) if !data.is_empty() => {
+                let mut tx = channel.clone();
+                Some(tokio::spawn(async move {
+                    if tx.data_bytes(data).await.is_ok() {
+                        let _ = tx.eof().await;
+                    }
+                }))
+            }
+            _ => {
+                // No stdin: signal EOF immediately so commands that read
+                // stdin do not block waiting for input that never arrives.
+                let _ = channel.eof().await;
+                None
+            }
+        };
 
         let mut out = CommandResult::default();
         loop {
@@ -485,6 +541,12 @@ impl SshClient {
                 Some(russh::ChannelMsg::Eof) | Some(russh::ChannelMsg::Close) | None => break,
                 _ => {}
             }
+        }
+
+        // The command may have exited without draining stdin; drop the writer
+        // instead of waiting for window space that will never be granted.
+        if let Some(writer) = writer {
+            writer.abort();
         }
         let _ = channel.close().await;
 
@@ -517,24 +579,48 @@ impl SshClient {
     }
 
     /// Write `data` to `path` on the remote host.
+    ///
+    /// The write is verified by size: a full disk makes `cat` exit early, and
+    /// without this check the install would silently report success after
+    /// writing a truncated binary.
     pub async fn write_file(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
         if let Some(parent) = parent_dir(path) {
             self.ensure_dir(&parent).await?;
         }
 
-        let mut command = format!("cat > {}", sh_quote(path));
+        let expected = data.len() as u64;
+        let quoted = sh_quote(path);
+        let mut command = format!("cat > {quoted}");
         if let Some(mode) = mode.filter(|m| *m > 0) {
-            command.push_str(&format!(" && chmod {:o} {}", mode, sh_quote(path)));
+            command.push_str(&format!(" && chmod {:o} {quoted}", mode));
         }
+        // Report the resulting size so a short write is detected below.
+        command.push_str(&format!(
+            " && wc -c < {quoted} | tr -d ' \\n'"
+        ));
 
         let output = self.exec_with_input(&command, Some(data.to_vec())).await?;
+        let stderr = output.stderr.trim();
         if !output.success() {
             return Err(err!(
                 "failed to write '{path}' on {}: {}",
                 self.label(),
-                output.stderr.trim()
+                if stderr.is_empty() {
+                    format!("exit {}", output.exit_code)
+                } else {
+                    stderr.to_string()
+                }
             ));
         }
+
+        let written: u64 = output.stdout.trim().parse().unwrap_or(0);
+        if written != expected {
+            return Err(err!(
+                "wrote {written} of {expected} bytes to '{path}' on {} (disk full?)",
+                self.label()
+            ));
+        }
+
         Ok(())
     }
 
@@ -563,21 +649,18 @@ impl SshClient {
     }
 
     /// Free space (bytes) of the filesystem containing `dir`.
+    ///
+    /// Returns `0` when the value cannot be determined (no `df`/`stat`,
+    /// unparsable output); callers treat `0` as "unknown" and skip the
+    /// disk-space check rather than failing the install.
     pub async fn available_space(&self, dir: &str) -> Result<u64> {
-        // `df -Pk` is POSIX and prints: fs 1024-blocks used available ...
-        let output = self
-            .exec(&format!("df -Pk {} 2>/dev/null | tail -n 1", sh_quote(dir)))
-            .await?;
-        if !output.success() {
-            return Err(err!("remote df failed for '{dir}'"));
-        }
-        let available_kb = output
-            .stdout
-            .split_whitespace()
-            .nth(3)
-            .and_then(|v| v.parse::<u64>().ok())
-            .ok_or_else(|| err!("could not parse remote df output: {}", output.stdout.trim()))?;
-        Ok(available_kb.saturating_mul(1024))
+        // Reuses the same probe as [`Self::dir_status`], so there is one
+        // implementation of the platform quirks (BusyBox, 32-bit ash, …).
+        Ok(self
+            .dir_status(dir)
+            .await
+            .map(|status| status.available_bytes)
+            .unwrap_or(0))
     }
 }
 
@@ -727,6 +810,40 @@ mod tests {
         let status = DirStatus::parse("/sys/locked".into(), "overlay 1000 10 900 1% /\n");
         assert!(!status.exists && !status.creatable && !status.usable());
         assert!(status.error.is_some());
+    }
+
+    #[test]
+    fn parses_df_header_only_as_unknown() {
+        // BusyBox prints the header and no rows when the path is missing.
+        let out = "Filesystem           1024-blocks    Used Available Capacity Mounted on\n";
+        assert_eq!(parse_df(out), None);
+        assert_eq!(DirStatus::parse("/x".into(), out).total_bytes, 0);
+    }
+
+    #[test]
+    fn parses_df_skipping_noise() {
+        let out = "df: /root/.mho: No such file or directory\n\
+                   Filesystem 1024-blocks Used Available Capacity Mounted on\n\
+                   /dev/root 8000000 1000 7000000 12% /\n";
+        assert_eq!(parse_df(out), Some((8_000_000 * 1024, 7_000_000 * 1024)));
+    }
+
+    #[test]
+    fn parses_stat_space_markers() {
+        let out = "EXISTS=yes\nWRITABLE=yes\nTOTAL_BLOCKS=8000000\nAVAIL_BLOCKS=7000000\nBLOCK_SIZE=4096\n";
+        let status = DirStatus::parse("/root".into(), out);
+        assert_eq!(status.total_bytes, 8_000_000 * 4096);
+        assert_eq!(status.available_bytes, 7_000_000 * 4096);
+    }
+
+    #[test]
+    fn falls_back_to_df_when_stat_is_missing() {
+        // Old BusyBox without `stat -f`: only the df table is printed.
+        let out = "EXISTS=yes\nWRITABLE=yes\n\
+                   Filesystem 1024-blocks Used Available Capacity Mounted on\n\
+                   /dev/root 8000000 1000 7000000 12% /\n";
+        let status = DirStatus::parse("/root".into(), out);
+        assert_eq!(status.available_bytes, 7_000_000 * 1024);
     }
 
     /// Run the directory probe locally so the script stays POSIX-valid.

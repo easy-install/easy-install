@@ -530,23 +530,22 @@ pub(crate) async fn check_disk_space(
     let sum: u64 = files.iter().map(|i| i.size).sum();
     let dir_str = path_to_str(dir);
 
-    match backend.free_space(&dir_str).await {
-        Ok(disk) => {
-            if disk < sum {
-                return Err(err!(
-                    r#"Insufficient disk space for installation
+    // `0` means the backend could not determine free space (BusyBox `df`
+    // prints a header only, no `df` binary, …). Treat it as unknown and let
+    // the write itself report a real ENOSPC instead of blocking the install.
+    if let Ok(disk) = backend.free_space(&dir_str).await
+        && disk > 0
+        && disk < sum
+    {
+        return Err(err!(
+            r#"Insufficient disk space for installation
   Installation directory: {}
   Available space: {}
   Required space: {}"#,
-                    dir_str,
-                    format_size(disk),
-                    human_size(sum as usize),
-                ));
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to check disk space: {}", e);
-        }
+            dir_str,
+            format_size(disk),
+            human_size(sum as usize),
+        ));
     }
 
     Ok(())
