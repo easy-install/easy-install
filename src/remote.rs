@@ -58,7 +58,7 @@ const DIR_STATUS_SCRIPT: &str = include_str!("shell/dir_status.sh");
 
 /// State of a directory on a remote host.
 #[cfg_attr(not(feature = "ssh"), allow(dead_code))]
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct DirStatus {
     /// Expanded (absolute or `~`-free) path that was inspected.
     pub dir: String,
