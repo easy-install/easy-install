@@ -530,11 +530,20 @@ pub(crate) async fn check_disk_space(
     let sum: u64 = files.iter().map(|i| i.size).sum();
     let dir_str = path_to_str(dir);
 
-    // `0` means the backend could not determine free space (BusyBox `df`
-    // prints a header only, no `df` binary, …). Treat it as unknown and let
-    // the write itself report a real ENOSPC instead of blocking the install.
-    if let Ok(disk) = backend.free_space(&dir_str).await
-        && disk > 0
+    // Create the install directory before measuring free space.
+    //
+    // Measuring the nearest existing ancestor instead can report the wrong
+    // filesystem: the target may be a mount point / bind mount (e.g.
+    // `/root/ei-ssh` on another disk, or a Windows directory on another
+    // drive), and its free space differs from the parent's. Creating the
+    // directory first makes the probe unambiguous. `mkdir -p` is idempotent,
+    // so an existing directory is fine.
+    backend.mkdir(&dir_str).await?;
+
+    // `None` means the backend could not measure free space; `Some(0)` is a
+    // genuinely full filesystem and must be rejected up front — otherwise the
+    // archive is downloaded and every write fails with "wrote 0 of N bytes".
+    if let Ok(Some(disk)) = backend.free_space(&dir_str).await
         && disk < sum
     {
         return Err(err!(

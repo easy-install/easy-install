@@ -115,7 +115,7 @@ pub(crate) async fn install_from_download_file(
 
             v.files = files;
             if !v.files.is_empty() {
-                backend.mkdir(&install_dir_str).await?;
+                // Creates the directory, then measures its filesystem.
                 check_disk_space(backend, &v.files, &install_dir).await?;
                 install_output_files(backend, &mut v.files, config).await?;
                 output.insert(url.to_string(), v);

@@ -68,6 +68,12 @@ pub struct DirStatus {
     pub creatable: bool,
     pub total_bytes: u64,
     pub available_bytes: u64,
+    /// Whether [`Self::available_bytes`] is a real measurement.
+    ///
+    /// `false` means the platform could not report it (no `stat -f`, no `df`,
+    /// unparsable output) — which is different from a genuine `0` on a full
+    /// filesystem.
+    pub space_known: bool,
     /// Why the directory is unusable, when it is.
     pub error: Option<String>,
 }
@@ -93,10 +99,12 @@ impl DirStatus {
             if size > 0 {
                 status.total_bytes = total.saturating_mul(size);
                 status.available_bytes = avail.saturating_mul(size);
+                status.space_known = true;
             }
         } else if let Some((total, available)) = parse_df(stdout) {
             status.total_bytes = total;
             status.available_bytes = available;
+            status.space_known = true;
         }
 
         status.error = if !exists && !status.creatable {
@@ -589,9 +597,7 @@ impl SshClient {
             command.push_str(&format!(" && chmod {:o} {quoted}", mode));
         }
         // Report the resulting size so a short write is detected below.
-        command.push_str(&format!(
-            " && wc -c < {quoted} | tr -d ' \\n'"
-        ));
+        command.push_str(&format!(" && wc -c < {quoted} | tr -d ' \\n'"));
 
         let output = self.exec_with_input(&command, Some(data.to_vec())).await?;
         let stderr = output.stderr.trim();
@@ -644,17 +650,13 @@ impl SshClient {
 
     /// Free space (bytes) of the filesystem containing `dir`.
     ///
-    /// Returns `0` when the value cannot be determined (no `df`/`stat`,
-    /// unparsable output); callers treat `0` as "unknown" and skip the
-    /// disk-space check rather than failing the install.
-    pub async fn available_space(&self, dir: &str) -> Result<u64> {
+    /// Returns `None` when the platform cannot report it; a real `0` (full
+    /// filesystem) is returned as `Some(0)`.
+    pub async fn available_space(&self, dir: &str) -> Result<Option<u64>> {
         // Reuses the same probe as [`Self::dir_status`], so there is one
         // implementation of the platform quirks (BusyBox, 32-bit ash, …).
-        Ok(self
-            .dir_status(dir)
-            .await
-            .map(|status| status.available_bytes)
-            .unwrap_or(0))
+        let status = self.dir_status(dir).await?;
+        Ok(status.space_known.then_some(status.available_bytes))
     }
 }
 
@@ -820,6 +822,25 @@ mod tests {
                    Filesystem 1024-blocks Used Available Capacity Mounted on\n\
                    /dev/root 8000000 1000 7000000 12% /\n";
         assert_eq!(parse_df(out), Some((8_000_000 * 1024, 7_000_000 * 1024)));
+    }
+
+    #[test]
+    fn full_filesystem_is_known_and_zero() {
+        // A 100%-full partition reports 0 available; that must not be
+        // confused with "unknown" (which would skip the disk-space check).
+        let out = "EXISTS=yes\nWRITABLE=yes\nTOTAL_BLOCKS=15264\nAVAIL_BLOCKS=0\nBLOCK_SIZE=4096\n";
+        let status = DirStatus::parse("/".into(), out);
+        assert!(status.space_known);
+        assert_eq!(status.available_bytes, 0);
+        assert_eq!(status.total_bytes, 15264 * 4096);
+    }
+
+    #[test]
+    fn unknown_space_is_not_reported_as_zero() {
+        // BusyBox `df` printed only a header and `stat -f` was unavailable.
+        let out = "EXISTS=yes\nFilesystem 1024-blocks Used Available Capacity Mounted on\n";
+        let status = DirStatus::parse("/x".into(), out);
+        assert!(!status.space_known);
     }
 
     #[test]

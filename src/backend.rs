@@ -86,7 +86,11 @@ pub trait Host {
     async fn chmod(&self, path: &str) -> Result<()>;
 
     /// Free space in bytes on the filesystem holding `dir`.
-    async fn free_space(&self, dir: &str) -> Result<u64>;
+    /// Free space in bytes on the filesystem holding `dir`.
+    ///
+    /// `None` means the value is unknown (no `stat`/`df`, unparsable
+    /// output); a genuine `Some(0)` means the filesystem is full.
+    async fn free_space(&self, dir: &str) -> Result<Option<u64>>;
 
     /// Run a program on the host (used for `strip` / `upx`).
     async fn run(&self, program: &str, args: &[&str]) -> Result<CommandResult>;
@@ -147,7 +151,7 @@ impl Host for LocalHost {
         Ok(())
     }
 
-    async fn free_space(&self, dir: &str) -> Result<u64> {
+    async fn free_space(&self, dir: &str) -> Result<Option<u64>> {
         let path = PathBuf::from(dir);
         // The directory may not exist yet — measure its parent instead.
         let probe = if path.exists() {
@@ -157,7 +161,9 @@ impl Host for LocalHost {
                 .map(|p| p.to_path_buf())
                 .ok_or_else(|| err!("not found: {dir}"))?
         };
-        fs4::available_space(&probe).map_err(|e| err!("failed to check disk space: {e}"))
+        fs4::available_space(&probe)
+            .map(Some)
+            .map_err(|e| err!("failed to check disk space: {e}"))
     }
 
     async fn run(&self, program: &str, args: &[&str]) -> Result<CommandResult> {
@@ -256,7 +262,7 @@ impl Host for SshHost {
         self.client.make_executable(path).await
     }
 
-    async fn free_space(&self, dir: &str) -> Result<u64> {
+    async fn free_space(&self, dir: &str) -> Result<Option<u64>> {
         self.client.available_space(dir).await
     }
 
@@ -369,7 +375,7 @@ impl Host for Backend {
         forward!(self, h => h.chmod(path).await)
     }
 
-    async fn free_space(&self, dir: &str) -> Result<u64> {
+    async fn free_space(&self, dir: &str) -> Result<Option<u64>> {
         forward!(self, h => h.free_space(dir).await)
     }
 

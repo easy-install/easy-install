@@ -68,7 +68,7 @@ pub(crate) async fn install_from_buffer(
         install_path,
         buffer,
     }];
-    backend.mkdir(&path_to_str(&install_dir)).await?;
+    // Creates the directory, then measures its filesystem.
     check_disk_space(backend, &files, &install_dir).await?;
     install_output_files(backend, &mut files, config).await?;
     let item = OutputItem {
