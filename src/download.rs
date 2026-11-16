@@ -331,6 +331,10 @@ fn create_client() -> &'static Client {
 /// Sorting IPv4 first makes the reachable addresses win immediately while
 /// still keeping IPv6 as a fallback. The lookup itself is also bounded so a
 /// hung resolver produces a real error instead of an endless hang.
+///
+/// On Android this additionally refuses to call `getaddrinfo` at all when the
+/// C library has no nameserver (see [`android_dns_error`]): musl would block
+/// there for a very long time instead of failing.
 #[derive(Debug, Default)]
 struct PreferIpv4Resolver;
 
@@ -338,6 +342,17 @@ impl Resolve for PreferIpv4Resolver {
     fn resolve(&self, name: Name) -> Resolving {
         let host = name.as_str().to_owned();
         Box::pin(async move {
+            // Numeric addresses need no resolver, and are common for CDNs and
+            // for users working around a broken DNS setup. Port 0 is replaced
+            // by reqwest with the scheme's default port.
+            if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+                return Ok(Box::new(std::iter::once(SocketAddr::new(ip, 0))) as Addrs);
+            }
+
+            if dns_unavailable(&host) {
+                return Err::<Addrs, BoxError>(android_dns_error(&host).into());
+            }
+
             let lookup = tokio::net::lookup_host((host.as_str(), 0));
             let collected: Vec<SocketAddr> = timeout(DNS_LOOKUP_TIMEOUT, lookup)
                 .await
@@ -358,6 +373,97 @@ impl Resolve for PreferIpv4Resolver {
             Ok(Box::new(ipv4.into_iter()) as Addrs)
         })
     }
+}
+
+/// True when this process runs on Android, even if it was not compiled for it.
+///
+/// A `*-unknown-linux-musl` build reports `target_os = "linux"` but may still
+/// be running inside Termux (or another Android rootfs).
+fn running_on_android() -> bool {
+    cfg!(target_os = "android")
+        || std::env::var_os("ANDROID_ROOT").is_some()
+        || std::path::Path::new("/system/build.prop").exists()
+}
+
+/// Parse a `resolv.conf` body the same way musl/glibc do: a `nameserver`
+/// directive with a non-empty address.
+fn resolv_conf_has_nameserver(content: &str) -> bool {
+    content.lines().any(|line| {
+        let mut fields = line.split_whitespace();
+        matches!(fields.next(), Some("nameserver"))
+            && fields
+                .next()
+                .is_some_and(|ns| !ns.is_empty() && ns != "0.0.0.0" && ns != "::")
+    })
+}
+
+fn host_in_hosts(content: &str, host: &str) -> bool {
+    content
+        .lines()
+        .map(|line| line.split('#').next().unwrap_or_default())
+        .any(|line| {
+            line.split_whitespace()
+                .skip(1)
+                .any(|name| name.eq_ignore_ascii_case(host))
+        })
+}
+
+/// Whether a DNS lookup for `host` is guaranteed to be unable to succeed.
+///
+/// Android only exposes DNS through its native resolver service (`netd`).
+/// `aarch64-linux-android` builds use bionic, which talks to `netd`. Static
+/// musl/glibc builds cannot, and `/etc/resolv.conf` does not exist on Android,
+/// so `getaddrinfo()` there does not fail fast — it blocks (musl keeps
+/// retrying, and Android gives it no route to the network) which shows up as
+/// "the download hangs forever". Detecting the situation up front turns that
+/// hang into an actionable error.
+fn dns_unavailable(host: &str) -> bool {
+    let hosts = std::fs::read_to_string("/etc/hosts").ok();
+    let resolv_conf = std::fs::read_to_string("/etc/resolv.conf").ok();
+    dns_unavailable_with(
+        running_on_android(),
+        cfg!(target_os = "android"),
+        host,
+        hosts.as_deref(),
+        resolv_conf.as_deref(),
+    )
+}
+
+/// Pure decision logic for [`dns_unavailable`], so it can be tested.
+fn dns_unavailable_with(
+    on_android: bool,
+    bionic_build: bool,
+    host: &str,
+    hosts_file: Option<&str>,
+    resolv_conf: Option<&str>,
+) -> bool {
+    if !on_android || bionic_build {
+        // Not Android, or an Android build (bionic → netd): the platform
+        // resolver is present.
+        return false;
+    }
+    if hosts_file.is_some_and(|h| host_in_hosts(h, host)) {
+        return false; // resolved from /etc/hosts, no nameserver needed
+    }
+    !resolv_conf.is_some_and(resolv_conf_has_nameserver)
+}
+
+/// Actionable message for [`dns_unavailable`].
+fn android_dns_error(host: &str) -> String {
+    format!(
+        "cannot resolve '{host}': this build has no working DNS on Android
+
+  This ei was compiled for {target} (static musl/glibc). Android only exposes
+  DNS through its native resolver (`netd`), which such builds cannot reach,
+  and /etc/resolv.conf does not exist here. getaddrinfo() does not fail on
+  Android in that case — it blocks, so downloads appear to hang.
+
+  Use the Android build instead:
+    curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
+
+  Or map '{host}' in /etc/hosts / pass a direct artifact URL.",
+        target = env!("BUILD_TARGET"),
+    )
 }
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
@@ -599,6 +705,84 @@ mod test {
     use easy_archive::Fmt;
 
     use crate::download::{extract_bytes, get_bytes};
+
+    #[test]
+    fn resolv_conf_nameserver_detection() {
+        // The usual case.
+        assert!(super::resolv_conf_has_nameserver(
+            "search lan\nnameserver 192.168.1.1\n"
+        ));
+        // Commented out / implicit-only entries do not count.
+        assert!(!super::resolv_conf_has_nameserver(
+            "#nameserver 8.8.8.8\noptions ndots:1\n"
+        ));
+        // Missing file content.
+        assert!(!super::resolv_conf_has_nameserver(""));
+        // Placeholder addresses are what a broken resolver setup leaves behind;
+        // musl would block trying to reach them.
+        assert!(!super::resolv_conf_has_nameserver("nameserver 0.0.0.0\n"));
+        assert!(!super::resolv_conf_has_nameserver("nameserver ::"));
+    }
+
+    #[test]
+    fn hosts_file_lookup_matches_names_but_not_ips() {
+        let hosts = "\
+127.0.0.1   localhost
+::1         localhost ip6-localhost
+10.0.0.5    api.internal  # comment
+";
+        assert!(super::host_in_hosts(hosts, "api.internal"));
+        assert!(super::host_in_hosts(hosts, "LOCALHOST"));
+        // The IP column is not a name.
+        assert!(!super::host_in_hosts(hosts, "10.0.0.5"));
+        assert!(!super::host_in_hosts(hosts, "comment"));
+        assert!(!super::host_in_hosts(hosts, "example.com"));
+    }
+
+    #[test]
+    fn android_without_resolver_fails_fast() {
+        // A musl/glibc build on Android: bionic's netd is unreachable and
+        // /etc/resolv.conf is missing → must not call getaddrinfo (it blocks).
+        assert!(super::dns_unavailable_with(
+            true,
+            false,
+            "github.com",
+            Some("127.0.0.1 localhost\n"),
+            None,
+        ));
+        // An Android (bionic) build uses netd; never fail fast for it.
+        assert!(!super::dns_unavailable_with(
+            true, true, "github.com", None, None
+        ));
+        // Not on Android at all.
+        assert!(!super::dns_unavailable_with(
+            false, false, "github.com", None, None
+        ));
+        // proot-distro and similar setups ship a resolv.conf.
+        assert!(!super::dns_unavailable_with(
+            true,
+            false,
+            "github.com",
+            None,
+            Some("nameserver 8.8.8.8\n"),
+        ));
+        // /etc/hosts entries resolve without any nameserver.
+        assert!(!super::dns_unavailable_with(
+            true,
+            false,
+            "github.com",
+            Some("140.82.1.1 github.com\n"),
+            None,
+        ));
+        // A resolv.conf with only a placeholder address is not usable.
+        assert!(super::dns_unavailable_with(
+            true,
+            false,
+            "github.com",
+            None,
+            Some("nameserver 0.0.0.0\n"),
+        ));
+    }
 
     #[tokio::test]
     async fn test_download() {
