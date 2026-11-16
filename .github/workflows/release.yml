@@ -57,3 +57,25 @@ jobs:
       - name: install.sh
         run: |
           bash ./install.sh
+  bloaty:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - name: ei
+        run: curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
+      - name: install bloaty
+        run: |
+          ei https://github.com/ahaoboy/bloaty-build
+          ei https://github.com/ahaoboy/bloaty-metafile
+      - name: bloaty-metafile
+        run: |
+          cargo build --profile bloaty
+          bloaty ./target/bloaty/ei -d sections,symbols -n 0 --csv > meta.csv
+          bloaty-metafile meta.csv > meta.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bloaty-metafile
+          path: |
+            meta.json
+            meta.csv
