@@ -6,12 +6,13 @@
 //! streamed over SSH and written there, and `strip`/`upx` are executed on the
 //! remote machine.
 //!
-//! Destination parsing and target mapping are always compiled. The SSH
-//! transport (connect/exec/filesystem), `uname` probing and platform
-//! detection come from the [`sssh`] crate behind the `ssh` feature (enabled
-//! by default).
+//! Destination parsing is always compiled. The SSH transport
+//! (connect/exec/filesystem), `uname` probing and platform detection come
+//! from the [`sssh`] crate behind the `ssh` feature (enabled by default);
+//! the mapping from those facts to a target triple is
+//! [`guess_target::guess_system_target`], shared with other tools.
 
-use guess_target::Target;
+use guess_target::{Libc, SystemInfo, Target, guess_system_target};
 use std::str::FromStr;
 
 #[cfg(feature = "ssh")]
@@ -88,9 +89,10 @@ impl RemotePlatform {
 
 /// Detect the remote platform through an authenticated [`Client`].
 ///
-/// Uses [`Client::uname`] plus a few filesystem/exec probes, then maps the
-/// fields to a Rust target triple with the same rules the old shell probe
-/// used. The result is cached by [`SshHost`](crate::backend::SshHost).
+/// Only the *facts* are gathered here ([`Client::uname`] plus libc/Android
+/// probes); the mapping to a Rust target triple lives in
+/// [`guess_target::guess_system_target`], shared with every other consumer.
+/// The result is cached by [`SshHost`](crate::backend::SshHost).
 #[cfg(feature = "ssh")]
 pub(crate) async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePlatform> {
     let uname = client
@@ -108,14 +110,20 @@ pub(crate) async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePl
     let libc = if os == "Linux" && !android {
         detect_libc(client, fs).await
     } else {
-        "gnu".to_string()
+        Libc::Gnu
     };
-    let target = target_triple(&os, &arch, &libc, android);
+
+    let info = SystemInfo::new(&os, &arch)
+        .with_libc(libc)
+        .with_android(android);
+    let target = guess_system_target(&info)
+        .map(|target| target.to_str().to_string())
+        .unwrap_or_default();
 
     Ok(RemotePlatform {
         os,
         arch,
-        libc,
+        libc: libc.to_string(),
         android,
         target,
     })
@@ -123,12 +131,12 @@ pub(crate) async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePl
 
 /// Distinguish musl from glibc on Linux.
 #[cfg(feature = "ssh")]
-async fn detect_libc(client: &Client, fs: &Fs) -> String {
+async fn detect_libc(client: &Client, fs: &Fs) -> Libc {
     // Alpine names its libc explicitly in os-release.
     if let Ok(release) = fs.read_to_string("/etc/os-release").await
         && release.to_ascii_lowercase().contains("alpine")
     {
-        return "musl".to_string();
+        return Libc::Musl;
     }
 
     for loader in [
@@ -137,88 +145,19 @@ async fn detect_libc(client: &Client, fs: &Fs) -> String {
         "/lib/ld-musl-armhf.so.1",
     ] {
         if fs.try_exists(loader).await.unwrap_or(false) {
-            return "musl".to_string();
+            return Libc::Musl;
         }
     }
 
     if let Ok(output) = client.exec("ldd --version").await {
         let text = format!("{}\n{}", output.stdout_lossy(), output.stderr_lossy());
         if text.to_ascii_lowercase().contains("musl") {
-            return "musl".to_string();
+            return Libc::Musl;
         }
     }
 
-    "gnu".to_string()
+    Libc::Gnu
 }
-
-/// Map `uname` fields to a Rust target triple.
-///
-/// Mirrors the rules the previous shell probe implemented; ARM prefers musl
-/// on Linux because glibc builds often fail on those systems.
-fn target_triple(os: &str, arch: &str, libc: &str, android: bool) -> String {
-    let arch = arch.to_ascii_lowercase();
-    let libc = libc.to_ascii_lowercase();
-    let armv7 = arch.starts_with("armv7") || arch == "armv8l";
-    let armv6 = arch.starts_with("armv6") || arch == "arm";
-
-    if os == "Linux" {
-        if android {
-            return match arch.as_str() {
-                "aarch64" | "arm64" => "aarch64-linux-android",
-                "i686" | "x86" => "i686-linux-android",
-                "x86_64" => "x86_64-linux-android",
-                _ if armv7 => "armv7-linux-androideabi",
-                _ => "",
-            }
-            .to_string();
-        }
-
-        return match arch.as_str() {
-            "x86_64" | "amd64" => format!("x86_64-unknown-linux-{libc}"),
-            "aarch64" | "arm64" if libc == "gnu" => "aarch64-unknown-linux-musl".to_string(),
-            "aarch64" | "arm64" => format!("aarch64-unknown-linux-{libc}"),
-            "i686" | "i386" => format!("i686-unknown-linux-{libc}"),
-            "riscv64" => format!("riscv64gc-unknown-linux-{libc}"),
-            "loongarch64" => format!("loongarch64-unknown-linux-{libc}"),
-            "s390x" => "s390x-unknown-linux-gnu".to_string(),
-            "ppc64le" | "powerpc64le" => format!("powerpc64le-unknown-linux-{libc}"),
-            _ if armv7 && libc == "gnu" => "armv7-unknown-linux-musleabihf".to_string(),
-            _ if armv7 => format!("armv7-unknown-linux-{libc}eabihf"),
-            _ if armv6 && libc == "gnu" => "arm-unknown-linux-musleabihf".to_string(),
-            _ if armv6 => format!("arm-unknown-linux-{libc}eabihf"),
-            _ => String::new(),
-        };
-    }
-
-    if os == "Darwin" {
-        return if arch == "arm64" || arch == "aarch64" {
-            "aarch64-apple-darwin"
-        } else {
-            "x86_64-apple-darwin"
-        }
-        .to_string();
-    }
-
-    if os.starts_with("MINGW")
-        || os.starts_with("MSYS")
-        || os.starts_with("CYGWIN")
-        || os.starts_with("Windows")
-    {
-        return match arch.as_str() {
-            "aarch64" | "arm64" => "aarch64-pc-windows-msvc",
-            "i686" | "i386" => "i686-pc-windows-msvc",
-            _ => "x86_64-pc-windows-msvc",
-        }
-        .to_string();
-    }
-
-    if os == "FreeBSD" {
-        return "x86_64-unknown-freebsd".to_string();
-    }
-
-    String::new()
-}
-
 /// Credentials + connection details for the remote host.
 ///
 /// The target directory (`--dir`) is kept on [`InstallConfig`][crate::InstallConfig];
@@ -376,121 +315,54 @@ mod tests {
             _ => panic!("expected the password"),
         }
     }
-
-    fn platform(os: &str, arch: &str, libc: &str, android: bool) -> RemotePlatform {
+    fn platform(os: &str, arch: &str, libc: Libc, android: bool) -> RemotePlatform {
+        let info = SystemInfo::new(os, arch)
+            .with_libc(libc)
+            .with_android(android);
         RemotePlatform {
             os: os.to_string(),
             arch: arch.to_string(),
             libc: libc.to_string(),
             android,
-            target: target_triple(os, arch, libc, android),
+            target: guess_system_target(&info)
+                .map(|target| target.to_str().to_string())
+                .unwrap_or_default(),
         }
     }
 
+    /// The guessing itself lives in `guess-target`; this only checks that the
+    /// detected facts reach it and the triple comes back.
     #[test]
-    fn maps_linux_targets() {
+    fn maps_detected_facts_to_targets() {
         assert_eq!(
-            target_triple("Linux", "x86_64", "gnu", false),
-            "x86_64-unknown-linux-gnu"
-        );
-        assert_eq!(
-            target_triple("Linux", "x86_64", "musl", false),
+            platform("Linux", "x86_64", Libc::Musl, false).target,
             "x86_64-unknown-linux-musl"
         );
-        // ARM prefers musl when the detected libc is glibc.
         assert_eq!(
-            target_triple("Linux", "aarch64", "gnu", false),
+            platform("Linux", "aarch64", Libc::Gnu, false).target,
             "aarch64-unknown-linux-musl"
         );
         assert_eq!(
-            target_triple("Linux", "aarch64", "musl", false),
-            "aarch64-unknown-linux-musl"
-        );
-        assert_eq!(
-            target_triple("Linux", "armv7l", "gnu", false),
-            "armv7-unknown-linux-musleabihf"
-        );
-        assert_eq!(
-            target_triple("Linux", "armv8l", "musl", false),
-            "armv7-unknown-linux-musleabihf"
-        );
-        assert_eq!(
-            target_triple("Linux", "armv6l", "gnu", false),
-            "arm-unknown-linux-musleabihf"
-        );
-        assert_eq!(
-            target_triple("Linux", "i686", "gnu", false),
-            "i686-unknown-linux-gnu"
-        );
-        assert_eq!(
-            target_triple("Linux", "riscv64", "musl", false),
-            "riscv64gc-unknown-linux-musl"
-        );
-        assert_eq!(
-            target_triple("Linux", "loongarch64", "gnu", false),
-            "loongarch64-unknown-linux-gnu"
-        );
-        assert_eq!(
-            target_triple("Linux", "s390x", "musl", false),
-            "s390x-unknown-linux-gnu"
-        );
-        assert_eq!(
-            target_triple("Linux", "ppc64le", "musl", false),
-            "powerpc64le-unknown-linux-musl"
-        );
-    }
-
-    #[test]
-    fn maps_android_and_other_targets() {
-        assert_eq!(
-            target_triple("Linux", "x86_64", "gnu", true),
-            "x86_64-linux-android"
-        );
-        assert_eq!(
-            target_triple("Linux", "aarch64", "gnu", true),
-            "aarch64-linux-android"
-        );
-        assert_eq!(
-            target_triple("Linux", "armv7l", "gnu", true),
+            platform("Linux", "armv7l", Libc::Gnu, true).target,
             "armv7-linux-androideabi"
         );
         assert_eq!(
-            target_triple("Darwin", "arm64", "gnu", false),
-            "aarch64-apple-darwin"
-        );
-        assert_eq!(
-            target_triple("Darwin", "x86_64", "gnu", false),
-            "x86_64-apple-darwin"
-        );
-        assert_eq!(
-            target_triple("MINGW64_NT-10.0", "x86_64", "gnu", false),
+            platform("MINGW64_NT-10.0", "x86_64", Libc::Gnu, false).target,
             "x86_64-pc-windows-msvc"
         );
-        assert_eq!(
-            target_triple("MINGW64_NT-10.0", "aarch64", "gnu", false),
-            "aarch64-pc-windows-msvc"
-        );
-        assert_eq!(
-            target_triple("MSYS_NT-10.0", "i686", "gnu", false),
-            "i686-pc-windows-msvc"
-        );
-        assert_eq!(
-            target_triple("FreeBSD", "x86_64", "gnu", false),
-            "x86_64-unknown-freebsd"
-        );
-        assert_eq!(target_triple("Plan9", "mips", "gnu", false), "");
+        assert_eq!(platform("Plan9", "mips", Libc::Gnu, false).target, "");
     }
 
     #[test]
     fn describes_platforms() {
-        let linux = platform("Linux", "aarch64", "musl", false);
+        let linux = platform("Linux", "aarch64", Libc::Musl, false);
         assert_eq!(linux.describe(), "linux/aarch64 (musl)");
         assert_eq!(
             linux.target_triple().map(|target| target.to_str()),
             Some("aarch64-unknown-linux-musl")
         );
 
-        let android = platform("Linux", "armv7l", "gnu", true);
+        let android = platform("Linux", "armv7l", Libc::Gnu, true);
         assert!(android.android);
         assert_eq!(android.describe(), "linux/armv7l android");
         assert_eq!(
@@ -498,7 +370,7 @@ mod tests {
             Some("armv7-linux-androideabi")
         );
 
-        let unsupported = platform("Plan9", "mips", "gnu", false);
+        let unsupported = platform("Plan9", "mips", Libc::Gnu, false);
         assert_eq!(unsupported.target, "");
         assert!(unsupported.target_triple().is_none());
     }

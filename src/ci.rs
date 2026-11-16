@@ -137,10 +137,10 @@ impl Display for CiRun {
     }
 }
 
-impl TryFrom<&str> for CiRun {
-    type Error = crate::error::Error;
+impl std::str::FromStr for CiRun {
+    type Err = crate::error::Error;
 
-    fn try_from(url: &str) -> Result<Self> {
+    fn from_str(url: &str) -> std::result::Result<Self, Self::Err> {
         if let Some(cap) = RE_CI_RUN.captures(url) {
             return Ok(Self {
                 owner: cap["owner"].to_string(),
@@ -159,6 +159,15 @@ impl TryFrom<&str> for CiRun {
         }
 
         Err(err!("Invalid CI URL: {url}"))
+    }
+}
+
+/// Kept for call sites that predate [`FromStr`]; both behave identically.
+impl TryFrom<&str> for CiRun {
+    type Error = crate::error::Error;
+
+    fn try_from(url: &str) -> Result<Self> {
+        url.parse()
     }
 }
 

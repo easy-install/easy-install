@@ -91,10 +91,10 @@ struct JsdelivrPackage {
     versions: Vec<String>,
 }
 
-impl TryFrom<&str> for Repo {
-    type Error = crate::error::Error;
+impl std::str::FromStr for Repo {
+    type Err = crate::error::Error;
 
-    fn try_from(value: &str) -> Result<Self> {
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
         trace!("get_artifact_api {}", value);
         let value = value.strip_suffix(".git").unwrap_or(value);
 
@@ -150,6 +150,15 @@ impl TryFrom<&str> for Repo {
             });
         }
         Err(err!("Invalid repo string: {value}"))
+    }
+}
+
+/// Kept for call sites that predate [`FromStr`]; both behave identically.
+impl TryFrom<&str> for Repo {
+    type Error = crate::error::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        value.parse()
     }
 }
 
@@ -451,10 +460,10 @@ impl Display for Nightly {
         f.write_str(&self.url)
     }
 }
-impl TryFrom<&str> for Nightly {
-    type Error = crate::error::Error;
+impl std::str::FromStr for Nightly {
+    type Err = crate::error::Error;
 
-    fn try_from(url: &str) -> std::result::Result<Self, Self::Error> {
+    fn from_str(url: &str) -> std::result::Result<Self, Self::Err> {
         if RE_NIGHTLY.is_match(url) {
             Ok(Self {
                 url: url.to_string(),
@@ -462,6 +471,15 @@ impl TryFrom<&str> for Nightly {
         } else {
             Err(err!("Invalid nightly.link string: {url}"))
         }
+    }
+}
+
+/// Kept for call sites that predate [`FromStr`]; both behave identically.
+impl TryFrom<&str> for Nightly {
+    type Error = crate::error::Error;
+
+    fn try_from(url: &str) -> std::result::Result<Self, Self::Error> {
+        url.parse()
     }
 }
 
