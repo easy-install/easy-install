@@ -189,38 +189,47 @@ pub struct Args {
     pub url: String,
 
     /// Destination (scp style). Either a local directory or
-    /// `[user@]host:/path` to install on a remote machine over SSH.
+    /// `[user@]host[:port]:/path` to install on a remote machine over SSH.
     ///
     /// Examples:
     ///   ei ahaoboy/mho user@192.168.1.100:/root/
+    ///   ei ahaoboy/mho ace@192.168.1.100:2222:/root/
     ///   ei ./app.tar.gz me@host:~/.ei
     #[arg(default_value_t = String::new())]
     pub dest: String,
 
     /// SSH port for remote installs (default: 22)
+    ///
+    /// Uppercase `-P`, like `scp`; lowercase `-p` is the password.
     #[arg(
         short = 'P',
         long,
         global = true,
-        help = "SSH port for remote installs"
+        help = "SSH port for remote installs (note: -p is the password; use -P)"
     )]
     pub port: Option<u16>,
 
     /// SSH password for remote installs
+    ///
+    /// Cannot be combined with `-i`: use exactly one authentication method.
     #[arg(
         short = 'p',
         long,
         global = true,
-        help = "SSH password for remote installs"
+        conflicts_with = "identity",
+        help = "SSH password for remote installs (the port is -P)"
     )]
     pub password: Option<String>,
 
     /// SSH private key file for remote installs
+    ///
+    /// Cannot be combined with `-p`: use exactly one authentication method.
     #[arg(
         short = 'i',
         long,
         global = true,
         value_name = "FILE",
+        conflicts_with = "password",
         help = "SSH private key file for remote installs"
     )]
     pub identity: Option<String>,
@@ -399,11 +408,12 @@ impl From<Args> for InstallConfig {
         let strip = value.strip.or(persistent_config.strip).unwrap_or(false);
         let upx = value.upx.or(persistent_config.upx).unwrap_or(false);
 
-        // A `user@host:/path` directory switches the install to SSH.
+        // A `user@host[:port]:/path` directory switches the install to SSH.
         let (dir, remote) = match dir {
             Some(spec) => match parse_remote_dest(&spec) {
                 Some((mut remote, path)) => {
-                    remote.port = value.port.unwrap_or(22);
+                    // `-P` overrides a port parsed from the destination.
+                    remote.port = value.port.unwrap_or(remote.port);
                     remote.password = value.password.clone();
                     remote.identity = value.identity.clone();
                     let dir = if path.is_empty() { None } else { Some(path) };

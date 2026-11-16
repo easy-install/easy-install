@@ -166,8 +166,9 @@ async fn detect_libc(client: &Client, fs: &Fs) -> Libc {
 pub struct RemoteConfig {
     pub user: String,
     pub host: String,
+    /// SSH port (`22`, a `host:port:path` destination, or `-P`).
     pub port: u16,
-    /// Password authentication (mutually exclusive with `identity`).
+    /// Password authentication (mutually exclusive with the key fields).
     pub password: Option<String>,
     /// Path to a private key file (local path).
     pub identity: Option<String>,
@@ -182,8 +183,7 @@ impl RemoteConfig {
         format!("{}@{}", self.user, self.host)
     }
 
-    /// Connect over SSH with the first credential available, in order:
-    /// in-memory key → key file → password.
+    /// Connect over SSH using the configured authentication method.
     #[cfg(feature = "ssh")]
     pub async fn connect(&self, timeout_secs: u64) -> Result<Client> {
         let target = format!("{}@{}", self.user, self.host);
@@ -192,18 +192,35 @@ impl RemoteConfig {
             .map_err(|e| err!("SSH connection to {} failed: {e}", self.label()))
     }
 
+    /// Build the [`Auth`] to use.
+    ///
+    /// Exactly one method must be configured: a private key (in-memory `key`
+    /// preferred over the `identity` file) or a password. Mixing them is an
+    /// error instead of silently preferring one, so a mistyped flag never
+    /// connects with credentials the user did not intend.
     #[cfg(feature = "ssh")]
     fn auth(&self) -> Result<Auth> {
-        if let Some(key) = self.key.as_deref().filter(|key| !key.trim().is_empty()) {
+        let key = self.key.as_deref().filter(|key| !key.trim().is_empty());
+        let identity = self.identity.as_deref().filter(|path| !path.is_empty());
+        let password = self.password.as_deref().filter(|pass| !pass.is_empty());
+
+        if password.is_some() && (key.is_some() || identity.is_some()) {
+            return Err(err!(
+                "{} received both a password and a private key; use exactly one authentication method (-p or -i)",
+                self.label()
+            ));
+        }
+
+        if let Some(key) = key {
             return Ok(Auth::key(key));
         }
-        if let Some(identity) = &self.identity {
+        if let Some(identity) = identity {
             let path = crate::tool::expand_path(identity);
             let key = std::fs::read_to_string(&path)
                 .with_context(|| format!("failed to read SSH key '{path}'"))?;
             return Ok(Auth::key(key));
         }
-        if let Some(password) = &self.password {
+        if let Some(password) = password {
             return Ok(Auth::password(password));
         }
         Err(err!(
@@ -226,10 +243,21 @@ pub fn parse_remote(value: &str) -> Option<(RemoteConfig, String)> {
         return None;
     }
 
-    let (authority, path) = value.split_once(':')?;
+    let (authority, rest) = value.split_once(':')?;
     if authority.is_empty() || authority.contains('/') || authority.contains('\\') {
         return None;
     }
+
+    // `host:2222:/path` — a numeric segment right after the host is a port;
+    // anything else keeps the whole remainder as the path, so paths that
+    // themselves contain a colon (`host:/tmp/a:b`) still work.
+    let (port, path) = match rest.split_once(':') {
+        Some((digits, path)) => match digits.parse::<u16>() {
+            Ok(port) if port != 0 && digits.bytes().all(|b| b.is_ascii_digit()) => (port, path),
+            _ => (22, rest),
+        },
+        None => (22, rest),
+    };
 
     let (user, host) = match authority.rsplit_once('@') {
         Some((user, host)) => (user.to_string(), host.to_string()),
@@ -242,7 +270,7 @@ pub fn parse_remote(value: &str) -> Option<(RemoteConfig, String)> {
     let remote = RemoteConfig {
         user,
         host,
-        port: 22,
+        port,
         password: None,
         identity: None,
         key: None,
@@ -272,6 +300,30 @@ mod tests {
         let (cfg, path) = parse_remote("me@example.com:~/.ei").unwrap();
         assert_eq!(cfg.user, "me");
         assert_eq!(path, "~/.ei");
+        assert_eq!(cfg.port, 22);
+    }
+
+    #[test]
+    fn parses_port_in_the_destination() {
+        let (cfg, path) = parse_remote("ace@192.168.50.1:9421:/tmp/ei-ssh").unwrap();
+        assert_eq!(cfg.user, "ace");
+        assert_eq!(cfg.host, "192.168.50.1");
+        assert_eq!(cfg.port, 9421);
+        assert_eq!(path, "/tmp/ei-ssh");
+
+        let (cfg, path) = parse_remote("host:2222:~/.ei").unwrap();
+        assert_eq!(cfg.port, 2222);
+        assert_eq!(path, "~/.ei");
+
+        // A non-numeric segment is part of the path, not a port.
+        let (cfg, path) = parse_remote("host:/tmp/a:b").unwrap();
+        assert_eq!(cfg.port, 22);
+        assert_eq!(path, "/tmp/a:b");
+
+        // Out-of-range numbers are not ports either.
+        let (cfg, path) = parse_remote("host:99999:/x").unwrap();
+        assert_eq!(cfg.port, 22);
+        assert_eq!(path, "99999:/x");
     }
 
     #[test]
@@ -285,14 +337,18 @@ mod tests {
 
     #[cfg(feature = "ssh")]
     #[test]
-    fn auth_prefers_key_then_file_then_password() {
-        let mut cfg = RemoteConfig {
+    fn auth_accepts_exactly_one_method() {
+        let base = RemoteConfig {
             user: "u".into(),
             host: "h".into(),
+            ..Default::default()
+        };
+
+        // In-memory key wins over the key file, and never needs the file.
+        let cfg = RemoteConfig {
             key: Some("MEMORY".into()),
             identity: Some("/does/not/exist".into()),
-            password: Some("PW".into()),
-            ..Default::default()
+            ..base.clone()
         };
         match cfg.auth().unwrap() {
             Auth::PrivateKey(key) => assert_eq!(key, "MEMORY"),
@@ -301,19 +357,34 @@ mod tests {
 
         let path = std::env::temp_dir().join("ei-ssh-auth-test-key");
         std::fs::write(&path, "FILE").unwrap();
-        cfg.key = None;
-        cfg.identity = Some(path.to_string_lossy().into_owned());
+        let cfg = RemoteConfig {
+            identity: Some(path.to_string_lossy().into_owned()),
+            ..base.clone()
+        };
         match cfg.auth().unwrap() {
             Auth::PrivateKey(key) => assert_eq!(key, "FILE"),
             _ => panic!("expected the key file"),
         }
         let _ = std::fs::remove_file(path);
 
-        cfg.identity = None;
+        let cfg = RemoteConfig {
+            password: Some("PW".into()),
+            ..base.clone()
+        };
         match cfg.auth().unwrap() {
             Auth::Password(password) => assert_eq!(password, "PW"),
             _ => panic!("expected the password"),
         }
+
+        // Mixing methods is rejected instead of silently preferring one.
+        let cfg = RemoteConfig {
+            password: Some("PW".into()),
+            identity: Some("/tmp/key".into()),
+            ..base.clone()
+        };
+        assert!(cfg.auth().is_err());
+
+        assert!(base.auth().is_err(), "no credentials at all");
     }
     fn platform(os: &str, arch: &str, libc: Libc, android: bool) -> RemotePlatform {
         let info = SystemInfo::new(os, arch)

@@ -130,14 +130,17 @@ ei ahaoboy/mho user@192.168.1.100:/root/
 # Same thing with -d
 ei ahaoboy/mho -d user@192.168.1.100:/root/
 
-# Custom SSH port
+# Custom SSH port, either way (`-P` wins when both are given)
 ei ahaoboy/mho -P 2222 user@192.168.1.100:/root/
+ei ahaoboy/mho user@192.168.1.100:2222:/root/
 
 # Password authentication
 ei ahaoboy/mho -p 'secret' user@192.168.1.100:/root/
 
 # Private key authentication
 ei ahaoboy/mho -i ~/.ssh/id_ed25519 user@192.168.1.100:/root/
+
+# `-p` and `-i` are mutually exclusive: pick exactly one method
 
 # Install a local archive remotely and run upx there
 ei ./app-linux-amd64.tar.gz me@host:~/.ei --upx
