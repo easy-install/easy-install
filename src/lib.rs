@@ -22,11 +22,8 @@ use config::PersistentConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
 
-#[cfg(feature = "ssh")]
-pub use remote::SshClient;
 pub use remote::{
-    DirStatus, PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target,
-    is_supported_target, sh_quote,
+    PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
 };
 
 #[derive(Debug, Clone)]

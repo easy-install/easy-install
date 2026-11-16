@@ -19,7 +19,9 @@ use guess_target::Target;
 use std::path::PathBuf;
 
 #[cfg(feature = "ssh")]
-use crate::remote::{RemoteConfig, SshClient};
+use crate::remote::{RemoteConfig, RemotePlatform, detect_platform};
+#[cfg(feature = "ssh")]
+use sssh::{Client, Fs, Output, shell_quote};
 
 /// Result of a command executed on the install target.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -32,6 +34,22 @@ pub struct CommandResult {
 impl CommandResult {
     pub fn success(&self) -> bool {
         self.exit_code == 0
+    }
+}
+
+#[cfg(feature = "ssh")]
+impl From<Output> for CommandResult {
+    fn from(out: Output) -> Self {
+        let exit_code = if out.success() {
+            out.code().unwrap_or(0)
+        } else {
+            out.code().unwrap_or(-1)
+        };
+        Self {
+            stdout: out.stdout_lossy(),
+            stderr: out.stderr_lossy(),
+            exit_code,
+        }
     }
 }
 
@@ -196,15 +214,30 @@ impl Host for LocalHost {
 /// Writes to a remote host over SSH.
 #[cfg(feature = "ssh")]
 pub struct SshHost {
-    client: SshClient,
+    client: Client,
+    fs: Fs,
+    /// Memoised platform probe (one SSH round-trip per install).
+    platform: tokio::sync::OnceCell<RemotePlatform>,
 }
 
 #[cfg(feature = "ssh")]
 impl SshHost {
     pub async fn connect(target: RemoteConfig, timeout_secs: u64) -> Result<Self> {
+        let client = target.connect(timeout_secs).await?;
+        let fs = client.fs();
         Ok(Self {
-            client: SshClient::connect(&target, timeout_secs).await?,
+            client,
+            fs,
+            platform: tokio::sync::OnceCell::new(),
         })
+    }
+
+    /// Detect the remote platform once per install.
+    async fn detect_platform(&self) -> Result<RemotePlatform> {
+        self.platform
+            .get_or_try_init(|| detect_platform(&self.client, &self.fs))
+            .await
+            .cloned()
     }
 }
 
@@ -215,11 +248,11 @@ impl Host for SshHost {
     }
 
     fn label(&self) -> String {
-        self.client.label()
+        self.client.label().to_string()
     }
 
     fn expand(&self, path: &str) -> String {
-        self.client.expand_path(path)
+        self.client.expand_path(path).to_string_lossy().into_owned()
     }
 
     fn home_dir(&self) -> String {
@@ -230,49 +263,82 @@ impl Host for SshHost {
     }
 
     async fn platform(&self) -> Option<String> {
-        self.client
-            .detect_platform()
+        self.detect_platform()
             .await
             .ok()
-            .map(|p| p.describe())
+            .map(|platform| platform.describe())
     }
 
     async fn targets(&self) -> Option<Vec<Target>> {
-        let platform = self.client.detect_platform().await.ok()?;
-        Some(vec![platform.target_triple()?])
+        Some(vec![self.detect_platform().await.ok()?.target_triple()?])
     }
 
     async fn mkdir(&self, dir: &str) -> Result<()> {
-        self.client.ensure_dir(dir).await
+        self.fs
+            .create_dir_all(dir)
+            .await
+            .map_err(|e| err!("failed to create '{dir}' on {}: {e}", self.label()))
     }
 
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
-        self.client.write_file(path, data, mode).await
+        // `Fs::write_with_mode` matches `std::fs::write` and does not create
+        // parents; installs may target a nested directory, so do it here.
+        self.fs.create_parent_dirs(path).await.map_err(|e| {
+            err!(
+                "failed to create the parent of '{path}' on {}: {e}",
+                self.label()
+            )
+        })?;
+        self.fs
+            .write_with_mode(path, data, mode)
+            .await
+            .map_err(|e| err!("failed to write '{path}' on {}: {e}", self.label()))
     }
 
     async fn exists(&self, path: &str) -> bool {
-        self.client.exists(path).await
+        self.fs.try_exists(path).await.unwrap_or(false)
     }
 
     async fn remove(&self, path: &str) -> Result<()> {
-        self.client.remove_file(path).await
+        match self.fs.remove_file(path).await {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(err!("failed to remove '{path}' on {}: {e}", self.label())),
+        }
     }
 
     async fn chmod(&self, path: &str) -> Result<()> {
-        self.client.make_executable(path).await
+        // `chmod +x` semantics: keep the existing mode, add execute bits.
+        let meta = self
+            .fs
+            .metadata(path)
+            .await
+            .map_err(|e| err!("failed to stat '{path}' on {}: {e}", self.label()))?;
+        self.fs
+            .set_mode(path, meta.permissions().mode() | 0o111)
+            .await
+            .map_err(|e| err!("failed to chmod '{path}' on {}: {e}", self.label()))
     }
 
     async fn free_space(&self, dir: &str) -> Result<Option<u64>> {
-        self.client.available_space(dir).await
+        self.fs
+            .available_space(dir)
+            .await
+            .map_err(|e| err!("failed to check disk space on {}: {e}", self.label()))
     }
 
     async fn run(&self, program: &str, args: &[&str]) -> Result<CommandResult> {
-        let mut command = crate::remote::sh_quote(program);
+        let mut command = shell_quote(program);
         for arg in args {
             command.push(' ');
-            command.push_str(&crate::remote::sh_quote(arg));
+            command.push_str(&shell_quote(arg));
         }
-        self.client.exec(&command).await
+        let output = self
+            .client
+            .exec(&command)
+            .await
+            .map_err(|e| err!("failed to run {program} on {}: {e}", self.label()))?;
+        Ok(output.into())
     }
 
     async fn add_to_path(&self, dir: &str, quiet: bool) -> Result<()> {
@@ -407,5 +473,17 @@ mod tests {
         let host = LocalHost;
         assert!(!host.expand("./relative").contains('~'));
         assert!(host.home_dir().ends_with(".ei"));
+    }
+
+    /// `sssh::Output` is adapted to the string-based `CommandResult` used by
+    /// the rest of the install pipeline.
+    #[cfg(feature = "ssh")]
+    #[test]
+    fn converts_ssh_output() {
+        let result: CommandResult = sssh::Output::default().into();
+        assert!(result.success());
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "");
     }
 }
