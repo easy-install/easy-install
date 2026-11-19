@@ -12,6 +12,9 @@
 //! the mapping from those facts to a target triple is
 //! [`guess_target::guess_system_target`], shared with other tools.
 
+// The probe helpers are only used by the `ssh` transport, but the platform
+// tests exercise them in every build, so the import stays unconditional.
+#[cfg_attr(not(feature = "ssh"), allow(unused_imports))]
 use guess_target::{Libc, SystemInfo, Target, guess_system_target};
 use std::str::FromStr;
 

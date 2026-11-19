@@ -329,7 +329,27 @@ Upgrade `ei` itself to the latest version with a single command:
 ei upgrade
 ```
 
-This will download the latest release from the official repository and replace the current binary in-place.
+This downloads the latest release from the official repository and replaces the
+current binary in-place.
+
+The **build flavor is preserved**: an `aarch64-linux-android` binary upgrades to
+`aarch64-linux-android`, a musl build stays musl, and so on. This is deliberate —
+a persisted `ei config target` may point at a different ABI for normal installs,
+and a musl binary on Android cannot resolve DNS. Use `--target` only to override
+that choice explicitly:
+
+```bash
+# Force a specific target (rarely needed)
+ei upgrade --target x86_64-unknown-linux-musl
+```
+
+If the install fails or produces an empty file, the previous binary is restored
+automatically (on Windows the running image is first renamed to `ei.exe.old`).
+
+> ⚠️ `ei upgrade` is **local only**. It replaces the executable of the process
+> running it, so remote settings (e.g. a `user@host:/path` saved with
+> `ei config dir`) are ignored. Upgrade a remote copy by running
+> `ssh user@host ei upgrade` there.
 
 ### Configuration Management
 

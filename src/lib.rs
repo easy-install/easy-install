@@ -11,10 +11,9 @@ mod optimize;
 mod remote;
 mod tool;
 mod types;
+pub mod upgrade;
 
 use crate::backend::{Backend, Host};
-#[cfg(windows)]
-use crate::error::Context;
 use crate::error::{Result, err};
 use crate::tool::expand_path;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
@@ -43,12 +42,6 @@ pub struct InstallConfig {
     pub regex: Option<String>,
     /// When set, install to this SSH host instead of the local filesystem.
     pub remote: Option<RemoteConfig>,
-    /// Target platform probed from the install backend (e.g. the remote host).
-    ///
-    /// Filled in by [`ei`] when no explicit `--target` was given. Kept
-    /// separate from `target` so a user-supplied value always wins and the
-    /// probed value can be recomputed for each invocation.
-    pub resolved_targets: Option<Vec<Target>>,
 }
 
 impl Default for InstallConfig {
@@ -62,7 +55,6 @@ impl Default for InstallConfig {
             proxy: Proxy::Github,
             timeout: 600,
             strip: false,
-            resolved_targets: None,
             upx: false,
             quiet: false,
             no_path: false,
@@ -94,26 +86,19 @@ impl InstallConfig {
             fuzzy: false,
             regex: None,
             remote: None,
-            resolved_targets: None,
         }
     }
 
     /// Target triples to match artifacts against.
     ///
-    /// Priority: explicit `--target` → platform probed from the install
-    /// backend (e.g. the remote host) → compile-time local target.
+    /// An explicit [`Self::target`] wins; otherwise the compile-time target of
+    /// this binary. Remote installs fill [`Self::target`] with the probed
+    /// remote platform before matching (see [`resolve_remote_targets`]).
     pub fn targets(&self) -> Vec<Target> {
-        if let Some(t) = self.target {
-            return vec![t];
+        match self.target {
+            Some(target) => vec![target],
+            None => guess_target::get_local_target().to_vec(),
         }
-        // A remote install probes the remote host first; that result takes
-        // precedence over the compile-time target of this binary.
-        if let Some(t) = &self.resolved_targets
-            && !t.is_empty()
-        {
-            return t.clone();
-        }
-        guess_target::get_local_target().to_vec()
     }
 }
 
@@ -170,6 +155,10 @@ pub enum Command {
         shell: clap_complete::Shell,
     },
     /// Upgrade ei to the latest version
+    ///
+    /// Keeps the build flavor this binary was compiled for (an
+    /// `aarch64-linux-android` binary stays Android, a musl build stays musl).
+    /// Use `--target` to override deliberately.
     Upgrade,
 }
 
@@ -267,8 +256,12 @@ pub struct Args {
     /// Auto-detected from the local machine when omitted. Required for SSH
     /// remote installs (`user@host:/path`): the local platform says nothing
     /// about the remote host, so guessing would download the wrong binary.
+    ///
+    /// `ei upgrade` defaults to the target this binary was compiled for, and
+    /// accepts this flag as an explicit override.
     #[arg(
         long,
+        global = true,
         help = "Target platform (auto-detected locally if not specified; required for SSH installs)"
     )]
     pub target: Option<Target>,
@@ -439,7 +432,6 @@ impl From<Args> for InstallConfig {
             fuzzy: value.fuzzy,
             regex: value.regex,
             remote,
-            resolved_targets: None,
         }
     }
 }
@@ -455,8 +447,8 @@ pub async fn run_main(args: Args) -> Result<()> {
         return handle_completions_command(shell);
     }
 
-    if let Some(Command::Upgrade) = args.cmd {
-        return handle_upgrade(args.into()).await;
+    if matches!(&args.cmd, Some(Command::Upgrade)) {
+        return handle_upgrade(args).await;
     }
 
     // Handle config subcommand
@@ -521,7 +513,10 @@ async fn resolve_remote_targets(
                 join_targets(&targets)
             );
         }
-        config.resolved_targets = Some(targets);
+        // The SSH probe reports exactly one usable triple. Store it in
+        // `target` on this (per-invocation) clone so every artifact-matching
+        // helper sees the remote platform instead of the local one.
+        config.target = targets.first().copied();
         return Ok(());
     }
 
@@ -566,44 +561,23 @@ fn handle_completions_command(shell: clap_complete::Shell) -> Result<()> {
     Ok(())
 }
 
-async fn handle_upgrade(user_config: InstallConfig) -> Result<()> {
-    let exe = std::env::current_exe()?;
-    let dir = exe.parent().ok_or_else(|| err!("ei dir not found"))?;
+async fn handle_upgrade(args: Args) -> Result<()> {
+    // `--target` given on the command line wins. The *persisted* `config
+    // target` must not: it selects artifacts for normal installs and may name
+    // a different ABI than this binary (e.g. musl on Termux), which would
+    // replace a working binary with one whose DNS resolver hangs.
+    let explicit_target = args.target;
+    let mut config: InstallConfig = args.into();
+    config.target = None;
+    // Remote settings are not an upgrade concern: `upgrade` pins
+    // `remote: None` (it can only replace the local running executable).
 
-    // Merge user CLI options (--no-path, --quiet, --proxy, etc.) with
-    // upgrade-specific overrides: dir = exe directory, alias = "ei".
-    let config = InstallConfig {
-        dir: Some(dir.to_string_lossy().to_string()),
-        alias: Some("ei".to_string()),
-        ..user_config
+    let options = upgrade::UpgradeOptions {
+        target: explicit_target,
+        ..upgrade::UpgradeOptions::new("easy-install/easy-install", "ei", config)
     };
-
-    #[cfg(windows)]
-    {
-        // Windows locks running executables — they can be renamed but not
-        // overwritten. Rename the old binary first, then install the new
-        // one. Rollback on failure so the user isn't left without ei.
-        let old_exe = exe.with_extension("exe.old");
-        let _ = std::fs::remove_file(&old_exe);
-        std::fs::rename(&exe, &old_exe).context("Failed to rename running ei.exe for upgrade")?;
-
-        match ei("easy-install/easy-install", &config).await {
-            Ok(()) => {
-                let _ = std::fs::remove_file(&old_exe);
-                Ok(())
-            }
-            Err(e) => {
-                let _ = std::fs::remove_file(&exe);
-                std::fs::rename(&old_exe, &exe)?;
-                Err(e)
-            }
-        }
-    }
-
-    #[cfg(not(windows))]
-    {
-        ei("easy-install/easy-install", &config).await
-    }
+    upgrade::upgrade(options).await?;
+    Ok(())
 }
 
 fn handle_config_command(subcmd: Option<ConfigSubcommand>, quiet: bool) -> Result<()> {
