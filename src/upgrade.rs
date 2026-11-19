@@ -264,9 +264,12 @@ fn warn_on_cross_platform_upgrade(target: Target, quiet: bool) {
 /// Create the backup of `exe`.
 ///
 /// Windows cannot delete or overwrite a running image, so the file is renamed
-/// away and the installer writes a fresh one. On Unix the running image can be
-/// unlinked, and `write_to_file` does exactly that before writing; a hard link
-/// (or a copy when links are unsupported) keeps a rollback path.
+/// away and the installer writes a fresh one.
+///
+/// On Unix the running image may be unlinked, but the installer could also
+/// truncate it in place (`std::fs::write` does). A hard link would share the
+/// inode and be emptied along with it, so this makes a real copy — the only
+/// version that survives every way an installer may overwrite the file.
 fn prepare_backup(exe: &Path) -> Result<PathBuf> {
     let backup = backup_path(exe);
     remove_if_exists(&backup)?;
@@ -277,13 +280,9 @@ fn prepare_backup(exe: &Path) -> Result<PathBuf> {
     })?;
 
     #[cfg(not(windows))]
-    {
-        if std::fs::hard_link(exe, &backup).is_err() {
-            std::fs::copy(exe, &backup).with_context(|| {
-                format!("failed to back up the running executable '{}'", exe.display())
-            })?;
-        }
-    }
+    std::fs::copy(exe, &backup).with_context(|| {
+        format!("failed to back up the running executable '{}'", exe.display())
+    })?;
 
     Ok(backup)
 }
