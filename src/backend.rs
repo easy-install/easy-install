@@ -96,6 +96,10 @@ pub trait Host {
     #[allow(dead_code)] // part of the public host API
     async fn exists(&self, path: &str) -> bool;
 
+    /// Size of the regular file at `path` in bytes, or `None` when it does not
+    /// exist (or is not a regular file).
+    async fn file_size(&self, path: &str) -> Option<u64>;
+
     /// Remove a file, ignoring "not found".
     #[allow(dead_code)] // part of the public host API
     async fn remove(&self, path: &str) -> Result<()>;
@@ -154,6 +158,11 @@ impl Host for LocalHost {
 
     async fn exists(&self, path: &str) -> bool {
         std::fs::exists(path).unwrap_or(false)
+    }
+
+    async fn file_size(&self, path: &str) -> Option<u64> {
+        let meta = std::fs::metadata(path).ok()?;
+        meta.is_file().then_some(meta.len())
     }
 
     async fn remove(&self, path: &str) -> Result<()> {
@@ -299,6 +308,11 @@ impl Host for SshHost {
         self.fs.try_exists(path).await.unwrap_or(false)
     }
 
+    async fn file_size(&self, path: &str) -> Option<u64> {
+        let meta = self.fs.metadata(path).await.ok()?;
+        meta.is_file().then_some(meta.len())
+    }
+
     async fn remove(&self, path: &str) -> Result<()> {
         match self.fs.remove_file(path).await {
             Ok(()) => Ok(()),
@@ -433,6 +447,10 @@ impl Host for Backend {
         forward!(self, h => h.exists(path).await)
     }
 
+    async fn file_size(&self, path: &str) -> Option<u64> {
+        forward!(self, h => h.file_size(path).await)
+    }
+
     async fn remove(&self, path: &str) -> Result<()> {
         forward!(self, h => h.remove(path).await)
     }
@@ -473,6 +491,32 @@ mod tests {
         let host = LocalHost;
         assert!(!host.expand("./relative").contains('~'));
         assert!(host.home_dir().ends_with(".ei"));
+    }
+
+    /// `file_size` drives the "replacing an existing file frees its space"
+    /// discount. It must report real sizes and `None` for anything that is not
+    /// an existing regular file — otherwise the disk check would be wrong.
+    ///
+    /// `SshHost` implements the same trait method on top of `sssh::Fs`, so the
+    /// remote install gets the identical behaviour.
+    #[tokio::test]
+    async fn file_size_reports_regular_files_only() {
+        let dir = std::env::temp_dir().join(format!("ei-file-size-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let host = LocalHost;
+
+        let file = dir.join("binary");
+        std::fs::write(&file, b"1234567890").unwrap();
+        assert_eq!(host.file_size(file.to_str().unwrap()).await, Some(10));
+
+        let missing = dir.join("missing");
+        assert_eq!(host.file_size(missing.to_str().unwrap()).await, None);
+
+        // A directory is not a file: its size must not be discounted.
+        assert_eq!(host.file_size(dir.to_str().unwrap()).await, None);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// `sssh::Output` is adapted to the string-based `CommandResult` used by

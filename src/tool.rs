@@ -527,7 +527,6 @@ pub(crate) async fn check_disk_space(
     files: &[OutputFile],
     dir: &Path,
 ) -> Result<()> {
-    let sum: u64 = files.iter().map(|i| i.size).sum();
     let dir_str = path_to_str(dir);
 
     // Create the install directory before measuring free space.
@@ -543,21 +542,66 @@ pub(crate) async fn check_disk_space(
     // `None` means the backend could not measure free space; `Some(0)` is a
     // genuinely full filesystem and must be rejected up front — otherwise the
     // archive is downloaded and every write fails with "wrote 0 of N bytes".
-    if let Ok(Some(disk)) = backend.free_space(&dir_str).await
-        && disk < sum
-    {
+    let Ok(Some(disk)) = backend.free_space(&dir_str).await else {
+        return Ok(());
+    };
+
+    let required: u64 = files.iter().map(|file| file.size).sum();
+
+    // Fast path: everything fits even if nothing is replaced. This costs no
+    // extra round trips, which matters for SSH: probing N existing files is N
+    // remote `stat` calls.
+    if disk >= required {
+        return Ok(());
+    }
+
+    // Overwriting an existing file frees its current blocks, so that space
+    // cannot make the install fail. Re-installing a 25 MB package over an old
+    // 24 MB copy needs about 1 MB, not 25 MB — without this, upgrades and
+    // re-installs fail on small /jffs-style partitions that are merely
+    // *tight*, not full. Works for both local and remote installs: the size
+    // comes from `Host::file_size`.
+    let mut reclaimed: u64 = 0;
+    for file in files {
+        // `write_to_file` removes the old file before writing, so the full old
+        // size is available again.
+        if let Some(size) = backend.file_size(&file.install_path).await {
+            reclaimed = reclaimed.saturating_add(size);
+        }
+    }
+
+    let needed = space_needed(required, reclaimed);
+    if disk < needed {
+        let reclaim_note = if reclaimed > 0 {
+            format!(
+                "\n  Existing files will be replaced: {}\n  Additional space needed: {}",
+                human_size(reclaimed as usize),
+                human_size(needed as usize)
+            )
+        } else {
+            String::new()
+        };
         return Err(err!(
             r#"Insufficient disk space for installation
   Installation directory: {}
   Available space: {}
-  Required space: {}"#,
+  Required space: {}{reclaim_note}"#,
             dir_str,
             format_size(disk),
-            human_size(sum as usize),
+            human_size(required as usize),
         ));
     }
 
     Ok(())
+}
+
+/// Space that must be free *in addition to* what replacing existing files
+/// frees again.
+///
+/// Saturating: replacing larger files (a downgrade) can free more than the
+/// install writes, in which case nothing extra is needed.
+fn space_needed(required: u64, reclaimed: u64) -> u64 {
+    required.saturating_sub(reclaimed)
 }
 
 pub(crate) async fn install_output_files(
@@ -1170,7 +1214,22 @@ mod test {
     };
     use github_proxy::Proxy;
 
-    use super::{get_bin_name, get_common_prefix_len};
+    use super::{get_bin_name, get_common_prefix_len, space_needed};
+
+    #[test]
+    fn space_needed_discounts_replaced_files() {
+        // Fresh install: everything must fit.
+        assert_eq!(space_needed(25, 0), 25);
+        // Re-installing over a slightly older build: only the delta matters.
+        assert_eq!(space_needed(25, 24), 1);
+        // Identical size: nothing extra needed.
+        assert_eq!(space_needed(25, 25), 0);
+        // Downgrade to a smaller build frees more than it writes: never
+        // negative (saturating).
+        assert_eq!(space_needed(25, 40), 0);
+        // Multiple files: callers sum both sides first.
+        assert_eq!(space_needed(10 + 20, 5 + 22), 3);
+    }
 
     #[test]
     fn test_is_file() {
