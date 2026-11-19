@@ -147,9 +147,12 @@ impl Host for LocalHost {
     }
 
     async fn mkdir(&self, dir: &str) -> Result<()> {
-        std::fs::create_dir_all(dir)
-            .with_context(|| format!("failed to create directory '{dir}'"))?;
-        Ok(())
+        std::fs::create_dir_all(dir).map_err(|e| {
+            if crate::error::is_out_of_space(&e) {
+                return err!("{}", crate::error::disk_full_message(dir, &e));
+            }
+            err!("failed to create directory '{dir}': {e}")
+        })
     }
 
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
@@ -283,16 +286,24 @@ impl Host for SshHost {
     }
 
     async fn mkdir(&self, dir: &str) -> Result<()> {
-        self.fs
-            .create_dir_all(dir)
-            .await
-            .map_err(|e| err!("failed to create '{dir}' on {}: {e}", self.label()))
+        self.fs.create_dir_all(dir).await.map_err(|e| {
+            if crate::error::is_out_of_space(&e) {
+                return err!("{}", crate::error::disk_full_message(dir, &e));
+            }
+            err!("failed to create '{dir}' on {}: {e}", self.label())
+        })
     }
 
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
         // `Fs::write_with_mode` matches `std::fs::write` and does not create
         // parents; installs may target a nested directory, so do it here.
         self.fs.create_parent_dirs(path).await.map_err(|e| {
+            if crate::error::is_out_of_space(&e) {
+                return err!(
+                    "{}",
+                    crate::error::disk_full_message(path, &e)
+                );
+            }
             err!(
                 "failed to create the parent of '{path}' on {}: {e}",
                 self.label()
@@ -301,7 +312,17 @@ impl Host for SshHost {
         self.fs
             .write_with_mode(path, data, mode)
             .await
-            .map_err(|e| err!("failed to write '{path}' on {}: {e}", self.label()))
+            .map_err(|e| {
+                // Remote `cat`/`dd` report ENOSPC through stderr; map it so
+                // the user sees the same message as for a local install.
+                if crate::error::is_out_of_space(&e) {
+                    return err!(
+                        "{}",
+                        crate::error::disk_full_message(path, &e)
+                    );
+                }
+                err!("failed to write '{path}' on {}: {e}", self.label())
+            })
     }
 
     async fn exists(&self, path: &str) -> bool {

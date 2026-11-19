@@ -303,8 +303,16 @@ pub(crate) fn write_to_file(src: &str, buffer: &[u8], mode: &Option<u32>) -> Res
         }
     }
 
-    if !buffer.is_empty() {
-        std::fs::write(src, buffer).with_context(|| format!("failed to write file '{src}'"))?;
+    if !buffer.is_empty()
+        && let Err(e) = std::fs::write(src, buffer)
+    {
+        // The up-front check passed, so the disk filled in between (or the
+        // quota is per-user). Report the real cause instead of a bare
+        // "failed to write".
+        if crate::error::is_out_of_space(&e) {
+            bail!("{}", crate::error::disk_full_message(src, &e));
+        }
+        return Err(e).with_context(|| format!("failed to write file '{src}'"));
     }
 
     #[cfg(unix)]
