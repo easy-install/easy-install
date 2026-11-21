@@ -1,9 +1,9 @@
 use crate::InstallConfig;
-use crate::artifact::{GhArtifact, GhArtifacts};
-use crate::download::{download, download_dist_manifest, download_json};
+use crate::download::{download_json, download_text};
 use crate::error::{Context, Result, err};
 use crate::manifest::DistManifest;
 use crate::tool::get_artifact_url;
+use github_proxy::artifacts::{GhArtifact, GhArtifacts};
 use github_proxy::{Proxy, Resource};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -184,7 +184,7 @@ impl Repo {
                 tag: tag.to_string(),
                 name: filename.to_string(),
             };
-            return proxy.url(release).unwrap_or(url.to_string());
+            return proxy.url(&release).unwrap_or(url.to_string());
         }
 
         // If URL doesn't match GitHub release pattern, return as-is
@@ -218,7 +218,7 @@ impl Repo {
             tag: tag.to_string(),
             name: filename.to_string(),
         };
-        proxy.url(release)
+        proxy.url(&release)
     }
 
     pub(crate) async fn get_manifest_url(
@@ -242,7 +242,7 @@ impl Repo {
                     name: filename.to_string(),
                 };
                 proxy
-                    .url(resource)
+                    .url(&resource)
                     .context("Failed to get manifest URL from latest tag")
             }
         }
@@ -262,9 +262,7 @@ impl Repo {
         let releases_url = format!("https://github.com/{}/{}/releases", self.owner, self.name);
         trace!("Fetching releases page to get latest tag: {}", releases_url);
 
-        if let Ok(response) = download(&releases_url, retry, timeout).await
-            && let Ok(html) = response.text().await
-        {
+        if let Ok(html) = download_text(&releases_url, retry, timeout).await {
             return Self::parse_latest_tag(&html);
         }
 
@@ -272,8 +270,7 @@ impl Repo {
             "https://data.jsdelivr.com/v1/package/gh/{}/{}",
             self.owner, self.name
         );
-        let response = download(&pkg_url, retry, timeout).await?;
-        let pkg: JsdelivrPackage = response.json().await?;
+        let pkg: JsdelivrPackage = download_json(&pkg_url, retry, timeout).await?;
 
         if let Some(v) = pkg.tags.get("latest") {
             return Ok(v.to_string());
@@ -318,6 +315,7 @@ impl Repo {
             assets.insert(GhArtifact {
                 name,
                 browser_download_url,
+                size: 0,
                 url: None,
             });
         }
@@ -335,7 +333,7 @@ impl Repo {
         proxy: Proxy,
         timeout: u64,
     ) -> Result<DistManifest> {
-        download_dist_manifest(
+        download_json(
             &self.get_manifest_url(proxy, retry, timeout).await?,
             retry,
             timeout,
@@ -353,8 +351,7 @@ impl Repo {
             .await?;
         trace!("Fetching release page HTML from {}", page_url);
 
-        let response = download(&page_url, config.retry, config.timeout).await?;
-        let html = response.text().await?;
+        let html = download_text(&page_url, config.retry, config.timeout).await?;
 
         let artifacts = Self::parse_release_html(&html)?;
         get_artifact_url(artifacts, config)
@@ -394,8 +391,7 @@ impl Repo {
                 );
 
                 let page_url = self.get_release_page_url(retry, timeout).await?;
-                let response = download(&page_url, retry, timeout).await?;
-                let html = response.text().await?;
+                let html = download_text(&page_url, retry, timeout).await?;
                 Self::parse_release_html(&html).map_err(|html_error| {
                     err!(
                         "Failed to retrieve artifacts for {}/{}. API error: {}. HTML parsing error: {}",
@@ -426,7 +422,7 @@ impl Nightly {
         retry: usize,
         timeout: u64,
     ) -> Result<GhArtifacts> {
-        let html = download(&self.url, retry, timeout).await?.text().await?;
+        let html = download_text(&self.url, retry, timeout).await?;
         if html.contains("class=\"absent\"") {
             return Ok(Default::default());
         }
@@ -439,6 +435,7 @@ impl Nightly {
             assets.insert(GhArtifact {
                 name,
                 browser_download_url,
+                size: 0,
                 url: None,
             });
         }

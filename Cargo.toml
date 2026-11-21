@@ -50,6 +50,9 @@ path-clean = "1"
 thiserror = "2"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy", features = [
   "serde",
+  "fetch",
+  "token",
+  "artifacts",
 ] }
 shellexpand = "3"
 fs4 = "1"

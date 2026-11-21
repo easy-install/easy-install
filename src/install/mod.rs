@@ -8,7 +8,7 @@ mod repo;
 use crate::InstallConfig;
 use crate::backend::{Backend, Host};
 use crate::ci::{CiRun, RE_CI_WORKFLOW, resolve_ci_workflow};
-use crate::download::{download_dist_manifest, get_bytes, read_dist_manifest};
+use crate::download::{download_json, get_bytes, read_dist_manifest};
 use crate::error::{Context, Result, bail};
 use crate::install::artifact::install_from_artifact_url;
 use crate::install::ci::install_from_ci;
@@ -17,7 +17,7 @@ use crate::install::manifest::install_from_manifest;
 use crate::install::nightly::install_from_nightly;
 use crate::install::repo::install_from_github;
 use crate::tool::{
-    get_filename, is_archive_file, is_dist_manifest, is_exe_file, is_known_format, is_url,
+    get_filename, is_archive_file, is_dist_manifest, is_exe_file, is_known_format,
     name_no_ext,
 };
 use crate::types::{Nightly, Output, Repo};
@@ -128,8 +128,8 @@ pub(crate) async fn install(
     let repo = Repo::try_from(url);
 
     if is_dist_manifest(url) {
-        let manifest = if is_url(url) {
-            download_dist_manifest(url, config.retry, config.timeout).await
+        let manifest = if github_proxy::fetch::Url::is_valid(url) {
+            download_json(url, config.retry, config.timeout).await
         } else {
             read_dist_manifest(url)
         };
@@ -179,7 +179,7 @@ pub(crate) async fn install(
         return install_from_ci(backend, &ci, config).await;
     }
 
-    if is_url(url) {
+    if github_proxy::fetch::Url::is_valid(url) {
         let proxied = apply_proxy(url, config.proxy);
 
         if is_archive_file(&proxied) {

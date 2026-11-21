@@ -1,5 +1,5 @@
 use crate::InstallConfig;
-use crate::artifact::GhArtifacts;
+use github_proxy::artifacts::GhArtifacts;
 use crate::backend::{Backend, Host};
 use crate::error::{Context, Result, bail, err};
 use crate::manifest::DistManifest;
@@ -412,7 +412,7 @@ fn push_manifest_artifact(
             guess_target(&raw).pop().map_or(raw, |i| i.name)
         }
     };
-    if !is_url(key) {
+    if !github_proxy::fetch::Url::is_valid(key) {
         v.push((name, replace_filename(url, key)));
     } else {
         v.push((name, key.to_string()));
@@ -809,33 +809,6 @@ pub(crate) fn is_exe_file(s: &str) -> Result<bool> {
     Ok(false)
 }
 
-/// Parse and validate URL before downloading
-/// Returns Ok(Url) if valid, Err with description if invalid
-pub(crate) fn parse_and_validate_url(url: &str) -> Result<reqwest::Url> {
-    // Check if URL is empty
-    if url.trim().is_empty() {
-        return Err(err!("URL cannot be empty"));
-    }
-
-    // Parse URL
-    let parsed = reqwest::Url::parse(url).context(format!("Invalid URL format: {}", url))?;
-
-    // Check scheme (only allow http/https)
-    let scheme = parsed.scheme();
-    if scheme != "http" && scheme != "https" {
-        return Err(err!(
-            "Invalid URL scheme '{}': only http and https are allowed",
-            scheme
-        ));
-    }
-
-    Ok(parsed)
-}
-
-pub(crate) fn is_url(s: &str) -> bool {
-    parse_and_validate_url(s).is_ok()
-}
-
 pub(crate) fn is_dist_manifest(s: &str) -> bool {
     s.ends_with(".json")
 }
@@ -1213,10 +1186,10 @@ mod test {
 
     use crate::{
         InstallConfig,
-        download::download_dist_manifest,
+        download::download_json,
         tool::{
             dirname, get_artifact_url_from_manifest, is_archive_file, is_compatible_abi,
-            is_exe_file, is_url, name_boundary_match,
+            is_exe_file, name_boundary_match,
         },
         types::Repo,
     };
@@ -1322,8 +1295,9 @@ mod test {
 
     #[test]
     fn test_is_url() {
-        assert!(is_url("https://github.com/ahaoboy/ansi2"));
-        assert!(!is_url("ansi2"));
+        use github_proxy::fetch::Url;
+        assert!(Url::is_valid("https://github.com/ahaoboy/ansi2"));
+        assert!(!Url::is_valid("ansi2"));
     }
 
     #[tokio::test]
@@ -1384,7 +1358,7 @@ mod test {
     #[tokio::test]
     async fn test_cargo_dist() {
         let url = "https://github.com/axodotdev/cargo-dist/releases/download/v1.0.0-rc.1/dist-manifest.json";
-        let manifest = download_dist_manifest(url, 3, 30).await.unwrap();
+        let manifest = download_json(url, 3, 30).await.unwrap();
         let art_url = get_artifact_url_from_manifest(url, &manifest, &InstallConfig::default());
         assert!(!art_url.is_empty())
     }
@@ -1483,7 +1457,7 @@ mod test {
     /// `lo-linux-musl-x64.gz`.
     #[test]
     fn test_target_exact_beats_abi_fallback() {
-        use crate::artifact::{GhArtifact, GhArtifacts};
+        use github_proxy::artifacts::{GhArtifact, GhArtifacts};
         use crate::tool::get_artifact_url;
         use std::collections::HashSet;
         use std::str::FromStr;
@@ -1495,6 +1469,7 @@ mod test {
                 browser_download_url: format!(
                     "https://github.com/just-js/lo/releases/download/0.0.33-pre/{f}"
                 ),
+                size: 0,
                 url: None,
             });
         }

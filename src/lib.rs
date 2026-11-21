@@ -1,4 +1,3 @@
-mod artifact;
 mod backend;
 mod ci;
 mod config;

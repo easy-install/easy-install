@@ -42,6 +42,10 @@ pub enum Error {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
 
+    /// Error from the `github-proxy` HTTP helpers.
+    #[error(transparent)]
+    Net(#[from] github_proxy::fetch::Error),
+
     /// JSON (de)serialization error.
     #[error(transparent)]
     Json(#[from] serde_json::Error),

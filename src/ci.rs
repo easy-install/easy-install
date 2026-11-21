@@ -1,8 +1,8 @@
 use crate::InstallConfig;
-use crate::artifact::{GhArtifact, GhArtifacts};
 use crate::download::download_json;
 use crate::error::{Context, Result, err};
 use crate::tool::get_artifact_url;
+use github_proxy::artifacts::{GhArtifact, GhArtifacts};
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -120,6 +120,7 @@ impl CiRun {
             assets.insert(GhArtifact {
                 name: format!("{}.zip", a.name),
                 browser_download_url: a.archive_download_url,
+                size: 0,
                 url: None,
             });
         }
