@@ -12,6 +12,9 @@
 //! the mapping from those facts to a target triple is
 //! [`guess_target::guess_system_target`], shared with other tools.
 
+use crate::InstallConfig;
+use crate::backend::{Backend, Host};
+use crate::error::{Result, err};
 // The probe helpers are only used by the `ssh` transport, but the platform
 // tests exercise them in every build, so the import stays unconditional.
 #[cfg_attr(not(feature = "ssh"), allow(unused_imports))]
@@ -19,7 +22,7 @@ use guess_target::{Libc, SystemInfo, Target, guess_system_target};
 use std::str::FromStr;
 
 #[cfg(feature = "ssh")]
-use crate::error::{Context, Result, err};
+use crate::error::Context;
 #[cfg(feature = "ssh")]
 use sssh::{Auth, Client, Fs};
 
@@ -187,8 +190,11 @@ impl RemoteConfig {
     }
 
     /// Connect over SSH using the configured authentication method.
+    ///
+    /// Crate-internal: the returned client type belongs to the optional
+    /// `sssh` dependency and is not part of `ei`'s public API.
     #[cfg(feature = "ssh")]
-    pub async fn connect(&self, timeout_secs: u64) -> Result<Client> {
+    pub(crate) async fn connect(&self, timeout_secs: u64) -> Result<Client> {
         let target = format!("{}@{}", self.user, self.host);
         Client::connect_target(&target, self.port, self.auth()?, Some(timeout_secs.max(1)))
             .await
@@ -218,7 +224,7 @@ impl RemoteConfig {
             return Ok(Auth::key(key));
         }
         if let Some(identity) = identity {
-            let path = crate::tool::expand_path(identity);
+            let path = crate::path::expand_path(identity);
             let key = std::fs::read_to_string(&path)
                 .with_context(|| format!("failed to read SSH key '{path}'"))?;
             return Ok(Auth::key(key));
@@ -237,6 +243,9 @@ impl RemoteConfig {
 ///
 /// Returns `None` for anything that is not a remote spec, notably local
 /// Windows paths (`C:\…`, `C:/…`) and plain directories.
+// Only the CLI turns `--dir` strings into remote specs; embedders set
+// `InstallConfig::remote` directly.
+#[cfg_attr(not(feature = "cli"), allow(dead_code))]
 pub fn parse_remote(value: &str) -> Option<(RemoteConfig, String)> {
     let value = value.trim();
 
@@ -283,10 +292,78 @@ pub fn parse_remote(value: &str) -> Option<(RemoteConfig, String)> {
 }
 
 /// Best-effort local username, used when the destination omits `user@`.
+#[cfg_attr(not(feature = "cli"), allow(dead_code))]
 fn default_user() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_default()
+}
+
+/// Pick the artifact target for a remote install.
+///
+/// The local platform says nothing about the remote host, so it is never used
+/// as a fallback: the remote platform is probed instead, and the install fails
+/// with instructions when that is impossible. An explicit `target` always wins
+/// and skips the probe.
+pub(crate) async fn resolve_target(
+    url: &str,
+    config: &mut InstallConfig,
+    backend: &Backend,
+) -> Result<()> {
+    let Some(remote) = &config.remote else {
+        return Ok(());
+    };
+    if config.target.is_some() {
+        return Ok(());
+    }
+
+    if let Some(targets) = backend
+        .targets()
+        .await
+        .filter(|targets| !targets.is_empty())
+    {
+        if !config.quiet {
+            let platform = backend.platform().await.unwrap_or_else(|| "unknown".into());
+            println!(
+                "Detected remote platform: {platform} → {}",
+                join_targets(&targets)
+            );
+        }
+        // The SSH probe reports exactly one usable triple. Store it in
+        // `target` on this (per-invocation) clone so every artifact-matching
+        // helper sees the remote platform instead of the local one.
+        config.target = targets.first().copied();
+        return Ok(());
+    }
+
+    let local = join_targets(guess_target::get_local_target());
+    let path = config.dir.as_deref().unwrap_or_default();
+    let dest = format!("{}:{path}", remote.label());
+    let port = if remote.port == 22 {
+        String::new()
+    } else {
+        format!(" -P {}", remote.port)
+    };
+    Err(err!(
+        "could not detect the target platform of {}
+
+  Refusing to fall back to the LOCAL platform ({local}), which is almost
+  never the remote host's platform.
+
+  Pass the remote platform explicitly, e.g.:
+    ei {url} -d {dest}{port} --target aarch64-unknown-linux-gnu
+    ei {url} -d {dest}{port} --target x86_64-unknown-linux-musl",
+        remote.label()
+    ))
+}
+
+/// Comma-separated target triples, for log and error messages.
+fn join_targets(targets: &[Target]) -> String {
+    targets
+        .iter()
+        .map(|target| target.to_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[cfg(test)]

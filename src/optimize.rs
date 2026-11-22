@@ -1,5 +1,5 @@
 use crate::backend::{Backend, CommandResult, Host};
-use crate::error::Result;
+use crate::error::{Result, err};
 use tracing::trace;
 
 #[derive(Debug, thiserror::Error)]
@@ -12,11 +12,29 @@ enum OptimizeError {
     ProcessingFailed(String),
 }
 
+impl OptimizeError {
+    /// Message shown to the user when the optimization of `file` fails.
+    ///
+    /// The install itself already succeeded, so the caller only warns.
+    fn message(&self, tool: &str, file: &str) -> String {
+        let action = if tool == "upx" { "compress" } else { "strip" };
+        match self {
+            Self::CommandNotFound(_) => format!(
+                "failed to {action} '{file}': '{tool}' was not found\n  Make sure '{tool}' is installed and available in PATH, or drop --{tool}"
+            ),
+            Self::AlreadyProcessed(_) | Self::ProcessingFailed(_) => {
+                format!("failed to {action} '{file}': {self}")
+            }
+        }
+    }
+}
+
 /// Optimize a single executable file by running strip and/or upx.
 ///
 /// The commands are executed through `backend`, so a remote install runs
-/// them on the remote host.
-pub async fn optimize_executable(
+/// them on the remote host. A failure is returned to the caller rather than
+/// swallowed: the install itself already succeeded.
+pub(crate) async fn optimize_executable(
     backend: &Backend,
     file_path: &str,
     strip: bool,
@@ -29,57 +47,22 @@ pub async fn optimize_executable(
 
     trace!("Optimizing executable: {}", file_path);
 
-    // Run strip first if enabled
+    // Strip first: UPX compresses a stripped binary better.
     if strip {
-        match run_strip(backend, file_path).await {
-            Ok(_) => {
-                if !quiet {
-                    println!("✓ Stripped debug symbols from: {}", file_path);
-                }
-            }
-            Err(e) => {
-                if !quiet {
-                    match e {
-                        OptimizeError::CommandNotFound(_) => {
-                            eprintln!("Warning: Failed to strip {}: {}", file_path, e);
-                            eprintln!("  Make sure 'strip' is installed and available in PATH");
-                        }
-                        OptimizeError::AlreadyProcessed(_) => {
-                            eprintln!("Warning: {}", e);
-                        }
-                        OptimizeError::ProcessingFailed(_) => {
-                            eprintln!("Warning: Failed to strip {}: {}", file_path, e);
-                        }
-                    }
-                }
-            }
+        run_strip(backend, file_path)
+            .await
+            .map_err(|e| err!("{}", e.message("strip", file_path)))?;
+        if !quiet {
+            println!("✓ Stripped debug symbols from: {}", file_path);
         }
     }
 
-    // Run upx after strip if enabled
     if upx {
-        match run_upx(backend, file_path).await {
-            Ok(_) => {
-                if !quiet {
-                    println!("✓ Compressed with UPX: {}", file_path);
-                }
-            }
-            Err(e) => {
-                if !quiet {
-                    match e {
-                        OptimizeError::CommandNotFound(_) => {
-                            eprintln!("Warning: Failed to compress {} with UPX: {}", file_path, e);
-                            eprintln!("  Make sure 'upx' is installed and available in PATH");
-                        }
-                        OptimizeError::AlreadyProcessed(_) => {
-                            eprintln!("Warning: {}", e);
-                        }
-                        OptimizeError::ProcessingFailed(_) => {
-                            eprintln!("Warning: Failed to compress {} with UPX: {}", file_path, e);
-                        }
-                    }
-                }
-            }
+        run_upx(backend, file_path)
+            .await
+            .map_err(|e| err!("{}", e.message("upx", file_path)))?;
+        if !quiet {
+            println!("✓ Compressed with UPX: {}", file_path);
         }
     }
 
@@ -165,4 +148,27 @@ fn check_status(tool: &str, output: CommandResult) -> Result<(), OptimizeError> 
         "{tool} exited with code {}: {stderr}",
         output.exit_code
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Failures reach the caller, which turns them into a warning instead of
+    /// reporting a successful install.
+    #[tokio::test]
+    async fn optimization_failures_are_returned() {
+        let backend = Backend::local();
+        let missing = std::env::temp_dir()
+            .join("ei-optimize-missing-binary")
+            .to_string_lossy()
+            .into_owned();
+
+        let error = optimize_executable(&backend, &missing, true, false, true)
+            .await
+            .expect_err("optimizing a missing file must fail");
+        let message = error.to_string();
+        assert!(message.contains(&missing), "{message}");
+        assert!(message.contains("strip"), "{message}");
+    }
 }

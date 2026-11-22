@@ -1,7 +1,7 @@
 name: Test
 
 permissions:
-  contents: write
+  contents: read
 
 on: [push]
 
@@ -13,6 +13,24 @@ defaults:
     shell: bash --noprofile --norc -CeEuo pipefail {0}
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: format
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: feature matrix
+        run: |
+          cargo check --no-default-features
+          cargo check --no-default-features --features ssh
+          cargo check --no-default-features --features cli
+
   rust-test:
     strategy:
       fail-fast: false
@@ -20,18 +38,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 23
-      - name: Install latest nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo -q test
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test
         run: |
-          cargo -q test
+          cargo test
       - name: cargo install
         run: |
           cargo install --features=logging --path .
@@ -65,70 +77,6 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           ls -lh ~/.ei
-          cat assets/${{ matrix.os }}.txt | while read line
-          do
-              echo $line
-              [[ -z "$line" ]] && continue
-              # ls -lh ~/.ei/$line
-              which $line
-          done
-      - name: test which on windows
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          Get-Content "assets/${{ matrix.os }}.txt" | ForEach-Object {
-              Write-Output $_
-              Get-Command $_
-          }
-
-  js-test:
-    # if: "!startsWith(github.ref, 'refs/tags/')"
-    if: false
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 23
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: vitest
-        run: |
-          pnpm install
-          pnpm run build
-      - name: install
-        run: |
-          for file in dist-manifest/*.json; do
-            echo $file
-            node cli/cli.js "$file"
-            source ~/.bashrc
-          done
-
-      - name: install list
-        run: |
-          cat assets/url-list.txt | while read line
-          do
-              echo $line
-              [[ -z "$line" ]] && continue
-              node cli/cli.js "$line"
-          done
-
-      # - name: install alias qjs-next
-      #   run: |
-      #     cr -- https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
-
-      - name: test which
-        if: matrix.os != 'windows-latest'
-        run: |
-          ls -lh ~/.ei
-
           cat assets/${{ matrix.os }}.txt | while read line
           do
               echo $line

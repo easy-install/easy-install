@@ -1,580 +1,162 @@
 # Easy Install
 
-A cross-platform command-line tool for effortlessly installing binaries from GitHub releases and other sources. Simplify your workflow by downloading and setting up executables with a single command.
+`ei` installs prebuilt tools from GitHub releases and other sources. It detects
+the target platform, selects an asset, extracts archives, and installs the
+result locally or over SSH.
 
-## Features
+## Install
 
-- 🚀 Install binaries directly from GitHub releases
-- 🎯 Automatic platform detection and binary selection
-- 📦 Support for multiple archive formats (zip, tar.gz, tar.xz, etc.)
-- 🔧 Custom installation directories
-- 🌐 Proxy support for restricted networks
-- 📋 Manifest-based installations for complex packages
-- 🔄 Version-specific or latest release installation
-- 💾 Automatic PATH configuration
-- ⚙️ Persistent configuration management
-- ⏱️ Configurable network timeouts
-- 🗜️ Binary optimization with strip and UPX compression
-- 🔄 Self-upgrade support
-
-## Installation
-
-### Windows
+**Windows**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/easy-install/easy-install/main/install.ps1 | iex"
 ```
 
-### Linux/macOS
+**Linux / macOS**
 
-```bash
-# Direct installation
+```sh
 curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
-
-# Set target
-curl -fsSL https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh -s - --target aarch64-unknown-linux-musl
-
-# wget
-wget -qO- https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
-
-# Using proxy (for restricted networks)
-curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/easy-install/easy-install/main/install.sh | sh
-
-# Using CDN
-curl -fsSL https://cdn.jsdelivr.net/gh/easy-install/easy-install/install.sh | sh
-
-# Using xget proxy
-curl -fsSL https://xget.xi-xu.me/gh/easy-install/easy-install/raw/refs/heads/main/install.sh | sh -s -- --proxy xget
-
-# Using gh-proxy
-curl -fsSL https://gh-proxy.com/https://github.com/easy-install/easy-install/blob/main/install.sh | sh -s -- --proxy gh-proxy
-
-# Using ei-assets mirror (more proxy options available)
-curl -fsSL https://cdn.jsdelivr.net/gh/ahaoboy/ei-assets/install.sh | sh -s -- --proxy jsdelivr
 ```
 
-### Cargo (Rust)
+The install script also accepts options such as `--target`. Alternatively,
+install with Cargo (`cargo install easy-install`) or npm
+(`npm install -g @easy-install/easy-install`).
 
-```bash
-# Install from crates.io
-cargo install easy-install
+## Quick start
 
-# Install using cargo-binstall
-cargo binstall easy-install
-
-# Install from GitHub
-cargo install --git https://github.com/easy-install/easy-install.git
+```sh
+ei https://github.com/BurntSushi/ripgrep
+ei sharkdp/fd
+ei https://github.com/owner/repo/releases/tag/v1.2.3
+ei https://example.com/tool.tar.gz
+ei ./tool.zip
+ei ./dist-manifest/tool.json
 ```
 
-### npm/pnpm/yarn
+Sources include GitHub repositories and release URLs, direct URLs, local files,
+dist-manifests, GitHub Actions artifacts, and `nightly.link` builds. Archives
+are extracted automatically, including archives nested inside another archive.
+Multi-file packages are installed in a named subdirectory under `~/.ei`.
 
-```bash
-npm install -g @easy-install/easy-install
-# or
-pnpm add -g @easy-install/easy-install
-# or
-yarn global add @easy-install/easy-install
+## Select an asset
+
+GitHub assets are matched to the local platform automatically. Use:
+
+```sh
+# Choose matching assets by name (comma-separated names are supported)
+ei quickjs-ng/quickjs --name qjs
+
+# Match the original asset filename with a regular expression
+ei mpv-player/mpv --regex 'x86_64-pc-windows-msvc\.zip'
+
+# Override platform detection, or allow arch/OS matching without ABI
+ei owner/repo --target x86_64-unknown-linux-musl
+ei owner/repo --fuzzy
 ```
 
-## Usage
+`--name` filters platform-compatible assets. `--regex` applies directly to
+GitHub asset filenames, bypasses platform matching, and must match exactly one
+asset. Use `--alias` to rename the installed file/executable or, for a
+multi-file archive, its install directory:
 
-### Basic Installation
-
-```bash
-# Install the latest release from a GitHub repository
-ei https://github.com/ahaoboy/mujs-build
-
-# Install a specific version
-ei https://github.com/ahaoboy/mujs-build/releases/tag/v0.0.1
-
-# Short syntax for GitHub repositories
-ei yt-dlp/yt-dlp
+```sh
+ei owner/repo --name tool --alias my-tool
 ```
 
-### Advanced Options
+## Destination and SSH
 
-```bash
-# Specify target platform
-ei https://github.com/ahaoboy/mujs-build --target x86_64-pc-windows-gnu
+By default, files go to `~/.ei`, which is added to `PATH`. Use `-d` / `--dir`
+to choose a local directory; `--skip-path` leaves `PATH` untouched.
 
-# Set a custom alias for the installed binary (or directory, for multi-file packages)
-ei https://github.com/ip7z/7zip/releases/tag/25.01 --alias 7z
-
-# Install specific binary from a multi-binary package
-ei https://github.com/quickjs-ng/quickjs --alias=qjs
-
-# Combine --regex and --alias for complex filenames
-ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip" --alias mpv-dev
-
-# Install from a direct download URL
-ei https://github.com/denoland/deno/releases/download/v2.1.1/deno-x86_64-pc-windows-msvc.zip
-ei https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
-
-# Install without adding to PATH
-ei https://github.com/quickjs-ng/quickjs --no-path
-
-# Optimize binary with strip and UPX compression
-ei https://github.com/boa-dev/boa --strip --upx
+```sh
+ei owner/repo -d ~/.local/bin
 ```
 
-### Remote Installation (SSH)
+To install remotely, provide an SSH destination as `-d` or as the second
+positional argument. The artifact is downloaded locally and transferred over
+SSH; remote platform detection is automatic when supported.
 
-Install onto another machine with an scp-like destination. The artifact is
-downloaded locally and streamed over SSH; `--strip` / `--upx` run **on the
-remote host**.
-
-```bash
-# Install to a remote directory (positional destination)
-ei ahaoboy/mho user@192.168.1.100:/root/
-
-# Same thing with -d
-ei ahaoboy/mho -d user@192.168.1.100:/root/
-
-# Custom SSH port, either way (`-P` wins when both are given)
-ei ahaoboy/mho -P 2222 user@192.168.1.100:/root/
-ei ahaoboy/mho user@192.168.1.100:2222:/root/
-
-# Password authentication
-ei ahaoboy/mho -p 'secret' user@192.168.1.100:/root/
-
-# Private key authentication
-ei ahaoboy/mho -i ~/.ssh/id_ed25519 user@192.168.1.100:/root/
-
-# `-p` and `-i` are mutually exclusive: pick exactly one method
-
-# Install a local archive remotely and run upx there
-ei ./app-linux-amd64.tar.gz me@host:~/.ei --upx
-
-# Without a path the default remote directory is ~/.ei
-ei ahaoboy/mho user@host:
-
-# Pin the target manually when auto-detection is wrong or unavailable
-ei ahaoboy/mho user@host:/root/ --target aarch64-unknown-linux-musl
+```sh
+ei owner/repo -d user@host:/opt/tools -i ~/.ssh/id_ed25519
+ei ./tool.tar.gz user@host:2222:/opt/tools --upx
 ```
 
-#### How the remote target is detected
+Use `-i FILE` for a private key or `-p PASSWORD` for password authentication;
+they are mutually exclusive. Specify the port with `-P PORT` (uppercase).
+If remote platform detection is unavailable, pass `--target` explicitly.
+`strip` and `upx` run on the destination host.
 
-`ei` never reuses the local platform for a remote install. It opens one SSH
-exec channel and runs a small POSIX probe (`sh -c`, so it works with bash,
-zsh and fish as the login shell):
+Before writing, `ei` checks available space when the host supports it. Existing
+files that will be overwritten are deducted from the required space.
 
-| Signal | Used for |
+## Options
+
+| Option | Purpose |
 | --- | --- |
-| `uname -s` | `Linux`, `Darwin`, `FreeBSD`, `MINGW*/MSYS*/CYGWIN*` |
-| `uname -m` | `x86_64`, `aarch64`, `armv7l`, `i686`, `riscv64`, `loongarch64`, … |
-| `uname -o` / `$ANDROID_ROOT` / `/system/build.prop` | Android (`*-linux-android*`) |
-| `ldd --version`, `/lib/ld-musl-*.so.1`, `/etc/os-release` (alpine) | musl vs glibc |
+| `-d, --dir DIR` | Local install directory or SSH destination |
+| `--name NAME` | Filter assets by name; comma-separated |
+| `--regex PATTERN` | Select one GitHub asset by filename |
+| `--target TARGET` | Override the target triple |
+| `--fuzzy` | Match architecture and OS when ABI differs |
+| `--alias NAME` | Rename a file/executable or multi-file install directory |
+| `--skip-path` | Skip adding the install directory to PATH |
+| `--strip` | Strip debug symbols from a single executable |
+| `--upx` | Compress a single executable with UPX |
+| `--proxy PROXY` | Use a GitHub download proxy |
+| `--retry N`, `--timeout SECONDS` | Configure download retries and timeout |
+| `-q, --quiet` | Suppress output |
 
-The result is printed and used for artifact matching:
+`strip` and `upx` must be installed on the machine receiving the files.
+When both are enabled, stripping runs first.
 
+## Configuration and commands
+
+Use `ei config` to view settings, or pass a key and value to change one:
+
+```sh
+ei config
+ei config proxy gh-proxy
+ei config dir ~/.local/bin
+ei config target x86_64-unknown-linux-gnu
+ei config timeout 300
+ei config retry 5
+ei config strip true
+ei config upx true
 ```
-$ ei ahaoboy/mho root@192.168.1.100:/root/
-Installing to root@192.168.1.100 over SSH
-Detected remote platform: linux/x86_64 (gnu) → x86_64-unknown-linux-gnu
+
+Settings are stored in `ei_config.json` next to the `ei` executable. Supported
+keys: `proxy`, `dir`, `target`, `timeout`, `retry`, `strip`, and `upx`.
+
+```sh
+ei upgrade
+ei completions bash > ~/.local/share/bash-completion/completions/ei
 ```
 
-Notes:
+`ei upgrade` updates the local executable and preserves its build target.
+Completion scripts are available for bash, zsh, fish, PowerShell, and elvish.
 
-- ARM targets prefer **musl** (`aarch64-unknown-linux-musl`,
-  `armv7-unknown-linux-musleabihf`): glibc builds often do not run on those
-  systems.
-- Detection costs one extra SSH command; the probe result is cached for the
-  rest of the install.
-- If the host cannot be probed (unsupported OS, or a Windows OpenSSH server
-  without `sh`), `ei` stops and asks for `--target` instead of silently
-  installing the wrong binary.
-- An explicit `--target` always wins: the probe is skipped.
+## Dist-manifests
 
-Remote support is an optional cargo feature (`ssh`, enabled by default). Library
-users that only install locally can turn it off:
+`ei` accepts local or remote manifests in the
+[cargo-dist schema](https://github.com/axodotdev/cargo-dist/tree/main/cargo-dist-schema)
+format. A manifest can describe release artifacts, target triples, and the
+files in each package. See the [project manifests](https://github.com/easy-install/easy-install/tree/main/dist-manifest)
+for examples.
+
+## Cargo features
+
+Default features are `cli` (the `ei` binary and its subcommands), `archive`
+(the archive formats: `tar`, `tar-gz`, `tar-xz`, `tar-bz`, `tar-zstd`, `gz`,
+`zip`) and `ssh` (remote installs). `cli` enables `archive`, `ssh` and
+`logging`.
+
+Library users that install locally only can disable the CLI and the remote
+backend:
 
 ```toml
 easy-install = { version = "1", default-features = false, features = ["tar-gz"] }
 ```
 
-### Filtering Artifacts: --name vs --regex
-
-When a GitHub release contains multiple assets, `ei` automatically detects your platform and picks the right one. But sometimes you need finer control — that's where `--name` and `--regex` come in.
-
-#### --name
-
-`--name` is used when there are multiple assets matching your platform, and you only want one of them. For example, the [quickjs-ng](https://github.com/quickjs-ng/quickjs) release contains both `qjs` and `qjsc` executables:
-
-```bash
-# Both qjs and qjsc match your platform — pick just qjs
-ei quickjs-ng/quickjs --name qjs
-```
-
-**How it works:** `ei` first uses `guess_target` to find all assets matching your platform (e.g., `x86_64-pc-windows-msvc`), then applies `--name` to filter the results. It does NOT bypass platform detection.
-
-#### --regex
-
-`--regex` is used when asset filenames are too complex for `guess_target` to extract platform information. For example, [mpv](https://github.com/mpv-player/mpv) uses filenames with embedded version hashes:
-
-```
-mpv-v0.41.0-dev-g4c220ffd9-28826186115-x86_64-pc-windows-msvc.zip
-mpv-v0.41.0-dev-g4c220ffd9-28826186115-aarch64-pc-windows-msvc.zip
-```
-
-These confuse `guess_target` because the version blob sits between the tool name and the platform triple. Use `--regex` to match the raw filename directly:
-
-```bash
-# Match the x86_64 windows-msvc asset by its filename
-ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip"
-
-# Match a macOS variant
-ei mpv-player/mpv@git-release --regex "macos-15-arm"
-```
-
-**How it works:** The regex is matched directly against each asset's original filename. When a match is found, the asset is selected immediately — `guess_target` is completely bypassed. The regex **must match exactly one asset**; matching zero or multiple is an error.
-
-**Pairing with `--alias`:** Regex-matched assets often have long, unwieldy names. Use `--alias` to give the installed file (or directory, for multi-file packages) a clean, memorable name:
-
-```bash
-# Single-file package: the executable is renamed
-# long-name-x86_64-pc-windows-msvc.exe → tool.exe
-ei some/tool --regex "x86_64-pc-windows-msvc" --alias tool
-
-# Multi-file package (e.g. mpv): the install directory is renamed
-# ~/.ei/long-dir-name/ → ~/.ei/mpv-dev/
-ei mpv-player/mpv@git-release --regex "x86_64-pc-windows-msvc\.zip" --alias mpv-dev
-```
-
-> 💡 **Rule of thumb:** Use `--name` when `guess_target` can recognize your platform in the filenames. Use `--regex` when filenames are non-standard and platform detection fails.
-
-### CLI Reference
-
-Below is the full list of arguments and options accepted by `ei`:
-
-```
-USAGE:
-    ei [OPTIONS] [URL] [COMMAND]
-```
-
-#### Arguments
-
-| Argument | Description                                                                        |
-| -------- | ---------------------------------------------------------------------------------- |
-| `[URL]`  | GitHub repo (`owner/repo`), release URL, or artifact URL. If omitted, prints help. |
-
-#### Options
-
-| Option                | Short | Description                                                                                                | Default     |
-| --------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | ----------- |
-| `--dir <DIR>`         | `-d`  | Installation directory for downloaded binaries. Can be an absolute path or a name (stored under `~/.ei/`). | `~/.ei`     |
-| `--no-path`           |       | Skip adding installed binaries to PATH.                                                                    | `false`     |
-| `--name <NAME>`       |       | Filter artifacts by name. Supports comma-separated values for multiple filters.                            |             |
-| `--alias <ALIAS>`     |       | Rename the installed binary (or directory, for multi-file packages).                                       |             |
-| `--target <TARGET>`   |       | Target platform (e.g., `x86_64-unknown-linux-gnu`). Auto-detected from the local machine if not specified; **required for SSH installs**. | auto-detect |
-| `--retry <N>`         |       | Number of retry attempts for failed downloads.                                                             | `3`         |
-| `--proxy <PROXY>`     |       | GitHub proxy to use (`github`, `gh-proxy`, `ghproxy`, `jsdelivr`, etc.).                                   | `github`    |
-| `--timeout <SECONDS>` |       | Network request timeout in seconds.                                                                        | `600`       |
-| `--strip [BOOL]`      |       | Strip debug symbols from executable. Can be used as a flag (`--strip`) or with a value (`--strip true`).   | `false`     |
-| `--upx [BOOL]`        |       | Compress executable with UPX. Can be used as a flag (`--upx`) or with a value (`--upx true`).              | `false`     |
-| `--quiet`             | `-q`  | Suppress all output messages.                                                                              | `false`     |
-| `--fuzzy`             |       | Use fuzzy target matching (match arch+os, ignoring abi).                                                   | `false`     |
-| `--regex <PATTERN>`   |       | Match asset filenames directly with regex, bypassing platform detection. See [Filtering Artifacts](#filtering-artifacts---name-vs---regex). |             |
-| `--version`           | `-V`  | Print version information.                                                                                 |             |
-| `--help`              | `-h`  | Print help information.                                                                                    |             |
-
-#### Subcommands
-
-| Subcommand            | Description                                                                                          |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `config`              | Manage persistent configuration settings. See [Configuration Management](#configuration-management). |
-| `completions <SHELL>` | Generate shell completion scripts. See [Shell Completions](#shell-completions).                      |
-| `upgrade`             | Upgrade `ei` to the latest version.                                                                  |
-
-### Binary Optimization
-
-Easy Install supports automatic binary optimization for single-executable installations:
-
-```bash
-# Strip debug symbols to reduce binary size
-ei https://github.com/boa-dev/boa --strip
-
-# Compress binary with UPX for maximum size reduction
-ei https://github.com/boa-dev/boa --upx
-
-# Combine both for optimal results (strip runs first, then UPX)
-ei https://github.com/boa-dev/boa --strip --upx
-# 27M boa-x86_64-pc-windows-msvc.exe -> 7.1M C:/Users/Admin/.ei/boa.exe
-```
-
-**Requirements:**
-- `--strip`: Requires the `strip` command to be available in PATH
-- `--upx`: Requires the `upx` command to be available in PATH
-
-**Notes:**
-- Optimization only works when installing a single executable file
-- If the required tool is not found, a warning is displayed but installation continues
-- Works cross-platform: you can use these flags on any OS, and they'll be silently skipped if tools aren't available
-- UPX uses `--best --lzma` flags for maximum compression
-
-### Custom Installation Directory
-
-```bash
-# Install to a specific absolute path
-ei ./dist-manifest/mpv-easy.json -d c:/mpv-easy
-
-# Install to a named directory under ~/.ei/
-ei ./dist-manifest/mpv-easy.json -d custom-name
-```
-
-### Upgrade
-
-Upgrade `ei` itself to the latest version with a single command:
-
-```bash
-ei upgrade
-```
-
-This downloads the latest release from the official repository and replaces the
-current binary in-place.
-
-The **build flavor is preserved**: an `aarch64-linux-android` binary upgrades to
-`aarch64-linux-android`, a musl build stays musl, and so on. This is deliberate —
-a persisted `ei config target` may point at a different ABI for normal installs,
-and a musl binary on Android cannot resolve DNS. Use `--target` only to override
-that choice explicitly:
-
-```bash
-# Force a specific target (rarely needed)
-ei upgrade --target x86_64-unknown-linux-musl
-```
-
-If the install fails or produces an empty file, the previous binary is restored
-automatically (on Windows the running image is first renamed to `ei.exe.old`).
-
-> ⚠️ `ei upgrade` is **local only**. It replaces the executable of the process
-> running it, so remote settings (e.g. a `user@host:/path` saved with
-> `ei config dir`) are ignored. Upgrade a remote copy by running
-> `ssh user@host ei upgrade` there.
-
-### Configuration Management
-
-Easy Install supports persistent configuration through the `config` subcommand. Configuration is stored in `ei_config.json` in the same directory as the `ei` executable.
-
-```bash
-# View all configuration
-ei config
-
-# View specific configuration
-ei config proxy
-ei config dir
-ei config target
-ei config timeout
-ei config retry
-ei config strip
-ei config upx
-
-# Set configuration values
-ei config proxy gh-proxy
-ei config dir /custom/install/path
-ei config target x86_64-pc-windows-msvc
-ei config timeout 300
-ei config retry 5
-ei config strip true
-ei config upx true
-
-# Configuration priority (highest to lowest):
-# 1. Command-line arguments (--proxy, --dir, --target, --timeout, --retry, --strip, --upx)
-# 2. Configuration file (ei_config.json)
-# 3. Default values
-```
-
-**Supported Configuration Keys:**
-- `proxy` - Default proxy for GitHub downloads (github, gh-proxy, ghproxy, jsdelivr, etc.)
-- `dir` - Default installation directory
-- `target` - Default target platform
-- `timeout` - Network request timeout in seconds (default: 600)
-- `retry` - Number of retry attempts for failed downloads (default: 3)
-- `strip` - Strip debug symbols from executables (default: false)
-- `upx` - Compress executables with UPX (default: false)
-
-### Quiet Mode
-
-Suppress all output messages during installation:
-
-```bash
-# Install silently (no output)
-ei https://github.com/ahaoboy/mujs-build --quiet
-
-# Short form
-ei https://github.com/ahaoboy/mujs-build -q
-
-# Useful for scripts and automation
-ei yt-dlp/yt-dlp -q && echo "Installation complete"
-```
-
-### Shell Completions
-
-Generate shell completion scripts for your preferred shell:
-
-```bash
-# Generate completions for bash
-ei completions bash > ~/.local/share/bash-completion/completions/ei
-
-# Generate completions for zsh
-ei completions zsh > ~/.zfunc/_ei
-
-# Generate completions for fish
-ei completions fish > ~/.config/fish/completions/ei.fish
-
-# Generate completions for PowerShell
-ei completions powershell > $PROFILE/../Completions/ei.ps1
-
-# Generate completions for elvish
-ei completions elvish > ~/.config/elvish/completions/ei.elv
-```
-
-**Supported Shells:**
-- bash
-- zsh
-- fish
-- powershell
-- elvish
-
-After generating the completion script, restart your shell or source the completion file to enable tab completion for `ei` commands.
-
-**Configuration File Location:**
-- The `ei_config.json` file is created in the same directory as the `ei` executable
-- Only created when you use `ei config` commands
-- If the file exists but is corrupted, it will be automatically reset to defaults
-
-### Manifest-Based Installation
-
-```bash
-# Install from a remote manifest
-# From release file
-ei "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.4/dist-manifest.json"
-
-# From github file
-ei "https://raw.githubusercontent.com/easy-install/easy-install/main/dist-manifest/ffmpeg.json"
-
-# Install from a local manifest file
-ei "./dist-manifest/screentogif.json"
-```
-
-## Use Cases
-
-### Replacing cargo-binstall
-
-Easy Install can be used as a drop-in replacement for cargo-binstall with more flexibility:
-
-```bash
-# Instead of: cargo binstall cargo-binstall
-# Use:
-ei cargo-bins/cargo-binstall -d ~/.cargo/bin
-
-# This installs cargo-binstall to your Cargo bin directory
-# Works with any GitHub release, not just Rust projects
-```
-
-## Distribution Manifest
-
-For complex packages containing multiple files, you can create a `dist-manifest.json` file to define the structure and assets. This follows the [cargo-dist-schema](https://github.com/axodotdev/cargo-dist/tree/main/cargo-dist-schema) format.
-
-### Example: mujs
-
-A typical mujs release contains multiple files:
-
-```
-.
-├── libmujs.a
-├── libmujs.o
-├── libmujs.so
-├── mujs-pp.exe
-├── mujs.exe
-└── mujs.pc
-```
-
-The corresponding [dist-manifest.json](https://github.com/ahaoboy/mujs-build/blob/main/dist-manifest.json) defines which files to install:
-
-```json
-{
-  "mujs-aarch64-apple-darwin.tar.gz": {
-    "name": "mujs-aarch64-apple-darwin.tar.gz",
-    "target_triples": [
-      "aarch64-apple-darwin"
-    ],
-    "assets": [
-      {
-        "name": "mujs",
-        "path": "mujs",
-        "kind": "executable"
-      },
-      {
-        "name": "mujs-pp",
-        "path": "mujs-pp",
-        "kind": "executable"
-      },
-      {
-        "name": "libmujs.dylib",
-        "path": "libmujs.dylib",
-        "kind": "c_dynamic_library"
-      },
-      {
-        "name": "libmujs.a",
-        "path": "libmujs.a",
-        "kind": "c_static_library"
-      }
-    ]
-  }
-}
-```
-
-### Example: Zig
-
-For tools hosted outside GitHub, you can specify direct download URLs:
-
-```json
-{
-  "artifacts": {
-    "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz": {
-      "name": "zig",
-      "target_triples": ["x86_64-unknown-linux-gnu"]
-    },
-    "https://ziglang.org/download/0.13.0/zig-macos-x86_64-0.13.0.tar.xz": {
-      "name": "zig",
-      "target_triples": ["x86_64-apple-darwin"]
-    },
-    "https://ziglang.org/download/0.13.0/zig-macos-aarch64-0.13.0.tar.xz": {
-      "name": "zig",
-      "target_triples": ["aarch64-apple-darwin"]
-    },
-    "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip": {
-      "name": "zig",
-      "target_triples": ["x86_64-pc-windows-gnu"]
-    }
-  }
-}
-```
-
-## Supported Platforms
-
-- Windows (x86_64, aarch64)
-- Linux (x86_64, aarch64, musl)
-- macOS (x86_64, aarch64/Apple Silicon)
-
-## Default Installation Location
-
-Binaries are installed to `~/.ei` by default, which is automatically added to your PATH during installation.
-
-## Similar Tools
-
-- [eget](https://github.com/zyedidia/eget) - Easily install prebuilt binaries from GitHub
-- [ubi](https://github.com/houseabsolute/ubi) - Universal Binary Installer
-- [dra](https://github.com/devmatteini/dra) - Download release assets from GitHub
-
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Repository
-
-[https://github.com/easy-install/easy-install](https://github.com/easy-install/easy-install)

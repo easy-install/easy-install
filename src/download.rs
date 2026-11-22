@@ -11,7 +11,6 @@
 
 use crate::error::{Context, Result};
 use crate::manifest::DistManifest;
-use easy_archive::{File, Fmt};
 use github_proxy::artifacts;
 use github_proxy::fetch::{self, Options, StatusCode, Url};
 use github_proxy::token;
@@ -81,9 +80,7 @@ async fn request_bytes(url: &str, timeout: u64) -> Result<Vec<u8>> {
         Err(e) => {
             if matches!(
                 e.status(),
-                Some(
-                    StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::NOT_FOUND
-                )
+                Some(StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::NOT_FOUND)
             ) && let Some(bytes) = artifacts::private_asset(client(), url, opts).await?
             {
                 return Ok(bytes);
@@ -139,22 +136,12 @@ pub(crate) fn read_dist_manifest(url: &str) -> Result<DistManifest> {
     serde_json::from_str(&text).with_context(|| format!("failed to parse '{url}'"))
 }
 
-/// Decode an in-memory archive.
-pub(crate) fn extract_bytes(bytes: Vec<u8>, fmt: Fmt) -> Result<Vec<File>> {
-    Ok(fmt
-        .decode(bytes)?
-        .into_iter()
-        // Some macOS archives carry a metadata mirror that must not be
-        // installed.
-        .filter(|file| !file.path.starts_with("__MACOSX"))
-        .collect())
-}
-
 #[cfg(test)]
 mod test {
     use easy_archive::Fmt;
 
-    use crate::download::{extract_bytes, get_bytes};
+    use crate::download::get_bytes;
+    use crate::tree;
 
     fn block_on<F: std::future::Future>(future: F) -> F::Output {
         tokio::runtime::Builder::new_current_thread()
@@ -169,10 +156,10 @@ mod test {
         let url = "https://github.com/ahaoboy/mujs-build/releases/download/v0.0.1/mujs-x86_64-unknown-linux-gnu.tar.gz";
         let bytes = get_bytes(url, 3, 30).await.expect("download error");
         let fmt = Fmt::guess(url).expect("format error");
-        let files = extract_bytes(bytes, fmt).expect("decode error");
+        let tree = tree::decode(bytes, fmt, "mujs").expect("decode error");
         for expected in ["mujs", "mujs-pp", "libmujs.a"] {
             assert!(
-                files.iter().any(|file| file.path == expected),
+                tree.files.iter().any(|file| file.path == expected),
                 "missing {expected}"
             );
         }

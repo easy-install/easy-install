@@ -1,9 +1,9 @@
 //! Crate-wide error type built on [`thiserror`].
 //!
 //! This replaces `anyhow` with an explicit error enum. The [`Result`] alias
-//! defaults to [`Error`], and the [`Context`] trait provides `anyhow`-style
-//! `.context(..)` on both `Result` and `Option`. The [`err!`] and [`bail!`]
-//! macros replace `anyhow!` / `bail!`.
+//! defaults to [`enum@Error`], and the [`Context`] trait provides `anyhow`-style
+//! `.context(..)` on both `Result` and `Option`. The `err!` and `bail!` macros
+//! replace `anyhow!` / `bail!`.
 
 use thiserror::Error;
 
@@ -237,9 +237,9 @@ mod tests {
         // shell's stderr into an io::Error.
         let err = std::io::Error::other("cat: write error: No space left on device");
         assert!(is_out_of_space(&err));
-        assert!(is_out_of_space(
-            &std::io::Error::other("write failed: disk full")
-        ));
+        assert!(is_out_of_space(&std::io::Error::other(
+            "write failed: disk full"
+        )));
         assert!(!is_out_of_space(&std::io::Error::other(
             "No such file or directory"
         )));
@@ -269,9 +269,9 @@ mod tests {
     #[test]
     fn disk_full_message_names_the_path_and_hint() {
         let inner = std::io::Error::other("No space left on device");
-        let msg = disk_full_message("/jffs/mho", &inner);
+        let msg = disk_full_message("/jffs/fsv", &inner);
         assert!(msg.contains("not enough disk space"), "{msg}");
-        assert!(msg.contains("/jffs/mho"), "{msg}");
+        assert!(msg.contains("/jffs/fsv"), "{msg}");
         assert!(msg.contains("--dir"), "{msg}");
     }
 }

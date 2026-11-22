@@ -1,8 +1,92 @@
 use crate::error::{Context, Result};
+use crate::remote::RemoteConfig;
 use github_proxy::Proxy;
 use guess_target::Target;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+/// Everything one install needs: where to install, what to select, and how to
+/// fetch it.
+///
+/// This is the resolved form of the CLI arguments, with the persistent
+/// configuration file already merged in.
+#[derive(Debug, Clone)]
+pub struct InstallConfig {
+    pub dir: Option<String>,
+    pub name: Vec<String>,
+    pub alias: Option<String>,
+    pub target: Option<Target>,
+    pub retry: usize,
+    pub proxy: Proxy,
+    pub timeout: u64,
+    pub strip: bool,
+    pub upx: bool,
+    pub quiet: bool,
+    /// Whether adding the install directory to `PATH` is skipped.
+    pub skip_path: bool,
+    pub fuzzy: bool,
+    pub regex: Option<String>,
+    /// When set, install to this SSH host instead of the local filesystem.
+    pub remote: Option<RemoteConfig>,
+}
+
+impl Default for InstallConfig {
+    fn default() -> Self {
+        Self {
+            dir: None,
+            name: Vec::new(),
+            alias: None,
+            target: None,
+            retry: 3,
+            proxy: Proxy::Github,
+            timeout: 600,
+            strip: false,
+            upx: false,
+            quiet: false,
+            skip_path: false,
+            fuzzy: false,
+            regex: None,
+            remote: None,
+        }
+    }
+}
+
+impl InstallConfig {
+    /// Load configuration from the persistent config file, falling back to
+    /// defaults for everything it does not set.
+    pub fn load() -> Self {
+        let persistent = PersistentConfig::load();
+
+        Self {
+            dir: persistent.dir,
+            name: Vec::new(),
+            alias: None,
+            target: persistent.target,
+            retry: persistent.retry.unwrap_or(3) as usize,
+            proxy: persistent.proxy.unwrap_or(Proxy::Github),
+            timeout: persistent.timeout.unwrap_or(600),
+            strip: persistent.strip.unwrap_or(false),
+            upx: persistent.upx.unwrap_or(false),
+            quiet: false,
+            skip_path: false,
+            fuzzy: false,
+            regex: None,
+            remote: None,
+        }
+    }
+
+    /// Target triples to match artifacts against.
+    ///
+    /// An explicit [`Self::target`] wins; otherwise the compile-time target of
+    /// this binary. Remote installs fill [`Self::target`] with the probed
+    /// remote platform before matching.
+    pub fn targets(&self) -> Vec<Target> {
+        match self.target {
+            Some(target) => vec![target],
+            None => guess_target::get_local_target().to_vec(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PersistentConfig {
@@ -72,7 +156,11 @@ impl PersistentConfig {
         }
         Ok(())
     }
+}
 
+/// Edits driven by `ei config`; embedders build [`PersistentConfig`] directly.
+#[cfg(feature = "cli")]
+impl PersistentConfig {
     pub fn set_proxy(&mut self, proxy: Proxy) {
         self.proxy = Some(proxy);
     }

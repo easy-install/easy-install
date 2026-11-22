@@ -1,0 +1,464 @@
+//! The install pipeline.
+//!
+//! [`install`] turns a source URL into written files:
+//!
+//! ```text
+//! resolve (source) → artifacts (select) → bytes
+//!   → file tree (decode, nested archives) → alias / exec bits (tree)
+//!   → disk-space plan → write (local or SSH) → strip/upx (optimize) → report
+//! ```
+//!
+//! Artifacts are installed concurrently unless there is only one, or the
+//! target is remote (a single SSH connection is reused and interleaved writes
+//! would only garble the output).
+
+use crate::InstallConfig;
+use crate::artifact::{Artifact, Kind};
+use crate::backend::{Backend, Host};
+use crate::download::{download_binary, get_bytes};
+use crate::error::{Context, Result, bail, err};
+use crate::optimize::optimize_executable;
+use crate::path::{
+    ends_with_exe, executable, get_bin_name, get_filename, is_archive_file, is_skip, join_path,
+};
+use crate::report::{self, Installed, InstalledFile, Report};
+use crate::tree::{self, FileTree, TreeFile};
+use easy_archive::{Fmt, human_size};
+use github_proxy::fetch::Url;
+use guess_target::Os;
+use std::sync::LazyLock;
+use tokio::task::JoinSet;
+use tracing::trace;
+
+/// Limits concurrent network downloads to avoid hammering GitHub and
+/// tripping rate limits.
+static DOWNLOAD_SEM: LazyLock<tokio::sync::Semaphore> =
+    LazyLock::new(|| tokio::sync::Semaphore::new(4));
+
+/// Install whatever `url` refers to.
+pub(crate) async fn install(
+    url: &str,
+    config: &InstallConfig,
+    backend: &Backend,
+) -> Result<Report> {
+    trace!("install {url}");
+    let artifacts = crate::source::resolve(url, config).await?;
+    install_artifacts(backend, artifacts, config).await
+}
+
+/// Install every artifact, merging the reports.
+async fn install_artifacts(
+    backend: &Backend,
+    artifacts: Vec<Artifact>,
+    config: &InstallConfig,
+) -> Result<Report> {
+    // `--alias` renames the installed file to a single fixed name. With more
+    // than one artifact they would all target the same path, silently
+    // overwriting each other and making the result non-deterministic.
+    if let Some(alias) = &config.alias
+        && artifacts.len() > 1
+    {
+        let names = artifacts
+            .iter()
+            .map(|artifact| format!("  - {}", artifact.name))
+            .collect::<Vec<_>>()
+            .join("\n");
+        bail!(
+            "--alias '{alias}' is ambiguous: {} installable artifacts matched:\n{names}\n\nUse --name or --regex to select exactly one artifact,\nor drop --alias so each artifact keeps its own name.",
+            artifacts.len()
+        );
+    }
+
+    if artifacts.len() <= 1 || backend.is_remote() {
+        let mut report = Report::new();
+        for artifact in artifacts {
+            report.extend(install_artifact(backend, &artifact, config).await?);
+        }
+        return Ok(report);
+    }
+
+    let mut tasks: JoinSet<Result<Report>> = JoinSet::new();
+    for artifact in artifacts {
+        let config = config.clone();
+        tasks.spawn(async move {
+            let _permit = DOWNLOAD_SEM.acquire().await.expect("semaphore closed");
+            // One connection per task keeps the writes independent.
+            let backend = Backend::connect(&config).await?;
+            install_artifact(&backend, &artifact, &config).await
+        });
+    }
+
+    let mut report = Report::new();
+    while let Some(result) = tasks.join_next().await {
+        report.extend(result??);
+    }
+    Ok(report)
+}
+
+async fn install_artifact(
+    backend: &Backend,
+    artifact: &Artifact,
+    config: &InstallConfig,
+) -> Result<Report> {
+    match artifact.kind {
+        Kind::Single => install_single_file(backend, artifact, config).await,
+        Kind::Auto => install_auto(backend, artifact, config).await,
+        Kind::Zip => {
+            if !config.quiet {
+                println!("download {}", artifact.url);
+            }
+            // The download URL is an API endpoint (…/artifacts/{id}/zip) that
+            // `Fmt::guess` may not recognise, hence the explicit format.
+            let bytes = get_bytes(&artifact.url, config.retry, config.timeout)
+                .await
+                .context("Failed to download CI artifact")?;
+            install_bytes(backend, bytes, Fmt::Zip, artifact, config).await
+        }
+    }
+}
+
+/// Install an artifact whose format is inferred from its URL.
+async fn install_auto(
+    backend: &Backend,
+    artifact: &Artifact,
+    config: &InstallConfig,
+) -> Result<Report> {
+    if !config.quiet && Url::is_valid(&artifact.url) {
+        println!("download {}", artifact.url);
+    }
+    if !is_archive_file(&artifact.url) {
+        return install_single_file(backend, artifact, config).await;
+    }
+
+    let bytes = get_bytes(&artifact.url, config.retry, config.timeout).await?;
+    let fmt = Fmt::guess(&artifact.url).context("fmt guess error")?;
+    install_bytes(backend, bytes, fmt, artifact, config).await
+}
+
+/// Install an artifact as a single file.
+async fn install_single_file(
+    backend: &Backend,
+    artifact: &Artifact,
+    config: &InstallConfig,
+) -> Result<Report> {
+    // A Windows executable is never installed on a non-Windows target.
+    if ends_with_exe(&artifact.url)
+        && config
+            .targets()
+            .iter()
+            .any(|target| target.os() != Os::Windows)
+    {
+        return Ok(Report::new());
+    }
+
+    let data = if std::fs::exists(&artifact.url).unwrap_or(false) {
+        std::fs::read(&artifact.url)?
+    } else {
+        download_binary(&artifact.url, config.retry, config.timeout).await?
+    };
+
+    let file = TreeFile {
+        path: get_bin_name(&artifact.name),
+        origin_path: get_filename(&artifact.url),
+        mode: None,
+        data,
+    };
+    let dir = base_install_dir(backend, config);
+    write_tree(backend, vec![file], dir, &artifact.url, config).await
+}
+
+/// Install an in-memory archive.
+async fn install_bytes(
+    backend: &Backend,
+    bytes: Vec<u8>,
+    fmt: Fmt,
+    artifact: &Artifact,
+    config: &InstallConfig,
+) -> Result<Report> {
+    // A corrupt archive is a real failure: report which artifact could not be
+    // extracted instead of pretending nothing was selected.
+    let tree = tree::decode(bytes, fmt, &artifact.name)
+        .with_context(|| format!("failed to extract the archive from '{}'", artifact.url))?;
+    if tree.files.is_empty() {
+        return Ok(Report::new());
+    }
+
+    let dir = install_dir_for(backend, config, &tree);
+    write_tree(backend, tree.files, dir, &artifact.url, config).await
+}
+
+/// Directory the files of `tree` are written to.
+fn install_dir_for(backend: &Backend, config: &InstallConfig, tree: &FileTree) -> String {
+    let base = base_install_dir(backend, config);
+    if tree.files.len() > 1 {
+        if let Some(alias) = &config.alias {
+            return join_path(&base, alias);
+        }
+        if config.dir.is_none() {
+            return join_path(&base, &tree.name);
+        }
+    }
+    base
+}
+
+/// The install directory before any archive-specific subdirectory is added.
+fn base_install_dir(backend: &Backend, config: &InstallConfig) -> String {
+    match config.dir.as_deref() {
+        // Paths are `/`-separated throughout the pipeline, including on
+        // Windows, so that `dirname`/`get_filename` behave uniformly.
+        Some(dir) if dir.contains('/') || dir.contains('\\') => {
+            backend.expand(dir).replace('\\', "/")
+        }
+        Some(dir) => join_path(&backend.home_dir(), dir),
+        None => backend.home_dir(),
+    }
+}
+
+/// Apply the final tree transformations and write the files.
+async fn write_tree(
+    backend: &Backend,
+    mut files: Vec<TreeFile>,
+    dir: String,
+    source: &str,
+    config: &InstallConfig,
+) -> Result<Report> {
+    if let Some(alias) = &config.alias {
+        tree::rename_alias(&mut files, alias);
+    }
+    tree::guess_executable(&mut files);
+
+    let installed: Vec<InstalledFile> = files
+        .iter()
+        .map(|file| InstalledFile {
+            install_path: join_path(&dir, &file.path),
+            origin_path: file.origin_path.clone(),
+            mode: file.mode,
+            size: file.size(),
+        })
+        .collect();
+
+    check_disk_space(backend, &installed, &dir).await?;
+
+    for (file, target) in files.into_iter().zip(&installed) {
+        backend
+            .write(&target.install_path, &file.data, target.mode)
+            .await?;
+    }
+
+    // If the tree contains exactly one installable file, make sure it is
+    // executable. `LocalHost` is a no-op on Windows; the SSH host runs
+    // `chmod +x` remotely.
+    let candidates: Vec<&InstalledFile> = installed
+        .iter()
+        .filter(|file| !is_skip(&file.origin_path))
+        .collect();
+    if let [single] = candidates.as_slice() {
+        backend.chmod(&single.install_path).await?;
+    }
+
+    optimize(backend, &installed, config).await;
+
+    let mut report = Report::new();
+    report.insert(
+        source.to_string(),
+        Installed {
+            install_dir: dir,
+            files: installed,
+        },
+    );
+    if !config.quiet {
+        println!("{}", report::display(&report, config, backend));
+    }
+    Ok(report)
+}
+
+/// Run `strip` / `upx` on the single executable of a tree.
+async fn optimize(backend: &Backend, files: &[InstalledFile], config: &InstallConfig) {
+    if !config.strip && !config.upx {
+        return;
+    }
+
+    let executables: Vec<&InstalledFile> = files
+        .iter()
+        .filter(|file| executable(&get_filename(&file.install_path), &file.mode))
+        .collect();
+
+    match executables.as_slice() {
+        [single] => {
+            // Optimization is best effort: the file is already installed and
+            // usable, so a missing or failing strip/upx only warns.
+            if let Err(e) = optimize_executable(
+                backend,
+                &single.install_path,
+                config.strip,
+                config.upx,
+                config.quiet,
+            )
+            .await
+                && !config.quiet
+            {
+                eprintln!("Warning: {e}");
+            }
+        }
+        [] => {}
+        executables => {
+            if !config.quiet {
+                eprintln!(
+                    "Warning: --strip and --upx only work with single executable installations"
+                );
+                eprintln!(
+                    "  Found {} executables, skipping optimization",
+                    executables.len()
+                );
+            }
+        }
+    }
+}
+
+/// Verify there is room for `files` in `dir`, discounting files that will be
+/// replaced.
+async fn check_disk_space(backend: &Backend, files: &[InstalledFile], dir: &str) -> Result<()> {
+    // Create the install directory before measuring free space. Measuring the
+    // nearest existing ancestor can report the wrong filesystem when the
+    // target is a mount point. `mkdir -p` is idempotent.
+    backend.mkdir(dir).await?;
+
+    // `None` means free space is unknown; `Some(0)` is a full filesystem.
+    let Ok(Some(available)) = backend.free_space(dir).await else {
+        return Ok(());
+    };
+
+    let required: u64 = files.iter().map(|file| file.size).sum();
+
+    // Fast path: everything fits even if nothing is replaced. This costs no
+    // extra round trips, which matters for SSH.
+    if available >= required {
+        return Ok(());
+    }
+
+    // Overwriting an existing file frees its blocks, so re-installing a 25 MB
+    // package over a 24 MB copy only needs about 1 MB. `write_to_file` removes
+    // the old file before writing, so the full old size is available again.
+    let mut reclaimed: u64 = 0;
+    for file in files {
+        if let Some(size) = backend.file_size(&file.install_path).await {
+            reclaimed = reclaimed.saturating_add(size);
+        }
+    }
+
+    let needed = space_needed(required, reclaimed);
+    if available < needed {
+        let reclaim_note = if reclaimed > 0 {
+            format!(
+                "\n  Existing files will be replaced: {}\n  Additional space needed: {}",
+                human_size(reclaimed as usize),
+                human_size(needed as usize)
+            )
+        } else {
+            String::new()
+        };
+        return Err(err!(
+            r#"Insufficient disk space for installation
+  Installation directory: {}
+  Available space: {}
+  Required space: {}{reclaim_note}"#,
+            dir,
+            format_size(available),
+            human_size(required as usize),
+        ));
+    }
+
+    Ok(())
+}
+
+fn format_size(size: u64) -> String {
+    humansize::format_size(
+        size,
+        if cfg!(windows) {
+            humansize::WINDOWS
+        } else {
+            humansize::DECIMAL
+        },
+    )
+}
+
+/// Space that must be free *in addition to* what replacing existing files
+/// frees again. Saturating: replacing larger files (a downgrade) can free more
+/// than the install writes.
+fn space_needed(required: u64, reclaimed: u64) -> u64 {
+    required.saturating_sub(reclaimed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tree(name: &str, files: usize) -> FileTree {
+        FileTree {
+            name: name.to_string(),
+            files: (0..files)
+                .map(|i| TreeFile {
+                    path: format!("file{i}"),
+                    origin_path: format!("file{i}"),
+                    mode: None,
+                    data: Vec::new(),
+                })
+                .collect(),
+        }
+    }
+
+    /// A multi-file tree gets its own directory: `--alias` names it, otherwise
+    /// the tool name does. A single file is written straight into the base
+    /// directory.
+    #[tokio::test]
+    async fn multi_file_trees_get_their_own_directory() {
+        let backend = Backend::local();
+        let home = backend.home_dir();
+
+        let config = InstallConfig::default();
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 2)),
+            format!("{home}/tool")
+        );
+        assert_eq!(install_dir_for(&backend, &config, &tree("tool", 1)), home);
+
+        let config = InstallConfig {
+            alias: Some("alias".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 2)),
+            format!("{home}/alias")
+        );
+        // An alias only renames the file when there is a single one.
+        assert_eq!(install_dir_for(&backend, &config, &tree("tool", 1)), home);
+    }
+
+    /// Install paths are `/`-separated on every platform so that the path
+    /// helpers (`dirname`, `get_filename`) behave uniformly.
+    #[tokio::test]
+    async fn install_dir_is_slash_separated() {
+        let backend = Backend::local();
+        let config = InstallConfig {
+            dir: Some("C:\\tmp\\ei".into()),
+            ..Default::default()
+        };
+        let dir = base_install_dir(&backend, &config);
+        assert!(!dir.contains('\\'), "{dir}");
+        assert!(dir.ends_with("tmp/ei"), "{dir}");
+    }
+
+    #[test]
+    fn replaced_files_are_discounted() {
+        // Fresh install: everything must fit.
+        assert_eq!(space_needed(25, 0), 25);
+        // Re-installing over a slightly older build: only the delta matters.
+        assert_eq!(space_needed(25, 24), 1);
+        // Identical size: nothing extra needed.
+        assert_eq!(space_needed(25, 25), 0);
+        // A downgrade frees more than it writes: never negative.
+        assert_eq!(space_needed(25, 40), 0);
+        // Multiple files: callers sum both sides first.
+        assert_eq!(space_needed(10 + 20, 5 + 22), 3);
+    }
+}

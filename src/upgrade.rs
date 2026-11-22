@@ -14,10 +14,10 @@
 //! * A failed or partial install must never leave the user without a working
 //!   binary.
 //!
-//! This module owns that flow. It only calls the crate's own [`ei`] installer,
-//! so no extra crate (and no circular dependency) is involved.
+//! This module owns that flow. It only calls the crate's own [`crate::ei`]
+//! installer, so no extra crate (and no circular dependency) is involved.
 //!
-//! Conceptually an upgrade is a regular [`ei`] install with two defaults:
+//! Conceptually an upgrade is a regular [`crate::ei`] install with two defaults:
 //!
 //! * `target` defaults to this binary's compile-time target
 //!   ([`build_target`]) instead of the platform of the machine;
@@ -126,7 +126,7 @@ pub fn resolve_target(explicit: Option<Target>) -> Result<Target> {
     })
 }
 
-/// [`env!("BUILD_TARGET")`][crate::BUILD_TARGET] parsed as a [`Target`].
+/// `env!("BUILD_TARGET")` parsed as a [`Target`].
 ///
 /// `BUILD_TARGET` is the `TARGET` Cargo compiled this crate for; it is exact,
 /// including the ABI. It is always set (`build.rs` forwards it), so this only
@@ -149,7 +149,10 @@ pub fn installed_path(dir: &Path, name: &str) -> PathBuf {
 
 /// Rollback path used during the rename dance (`ei` → `ei.old`).
 pub fn backup_path(exe: &Path) -> PathBuf {
-    let mut name = exe.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    let mut name = exe
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_default();
     name.push(BACKUP_SUFFIX);
     exe.with_file_name(name)
 }
@@ -227,12 +230,7 @@ pub async fn upgrade_at(exe: PathBuf, options: UpgradeOptions) -> Result<Upgrade
 /// This is a regular `ei` config with three fields pinned: the destination
 /// directory, the installed name and the target. `remote` is cleared because
 /// an upgrade always replaces the local running executable.
-fn upgrade_config(
-    dir: &Path,
-    bin: &str,
-    target: Target,
-    base: InstallConfig,
-) -> InstallConfig {
+fn upgrade_config(dir: &Path, bin: &str, target: Target, base: InstallConfig) -> InstallConfig {
     InstallConfig {
         dir: Some(dir.to_string_lossy().into_owned()),
         // Pin the installed name: the artifact may be called differently.
@@ -276,12 +274,18 @@ fn prepare_backup(exe: &Path) -> Result<PathBuf> {
 
     #[cfg(windows)]
     std::fs::rename(exe, &backup).with_context(|| {
-        format!("failed to rename the running executable '{}'", exe.display())
+        format!(
+            "failed to rename the running executable '{}'",
+            exe.display()
+        )
     })?;
 
     #[cfg(not(windows))]
     std::fs::copy(exe, &backup).with_context(|| {
-        format!("failed to back up the running executable '{}'", exe.display())
+        format!(
+            "failed to back up the running executable '{}'",
+            exe.display()
+        )
     })?;
 
     Ok(backup)
@@ -335,9 +339,8 @@ fn verify_binary(path: &Path) -> Result<()> {
         if meta.permissions().mode() & 0o111 == 0 {
             let mut perms = meta.permissions();
             perms.set_mode(perms.mode() | 0o755);
-            std::fs::set_permissions(path, perms).with_context(|| {
-                format!("failed to mark '{}' executable", path.display())
-            })?;
+            std::fs::set_permissions(path, perms)
+                .with_context(|| format!("failed to mark '{}' executable", path.display()))?;
         }
     }
 
@@ -455,7 +458,7 @@ mod tests {
                 port: 22,
                 ..Default::default()
             }),
-            no_path: true,
+            skip_path: true,
             ..Default::default()
         };
 
@@ -471,6 +474,6 @@ mod tests {
         assert_eq!(config.target, Some(Target::Aarch64UnknownLinuxMusl));
         // An upgrade is always local, and unrelated settings are kept.
         assert!(config.remote.is_none());
-        assert!(config.no_path);
+        assert!(config.skip_path);
     }
 }

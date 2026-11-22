@@ -9,16 +9,15 @@ authors = ["ahaoboy"]
 include = ["/src", "/Cargo.toml", "/README.md", "/build.rs"]
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
-clap_complete = "4"
-is-musl = { git = "https://github.com/ahaoboy/is-musl", version = "0.1" }
+clap = { version = "4", features = ["derive"], optional = true }
+clap_complete = { version = "4", optional = true }
+async-trait = "0.1"
 crud-path = { git = "https://github.com/ahaoboy/crud-path.git", version = "0.1", default-features = false }
-which-shell = { git = " https://github.com/ahaoboy/which-shell.git", version = "0.1" }
-easy-archive = { git = " https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false, features = [
+easy-archive = { git = "https://github.com/ahaoboy/easy-archive.git", version = "0.2", default-features = false, features = [
   "fmt",
   "decode",
 ] }
-guess-target = { git = " https://github.com/ahaoboy/guess-target.git", version = "0.1", features = [
+guess-target = { git = "https://github.com/ahaoboy/guess-target.git", version = "0.1", features = [
   "serde",
 ] }
 serde = { version = "1", features = ["derive"] }
@@ -45,7 +44,7 @@ reqwest = { version = "0.12", features = [
 
 which = "8"
 regex = { version = "1", default-features = false, features = ["std"] }
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", optional = true }
 path-clean = "1"
 thiserror = "2"
 github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy", features = [
@@ -57,20 +56,12 @@ github-proxy = { version = "0.1", git = "https://github.com/ahaoboy/github-proxy
 shellexpand = "3"
 fs4 = "1"
 humansize = "2"
-git-version = "0.3"
-const-str = "1"
+git-version = { version = "0.3", optional = true }
+const-str = { version = "1", optional = true }
 
 [features]
-default = [
-  "tar",
-  "tar-gz",
-  "tar-xz",
-  "tar-bz",
-  "tar-zstd",
-  "gz",
-  "zip",
-  "ssh",
-]
+default = ["cli", "archive", "ssh"]
+archive = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "gz", "zip"]
 # Remote installation over SSH (`--dir user@host:/path`). Enabled by default.
 # Library users that only install locally can drop it:
 #   easy-install = { version = "1", default-features = false, features = ["tar-gz"] }
@@ -83,6 +74,16 @@ tar-zstd = ["tar", "easy-archive/tar-zstd"]
 gz = ["easy-archive/gz"]
 zip = ["easy-archive/zip"]
 logging = ["crud-path/logging"]
+cli = [
+  "dep:clap",
+  "dep:clap_complete",
+  "dep:const-str",
+  "dep:git-version",
+  "dep:tracing-subscriber",
+  "archive",
+  "ssh",
+  "logging",
+]
 
 [profile.release]
 debug = false
@@ -97,3 +98,8 @@ debug = true
 lto = false
 strip = false
 inherits = 'release'
+
+[[bin]]
+name = "ei"
+path = "src/main.rs"
+required-features = ["cli"]
