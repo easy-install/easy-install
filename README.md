@@ -63,6 +63,11 @@ multi-file archive, its install directory:
 ei owner/repo --name tool --alias my-tool
 ```
 
+Checksum manifests (`sha256`, `SHA256SUMS.txt`, `checksums`, …) are never
+installed. A platform-independent single file, such as an `.iso`, has no target
+in its name, so it is only selected when named explicitly with `--name` or
+`--regex`; it is written as-is and never unpacked.
+
 ## Destination and SSH
 
 By default, files go to `~/.ei`, which is added to `PATH`. Use `-d` / `--dir`

@@ -14,7 +14,9 @@ use crate::InstallConfig;
 use crate::artifact::{Artifact, Kind};
 use crate::error::{Context, Result, bail};
 use crate::manifest::{Artifact as ManifestArtifact, DistManifest};
-use crate::path::{ends_with_exe, get_filename, is_skip, name_no_ext, replace_filename};
+use crate::path::{
+    ends_with_exe, get_filename, is_archive_file, is_skip, name_no_ext, replace_filename,
+};
 use github_proxy::artifacts::GhArtifacts;
 use github_proxy::{Proxy, Resource};
 use guess_target::{Abi, Arch, Os, Target, guess_target};
@@ -33,7 +35,17 @@ pub(crate) fn from_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Res
     let ranked = rank_assets(artifacts, config)?;
     Ok(filter_alias(ranked, config)
         .into_iter()
-        .map(|(name, url)| Artifact::new(name, url, Kind::Auto))
+        .map(|(name, url)| {
+            // Archives are unpacked; everything else is written as-is. Deciding
+            // here keeps the original name of a single file (an ISO must not
+            // lose its extension, or gain `.exe` on Windows).
+            let kind = if is_archive_file(&url) {
+                Kind::Auto
+            } else {
+                Kind::Single
+            };
+            Artifact::new(name, url, kind)
+        })
         .collect())
 }
 
@@ -115,9 +127,20 @@ pub(crate) fn not_found(url: &str, config: &InstallConfig, available: Option<&[S
         return;
     }
 
+    // Checksum manifests and other release metadata cannot be installed;
+    // listing them next to the real assets only adds noise.
+    let listed: Vec<&str> = names
+        .iter()
+        .map(String::as_str)
+        .filter(|name| !is_skip(name))
+        .collect();
+    if listed.is_empty() {
+        return;
+    }
+
     // (stem, tool name, target)
     let mut rows: Vec<(String, String, String)> = Vec::new();
-    for name in names {
+    for name in listed {
         let stem = name_no_ext(name);
         let guesses = guess_target(&stem);
         if guesses.is_empty() {
@@ -307,7 +330,21 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
             None
         };
 
-        let Some(guess) = matched else { continue };
+        // A single file with no platform in its name (an ISO, a shell script)
+        // cannot be matched to a target. Install it only when the user asked
+        // for it by name: silently preferring it over a platform binary would
+        // be surprising.
+        let Some(guess) = matched else {
+            if !config.name.is_empty() && !is_archive_file(&asset.browser_download_url) {
+                candidates.push((
+                    false,
+                    0,
+                    filename.clone(),
+                    asset.browser_download_url.clone(),
+                ));
+            }
+            continue;
+        };
 
         // ARM platforms prefer musl: glibc builds often do not run there.
         let musl_bonus = match (guess.target.arch(), guess.target.abi()) {
@@ -500,6 +537,58 @@ mod tests {
             list[0].url.ends_with("lo-linux-x64.gz"),
             "gnu target must select the gnu asset, got: {list:?}"
         );
+    }
+
+    /// Ventoy publishes platform installers plus a bare `sha256` file and a
+    /// platform-independent live ISO. The checksum must never be a candidate,
+    /// and the ISO is installable as one file once the user names it.
+    #[test]
+    fn test_named_single_file_without_target() {
+        let assets: std::collections::HashSet<_> = [
+            "ventoy-1.1.18-windows.zip",
+            "ventoy-1.1.18-linux.tar.gz",
+            "sha256",
+            "ventoy-1.1.18-livecd.iso",
+        ]
+        .into_iter()
+        .map(|name| GhArtifact {
+            name: name.to_string(),
+            browser_download_url: format!(
+                "https://github.com/ventoy/Ventoy/releases/download/v1.1.18/{name}"
+            ),
+            size: 0,
+            url: None,
+        })
+        .collect();
+
+        let target = Some(Target::from_str("aarch64-apple-darwin").unwrap());
+
+        // No platform binary and no explicit name: nothing is selected.
+        let config = InstallConfig {
+            target,
+            ..Default::default()
+        };
+        let list = from_assets(
+            GhArtifacts {
+                assets: assets.clone(),
+            },
+            &config,
+        )
+        .unwrap();
+        assert!(list.is_empty(), "{list:?}");
+
+        // Naming the ISO explicitly installs it as a single file under its own
+        // name instead of unpacking it.
+        let config = InstallConfig {
+            target,
+            name: vec!["ventoy-1.1.18-livecd.iso".to_string()],
+            ..Default::default()
+        };
+        let list = from_assets(GhArtifacts { assets }, &config).unwrap();
+        assert_eq!(list.len(), 1, "{list:?}");
+        assert_eq!(list[0].name, "ventoy-1.1.18-livecd.iso");
+        assert_eq!(list[0].kind, Kind::Single);
+        assert!(list[0].url.ends_with("ventoy-1.1.18-livecd.iso"));
     }
 
     fn manifest(name: &str) -> DistManifest {

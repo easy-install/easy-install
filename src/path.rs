@@ -44,6 +44,33 @@ pub(crate) const MAYBE_EXECUTABLE_EXTS: [&str; 13] = [
     ".nu",
 ];
 
+/// Disk images are installed as a single file: they are never unpacked, even
+/// if an archive backend ever learns the format.
+pub(crate) const DISK_IMAGE_EXTS: [&str; 2] = [".iso", ".img"];
+
+/// File names that are checksum manifests rather than installable files.
+///
+/// Release pages commonly publish `sha256`, `SHA256SUMS` or `checksums` next to
+/// the binaries. They carry no platform in their name and no file extension,
+/// so without this they would be offered as `(unknown)` candidates.
+const CHECKSUM_NAMES: [&str; 15] = [
+    "md5",
+    "md5sum",
+    "md5sums",
+    "sha1",
+    "sha1sum",
+    "sha1sums",
+    "sha256",
+    "sha256sum",
+    "sha256sums",
+    "sha512",
+    "sha512sum",
+    "sha512sums",
+    "checksum",
+    "checksums",
+    "hashes",
+];
+
 /// Checksums, signatures, patches and archives of metadata: never installed.
 /// Checksums, signatures and patches: release metadata that is never
 /// installed.
@@ -69,9 +96,18 @@ pub(crate) fn is_known_format(s: &str) -> bool {
         &TEXT_FILE_EXTS[..],
         &MAYBE_EXECUTABLE_EXTS[..],
         &SKIP_FMT_LIST[..],
+        &DISK_IMAGE_EXTS[..],
     ]
     .iter()
     .any(|exts| exts.iter().any(|ext| s.ends_with(ext)))
+}
+
+/// Whether `name` looks like a checksum manifest (`sha256`, `SHA256SUMS.txt`,
+/// `checksums`, …).
+pub(crate) fn is_checksum_file(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    let stem = lower.split('.').next().unwrap_or_default();
+    CHECKSUM_NAMES.contains(&stem)
 }
 
 const LICENSE_PREFIXES: &[&str] = &["license", "licence", "copying", "unlicense", "copyright"];
@@ -92,7 +128,8 @@ pub(crate) fn is_license_file(p: &str) -> bool {
 
 /// Whether `s` is a hidden file or release metadata that must not be installed.
 pub(crate) fn is_skip(s: &str) -> bool {
-    if s.rsplit('/').next().unwrap_or_default().starts_with('.') {
+    let name = get_filename(s);
+    if name.starts_with('.') || is_checksum_file(&name) {
         return true;
     }
     let lower = s.to_ascii_lowercase();
@@ -182,7 +219,14 @@ fn known_extensions() -> &'static Vec<String> {
 
 /// Whether `s` points at an archive format `ei` can decode.
 pub(crate) fn is_archive_file(s: &str) -> bool {
-    Fmt::guess(s).is_some()
+    !is_disk_image(s) && Fmt::guess(s).is_some()
+}
+
+/// Whether `s` is a disk image, installed as a single file rather than
+/// unpacked.
+pub(crate) fn is_disk_image(s: &str) -> bool {
+    let name = get_filename(s).to_ascii_lowercase();
+    DISK_IMAGE_EXTS.iter().any(|ext| name.ends_with(ext))
 }
 
 /// Whether `s` ends with a Windows executable extension.
@@ -375,6 +419,38 @@ mod tests {
         {
             assert!(seen.insert(*ext), "{ext} is listed twice");
         }
+    }
+
+    /// Checksum manifests are published next to the binaries, often without an
+    /// extension (Ventoy ships a bare `sha256`).
+    #[test]
+    fn checksum_manifests_are_skipped() {
+        for name in [
+            "sha256",
+            "SHA256SUMS",
+            "sha256sums.txt",
+            "checksums",
+            "md5sum",
+            "https://github.com/ventoy/Ventoy/releases/download/v1.1.18/sha256",
+        ] {
+            assert!(is_skip(name), "{name} must be skipped");
+        }
+
+        assert!(!is_skip("sha256sum-tool"));
+        assert!(!is_skip("tool"));
+    }
+
+    #[test]
+    fn disk_images_are_single_files() {
+        assert!(!is_archive_file("ventoy-1.1.18-livecd.iso"));
+        assert!(!is_archive_file("https://example.com/disk.img"));
+        assert!(is_known_format("ventoy-1.1.18-livecd.iso"));
+        assert_eq!(
+            name_no_ext("ventoy-1.1.18-livecd.iso"),
+            "ventoy-1.1.18-livecd.iso"
+        );
+        assert!(is_archive_file("tool.tar.gz"));
+        assert!(is_archive_file("tool.zip"));
     }
 
     #[test]

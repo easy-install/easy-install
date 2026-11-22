@@ -104,9 +104,7 @@ async fn install_artifact(
         Kind::Single => install_single_file(backend, artifact, config).await,
         Kind::Auto => install_auto(backend, artifact, config).await,
         Kind::Zip => {
-            if !config.quiet {
-                println!("download {}", artifact.url);
-            }
+            log_download(&artifact.url, config);
             // The download URL is an API endpoint (…/artifacts/{id}/zip) that
             // `Fmt::guess` may not recognise, hence the explicit format.
             let bytes = get_bytes(&artifact.url, config.retry, config.timeout)
@@ -123,13 +121,11 @@ async fn install_auto(
     artifact: &Artifact,
     config: &InstallConfig,
 ) -> Result<Report> {
-    if !config.quiet && Url::is_valid(&artifact.url) {
-        println!("download {}", artifact.url);
-    }
     if !is_archive_file(&artifact.url) {
         return install_single_file(backend, artifact, config).await;
     }
 
+    log_download(&artifact.url, config);
     let bytes = get_bytes(&artifact.url, config.retry, config.timeout).await?;
     let fmt = Fmt::guess(&artifact.url).context("fmt guess error")?;
     install_bytes(backend, bytes, fmt, artifact, config).await
@@ -151,6 +147,7 @@ async fn install_single_file(
         return Ok(Report::new());
     }
 
+    log_download(&artifact.url, config);
     let data = if std::fs::exists(&artifact.url).unwrap_or(false) {
         std::fs::read(&artifact.url)?
     } else {
@@ -165,6 +162,13 @@ async fn install_single_file(
     };
     let dir = base_install_dir(backend, config);
     write_tree(backend, vec![file], dir, &artifact.url, config).await
+}
+
+/// Print the URL being fetched, for remote sources only.
+fn log_download(url: &str, config: &InstallConfig) {
+    if !config.quiet && Url::is_valid(url) {
+        println!("download {url}");
+    }
 }
 
 /// Install an in-memory archive.
