@@ -436,16 +436,27 @@ fn manifest_eligible(key: &str, artifact: &ManifestArtifact, targets: &[Target])
     }
 }
 
+/// Tool name derived from a release file name: the archive/platform suffix is
+/// stripped and the leading tool name kept (`cargo-dist-x86_64-pc-windows-msvc.zip`
+/// → `cargo-dist`).
+///
+/// A `name` that is already a bare tool name (`ant`) is returned unchanged.
+fn tool_name(file_name: &str) -> String {
+    let stem = name_no_ext(&get_filename(file_name));
+    match guess_target(&stem).pop() {
+        Some(guess) if !guess.name.is_empty() => guess.name,
+        _ => stem,
+    }
+}
+
 /// `(name, url)` of a matched manifest artifact.
 fn manifest_candidate(url: &str, key: &str, artifact: &ManifestArtifact) -> Candidate {
-    // Prefer the manifest's explicit `name`: the artifact URL may only carry
-    // the platform (e.g. `.../ant/windows-x64`).
+    // `name` is the tool name for some manifests (`"ant"`) but the artifact
+    // file name for cargo-dist's own schema
+    // (`"cargo-dist-x86_64-pc-windows-msvc.zip"`), so normalize both.
     let name = match &artifact.name {
-        Some(name) if !name.is_empty() => name.clone(),
-        _ => {
-            let raw = name_no_ext(&get_filename(key));
-            guess_target(&raw).pop().map_or(raw, |guess| guess.name)
-        }
+        Some(name) if !name.is_empty() => tool_name(name),
+        _ => tool_name(key),
     };
     let url = if github_proxy::fetch::Url::is_valid(key) {
         key.to_string()
@@ -589,6 +600,55 @@ mod tests {
         assert_eq!(list[0].name, "ventoy-1.1.18-livecd.iso");
         assert_eq!(list[0].kind, Kind::Single);
         assert!(list[0].url.ends_with("ventoy-1.1.18-livecd.iso"));
+    }
+
+    /// cargo-dist's own manifest names artifacts by file name
+    /// (`cargo-dist-x86_64-pc-windows-msvc.zip`), which must not become the
+    /// install directory name.
+    #[test]
+    fn test_manifest_name_is_normalized_to_tool_name() {
+        for (input, expected) in [
+            ("cargo-dist-x86_64-pc-windows-msvc.zip", "cargo-dist"),
+            ("cargo-dist-aarch64-apple-darwin.tar.xz", "cargo-dist"),
+            ("tool-v1.2.3-x86_64-unknown-linux-musl.tar.gz", "tool"),
+            ("ant", "ant"),
+            ("bare", "bare"),
+        ] {
+            assert_eq!(tool_name(input), expected, "{input}");
+        }
+
+        // The synthesized cargo-dist layout keeps the tool name for every
+        // artifact, so the install directory is `cargo-dist`, not the zip name.
+        let manifest: DistManifest = serde_json::from_str(
+            r#"{
+                "artifacts": {
+                    "cargo-dist-x86_64-pc-windows-msvc.zip": {
+                        "name": "cargo-dist-x86_64-pc-windows-msvc.zip",
+                        "kind": "executable-zip",
+                        "target_triples": ["x86_64-pc-windows-msvc"]
+                    },
+                    "cargo-dist-x86_64-pc-windows-msvc.zip.sha256": {
+                        "name": "cargo-dist-x86_64-pc-windows-msvc.zip.sha256",
+                        "kind": "checksum",
+                        "target_triples": ["x86_64-pc-windows-msvc"]
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = InstallConfig {
+            target: Some(Target::from_str("x86_64-pc-windows-msvc").unwrap()),
+            ..Default::default()
+        };
+        let urls = from_manifest("dist-manifest.json", &manifest, &config);
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        assert_eq!(urls[0].name, "cargo-dist");
+        assert!(
+            urls[0]
+                .url
+                .ends_with("cargo-dist-x86_64-pc-windows-msvc.zip")
+        );
     }
 
     fn manifest(name: &str) -> DistManifest {

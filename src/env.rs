@@ -46,9 +46,17 @@ pub(crate) fn add_to_path(dir: &str, shell: Option<Shell>, quiet: bool) {
         return;
     }
 
-    if let Some(sh) = crud_path::add_path(dir, true) {
+    if let Some(shell) = crud_path::add_path(dir, true) {
         if !quiet {
-            println!("Successfully added {dir} to {sh}'s $PATH");
+            // `Shell::config_file` is the location the entry went to, so the
+            // message can name it without the writer returning anything extra.
+            match shell.config_file() {
+                Some(file) => println!(
+                    "Successfully added {dir} to {shell}'s $PATH ({})",
+                    crate::path::path_to_str(&file)
+                ),
+                None => println!("Successfully added {dir} to {shell}'s $PATH"),
+            }
         }
     } else if !quiet {
         println!("You need to add {dir} to your $PATH");
