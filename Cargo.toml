@@ -60,7 +60,7 @@ git-version = { version = "0.3", optional = true }
 const-str = { version = "1", optional = true }
 
 [features]
-default = ["cli", "archive", "ssh"]
+default = ["cli", "archive", "ssh", "logging"]
 archive = ["tar", "tar-gz", "tar-xz", "tar-bz", "tar-zstd", "gz", "zip"]
 # Remote installation over SSH (`--dir user@host:/path`). Enabled by default.
 # Library users that only install locally can drop it:
@@ -73,17 +73,8 @@ tar-bz = ["tar", "easy-archive/tar-bz"]
 tar-zstd = ["tar", "easy-archive/tar-zstd"]
 gz = ["easy-archive/gz"]
 zip = ["easy-archive/zip"]
-logging = ["crud-path/logging"]
-cli = [
-  "dep:clap",
-  "dep:clap_complete",
-  "dep:const-str",
-  "dep:git-version",
-  "dep:tracing-subscriber",
-  "archive",
-  "ssh",
-  "logging",
-]
+logging = ["crud-path/logging", "dep:tracing-subscriber"]
+cli = ["dep:clap", "dep:clap_complete", "dep:const-str", "dep:git-version"]
 
 [profile.release]
 debug = false
