@@ -188,10 +188,18 @@ async fn install_bytes(
 ) -> Result<Report> {
     // A corrupt archive is a real failure: report which artifact could not be
     // extracted instead of pretending nothing was selected.
-    let tree = tree::decode(bytes, fmt, &artifact.name)
+    let mut tree = tree::decode(bytes, fmt, &artifact.name)
         .with_context(|| format!("failed to extract the archive from '{}'", artifact.url))?;
     if tree.files.is_empty() {
         return Ok(Report::new());
+    }
+
+    // A single file inside an archive is the tool itself, but archive entries
+    // carry the platform (`nova-windows-amd64.exe`). Install it under the
+    // inferred tool name when the entry names the tool; `--alias` still wins
+    // because `write_tree` renames after this.
+    if config.alias.is_none() {
+        tree::rename_to_tool(&mut tree.files, &artifact.name);
     }
 
     let dir = install_dir_for(backend, config, &tree);

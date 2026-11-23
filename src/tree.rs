@@ -171,6 +171,27 @@ pub(crate) fn rename_alias(files: &mut [TreeFile], alias: &str) {
     };
 }
 
+/// Rename the single file of a tree to `tool`, keeping its extension.
+///
+/// Only applies when the archive entry carries the tool name followed by a
+/// platform suffix (`nova-windows-amd64.exe` → `nova.exe`). An entry that does
+/// not start with the tool name is left alone: renaming `denort.dll` to
+/// `libdenort` would lose information rather than gain it.
+pub(crate) fn rename_to_tool(files: &mut [TreeFile], tool: &str) {
+    if tool.is_empty() || files.len() != 1 {
+        return;
+    }
+    let name = get_filename(&files[0].path);
+    let starts_with_tool = name
+        .get(..tool.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(tool));
+    let boundary = matches!(name.as_bytes().get(tool.len()), Some(b'-' | b'_' | b'.'));
+
+    if starts_with_tool && boundary {
+        rename_alias(files, tool);
+    }
+}
+
 /// Split `path` into a directory part (with trailing `/`) and a file name.
 fn split_dir(path: &str) -> (&str, &str) {
     match path.rfind('/') {
@@ -260,6 +281,12 @@ mod tests {
         let mut files = vec![file("tool", Some(0o755))];
         rename_alias(&mut files, "renamed");
         assert_eq!(files[0].path, "renamed");
+
+        // Archive entries carry the platform; the tool name replaces it while
+        // the extension stays (a `nova-windows-amd64.exe` zip entry).
+        let mut files = vec![file("nova-windows-amd64.exe", Some(0o755))];
+        rename_alias(&mut files, "nova");
+        assert_eq!(files[0].path, "nova.exe");
     }
 
     #[test]
@@ -272,6 +299,31 @@ mod tests {
         rename_alias(&mut files, "renamed");
         assert_eq!(files[1].path, "renamed");
         assert_eq!(files[0].path, "readme.txt");
+    }
+
+    /// An archive entry that names the tool plus a platform becomes the tool
+    /// name; an unrelated entry keeps its own name.
+    #[test]
+    fn single_archive_entry_is_named_after_the_tool() {
+        let mut files = vec![file("nova-windows-amd64.exe", Some(0o755))];
+        rename_to_tool(&mut files, "nova");
+        assert_eq!(files[0].path, "nova.exe");
+
+        // Already the tool name: untouched.
+        let mut files = vec![file("deno.exe", Some(0o755))];
+        rename_to_tool(&mut files, "deno");
+        assert_eq!(files[0].path, "deno.exe");
+
+        // Does not start with the tool name: keep it (`denort.dll` must not
+        // become `libdenort`).
+        let mut files = vec![file("denort.dll", Some(0o755))];
+        rename_to_tool(&mut files, "libdenort");
+        assert_eq!(files[0].path, "denort.dll");
+
+        // More than one entry: the tree keeps its own names.
+        let mut files = vec![file("tool-x86_64", None), file("tool.pc", None)];
+        rename_to_tool(&mut files, "tool");
+        assert_eq!(files[0].path, "tool-x86_64");
     }
 
     #[test]
