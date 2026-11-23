@@ -140,9 +140,14 @@ pub(crate) fn is_skip(s: &str) -> bool {
         .any(|ext| lower.ends_with(ext))
 }
 
-/// Installed file name for `s`, adding `.exe` on Windows for bare names.
-pub(crate) fn get_bin_name(s: &str) -> String {
-    if cfg!(windows) && !WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) && !s.contains(".") {
+/// Installed file name for `s`.
+///
+/// `.exe` is appended for bare names only when the *install target* is
+/// Windows. The decision cannot use `cfg!(windows)`: a Windows build of `ei`
+/// routinely installs onto a Linux host over SSH, and the compiled-in platform
+/// says nothing about where the file lands.
+pub(crate) fn get_bin_name(s: &str, windows: bool) -> String {
+    if windows && !WINDOWS_EXE_EXTS.iter().any(|i| s.ends_with(i)) && !s.contains(".") {
         return s.to_string() + ".exe";
     }
     s.to_string()
@@ -321,13 +326,14 @@ mod tests {
 
     #[test]
     fn test_get_bin_name() {
-        for (a, b) in [
-            ("a", if cfg!(windows) { "a.exe" } else { "a" }),
-            ("a.bat", "a.bat"),
-            ("a.ps1", "a.ps1"),
-            ("a.msi", "a.msi"),
-        ] {
-            assert_eq!(get_bin_name(a), b);
+        // Bare names get `.exe` on a Windows target only.
+        assert_eq!(get_bin_name("a", true), "a.exe");
+        assert_eq!(get_bin_name("a", false), "a");
+
+        // Existing extensions are never rewritten.
+        for name in ["a.bat", "a.ps1", "a.msi", "a.exe", "tool-1.0"] {
+            assert_eq!(get_bin_name(name, true), name);
+            assert_eq!(get_bin_name(name, false), name);
         }
     }
 

@@ -154,8 +154,15 @@ async fn install_single_file(
         download_binary(&artifact.url, config.retry, config.timeout).await?
     };
 
+    // Naming follows the target, not the machine running `ei`: a Windows
+    // build installing onto Linux over SSH must not add `.exe`.
+    let windows = config
+        .targets()
+        .iter()
+        .any(|target| target.os() == Os::Windows);
+
     let file = TreeFile {
-        path: get_bin_name(&artifact.name),
+        path: get_bin_name(&artifact.name, windows),
         origin_path: get_filename(&artifact.url),
         mode: None,
         data,

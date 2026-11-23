@@ -89,7 +89,8 @@ ei ./tool.tar.gz user@host:2222:/opt/tools --upx
 Use `-i FILE` for a private key or `-p PASSWORD` for password authentication;
 they are mutually exclusive. Specify the port with `-P PORT` (uppercase).
 If remote platform detection is unavailable, pass `--target` explicitly.
-`strip` and `upx` run on the destination host.
+`strip` and `upx` run on the destination host, and installed names follow the
+destination platform (`.exe` is only added for Windows targets).
 
 Before writing, `ei` checks available space when the host supports it. Existing
 files that will be overwritten are deducted from the required space.
