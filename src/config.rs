@@ -4,6 +4,7 @@ use github_proxy::Proxy;
 use guess_target::Target;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use which_shell::Shell;
 
 /// Everything one install needs: where to install, what to select, and how to
 /// fetch it.
@@ -24,6 +25,11 @@ pub struct InstallConfig {
     pub quiet: bool,
     /// Whether adding the install directory to `PATH` is skipped.
     pub skip_path: bool,
+    /// Shell whose configuration receives the install directory.
+    ///
+    /// `None` lets a local install detect the current shell; a remote install
+    /// falls back to [`Shell::Bash`].
+    pub shell: Option<Shell>,
     pub fuzzy: bool,
     pub regex: Option<String>,
     /// When set, install to this SSH host instead of the local filesystem.
@@ -44,6 +50,7 @@ impl Default for InstallConfig {
             upx: false,
             quiet: false,
             skip_path: false,
+            shell: None,
             fuzzy: false,
             regex: None,
             remote: None,
@@ -69,6 +76,7 @@ impl InstallConfig {
             upx: persistent.upx.unwrap_or(false),
             quiet: false,
             skip_path: false,
+            shell: None,
             fuzzy: false,
             regex: None,
             remote: None,

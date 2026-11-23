@@ -11,6 +11,7 @@ use crate::remote;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use github_proxy::Proxy;
 use guess_target::Target;
+use which_shell::Shell;
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum ConfigSubcommand {
@@ -156,6 +157,21 @@ pub struct Args {
     )]
     skip_path: bool,
 
+    /// Shell whose configuration gets the install directory
+    ///
+    /// Locally the current shell is detected when this is omitted; a remote
+    /// install defaults to `bash`. Supported: bash, zsh, fish, sh, dash, ksh,
+    /// tcsh, csh, powershell (pwsh), nu, elvish.
+    #[arg(
+        long,
+        global = true,
+        value_name = "SHELL",
+        value_enum,
+        ignore_case = true,
+        help = "Shell to add the install directory to (local: auto-detect, remote: bash)"
+    )]
+    shell: Option<Shell>,
+
     /// Filter artifacts by name (comma-separated, word-boundary match)
     ///
     /// Matches filenames whose stem starts with the given name followed
@@ -283,6 +299,7 @@ impl Default for Args {
             identity: None,
             dir: None,
             skip_path: false,
+            shell: None,
             name: vec![],
             alias: None,
             target: None,
@@ -345,6 +362,7 @@ impl From<Args> for InstallConfig {
             upx,
             quiet: value.quiet,
             skip_path: value.skip_path,
+            shell: value.shell,
             fuzzy: value.fuzzy,
             regex: value.regex,
             remote,
@@ -621,5 +639,23 @@ mod tests {
     fn skip_path_can_be_enabled() {
         assert!(!resolve(&["ei", "ahaoboy/fsv"]).skip_path);
         assert!(resolve(&["ei", "ahaoboy/fsv", "--skip-path"]).skip_path);
+    }
+
+    #[test]
+    fn shell_defaults_to_auto_detection_and_accepts_names() {
+        assert_eq!(resolve(&["ei", "ahaoboy/fsv"]).shell, None);
+        assert_eq!(
+            resolve(&["ei", "ahaoboy/fsv", "--shell", "zsh"]).shell,
+            Some(Shell::Zsh)
+        );
+        assert_eq!(
+            resolve(&["ei", "ahaoboy/fsv", "--shell", "pwsh"]).shell,
+            Some(Shell::Pwsh)
+        );
+        assert_eq!(
+            resolve(&["ei", "ahaoboy/fsv", "--shell", "powershell"]).shell,
+            Some(Shell::PowerShell)
+        );
+        assert!(Args::try_parse_from(["ei", "ahaoboy/fsv", "--shell", "nonsense"]).is_err());
     }
 }

@@ -7,6 +7,7 @@ use crate::path::path_to_str;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::str::FromStr;
+use which_shell::Shell;
 
 // ── Local filesystem helpers ────────────────────────────────────────────
 
@@ -181,8 +182,8 @@ impl Host for LocalHost {
         })
     }
 
-    async fn add_to_path(&self, dir: &str, quiet: bool) -> Result<()> {
-        crate::env::add_to_path(dir, quiet);
+    async fn add_to_path(&self, dir: &str, shell: Option<Shell>, quiet: bool) -> Result<()> {
+        crate::env::add_to_path(dir, shell, quiet);
         Ok(())
     }
 }

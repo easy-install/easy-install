@@ -48,6 +48,7 @@ pub use config::InstallConfig;
 pub use remote::{
     PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
 };
+pub use which_shell::Shell;
 
 /// Target triple this binary was compiled for.
 pub(crate) const BUILD_TARGET: &str = env!("BUILD_TARGET");

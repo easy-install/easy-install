@@ -25,6 +25,7 @@ use crate::error::Result;
 #[cfg(not(feature = "ssh"))]
 use crate::error::err;
 use guess_target::Target;
+use which_shell::Shell;
 
 /// Result of a command executed on the install target.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -103,8 +104,11 @@ pub trait Host {
     /// Run a program on the host (used for `strip` / `upx`).
     async fn run(&self, program: &str, args: &[&str]) -> Result<CommandResult>;
 
-    /// Make `dir` part of the login `$PATH`.
-    async fn add_to_path(&self, dir: &str, quiet: bool) -> Result<()>;
+    /// Make `dir` part of the login `$PATH` of `shell`.
+    ///
+    /// `None` lets a local host detect the current shell; a remote host falls
+    /// back to `bash`.
+    async fn add_to_path(&self, dir: &str, shell: Option<Shell>, quiet: bool) -> Result<()>;
 }
 
 // ── Runtime selection ───────────────────────────────────────────────────
@@ -210,8 +214,8 @@ impl Host for Backend {
         forward!(self, h => h.run(program, args).await)
     }
 
-    async fn add_to_path(&self, dir: &str, quiet: bool) -> Result<()> {
-        forward!(self, h => h.add_to_path(dir, quiet).await)
+    async fn add_to_path(&self, dir: &str, shell: Option<Shell>, quiet: bool) -> Result<()> {
+        forward!(self, h => h.add_to_path(dir, shell, quiet).await)
     }
 }
 

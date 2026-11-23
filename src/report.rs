@@ -97,15 +97,14 @@ pub(crate) fn display(report: &Report, config: &InstallConfig, backend: &Backend
 
 /// Register installed directories in `$PATH`.
 ///
-/// Remote shells are never modified: the user gets an `export PATH=…` hint
-/// instead.
+/// Remote shells are edited over SSH in the same way as local ones.
 pub(crate) async fn add_to_path(report: &Report, config: &InstallConfig, backend: &Backend) {
     if backend.is_remote() {
         let mut seen = HashSet::new();
         for installed in report.values() {
             let dir = backend.expand(&installed.install_dir);
             if seen.insert(dir.clone()) {
-                register_path(backend, &dir, config.quiet).await;
+                register_path(backend, &dir, config).await;
             }
         }
         return;
@@ -138,15 +137,20 @@ pub(crate) async fn add_to_path(report: &Report, config: &InstallConfig, backend
 
     let mut added = HashSet::new();
     for installed in report.values() {
-        register_path(backend, &installed.install_dir, config.quiet).await;
+        if added.insert(installed.install_dir.clone()) {
+            register_path(backend, &installed.install_dir, config).await;
+        }
 
         for file in &installed.files {
             let is_exe = (maybe_exe.len() == 1 && maybe_exe.contains(&file.install_path))
                 || ends_with_exe(&file.origin_path)
                 || file.mode.unwrap_or(0) & EXEC_MASK != 0;
+            // `dirname` keeps the trailing separator; the install directory
+            // does not, so compare without it to avoid registering twice.
             let dir = dirname(&file.install_path);
-            if depth(&file.origin_path) <= DEEP && is_exe && added.insert(dir.clone()) {
-                register_path(backend, &dir, config.quiet).await;
+            let dir = dir.trim_end_matches('/');
+            if depth(&file.origin_path) <= DEEP && is_exe && added.insert(dir.to_string()) {
+                register_path(backend, dir, config).await;
             }
         }
     }
@@ -156,8 +160,9 @@ pub(crate) async fn add_to_path(report: &Report, config: &InstallConfig, backend
 ///
 /// The files are installed either way, so a failure only warns: a read-only
 /// shell profile must not turn a successful install into an error.
-async fn register_path(backend: &Backend, dir: &str, quiet: bool) {
-    if let Err(e) = backend.add_to_path(dir, quiet).await
+async fn register_path(backend: &Backend, dir: &str, config: &InstallConfig) {
+    let quiet = config.quiet;
+    if let Err(e) = backend.add_to_path(dir, config.shell, quiet).await
         && !quiet
     {
         eprintln!(

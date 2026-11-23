@@ -4,7 +4,7 @@ use super::{CommandResult, Host};
 use crate::error::{Result, err};
 use crate::remote::{RemoteConfig, RemotePlatform, detect_platform};
 use guess_target::Target;
-use sssh::{Client, Fs, Output, shell_quote};
+use sssh::{Client, Fs, Output, Shell, shell_quote};
 
 impl From<Output> for CommandResult {
     fn from(out: Output) -> Self {
@@ -165,10 +165,23 @@ impl Host for SshHost {
         Ok(output.into())
     }
 
-    async fn add_to_path(&self, dir: &str, quiet: bool) -> Result<()> {
-        // Never edit the remote shell config behind the user's back.
+    async fn add_to_path(&self, dir: &str, shell: Option<Shell>, quiet: bool) -> Result<()> {
+        // `sssh` owns the remote edit (which config file, how to append it);
+        // `bash` is the default because the remote login shell cannot be
+        // guessed reliably.
+        let shell = shell.unwrap_or(Shell::Bash);
+        let file = self.client.add_to_path(shell, dir).await.map_err(|e| {
+            err!(
+                "could not add '{dir}' to {shell}'s PATH on {}: {e}",
+                self.label()
+            )
+        })?;
         if !quiet {
-            println!("Add {dir} to the remote PATH with:\n  export PATH=\"$PATH:{dir}\"");
+            println!(
+                "Added {dir} to {shell}'s PATH on {} ({})",
+                self.label(),
+                crate::path::path_to_str(&file)
+            );
         }
         Ok(())
     }

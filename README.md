@@ -71,7 +71,10 @@ in its name, so it is only selected when named explicitly with `--name` or
 ## Destination and SSH
 
 By default, files go to `~/.ei`, which is added to `PATH`. Use `-d` / `--dir`
-to choose a local directory; `--skip-path` leaves `PATH` untouched.
+to choose a local directory; `--skip-path` leaves `PATH` untouched. `--shell`
+picks the shell whose config is edited (`bash`, `zsh`, `fish`, `sh`, `dash`,
+`ksh`, `tcsh`, `csh`, `powershell`, `nu`, `elvish`); locally the current shell
+is detected when it is omitted.
 
 ```sh
 ei owner/repo -d ~/.local/bin
@@ -90,7 +93,9 @@ Use `-i FILE` for a private key or `-p PASSWORD` for password authentication;
 they are mutually exclusive. Specify the port with `-P PORT` (uppercase).
 If remote platform detection is unavailable, pass `--target` explicitly.
 `strip` and `upx` run on the destination host, and installed names follow the
-destination platform (`.exe` is only added for Windows targets).
+destination platform (`.exe` is only added for Windows targets). The PATH entry
+is written on the remote host too, over SSH; `--shell` selects the config file
+(`bash` by default, e.g. `user@host:~/.ei --shell zsh`).
 
 Before writing, `ei` checks available space when the host supports it. Existing
 files that will be overwritten are deducted from the required space.
@@ -106,6 +111,7 @@ files that will be overwritten are deducted from the required space.
 | `--fuzzy` | Match architecture and OS when ABI differs |
 | `--alias NAME` | Rename a file/executable or multi-file install directory |
 | `--skip-path` | Skip adding the install directory to PATH |
+| `--shell SHELL` | Shell whose config gets the install directory (local: auto-detect, remote: `bash`) |
 | `--strip` | Strip debug symbols from a single executable |
 | `--upx` | Compress a single executable with UPX |
 | `--proxy PROXY` | Use a GitHub download proxy |
