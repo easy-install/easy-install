@@ -118,6 +118,23 @@ impl Host for SshHost {
         self.fs.try_exists(path).await.unwrap_or(false)
     }
 
+    async fn symlink(&self, target: &str, link: &str) -> Result<()> {
+        // `sssh` owns the remote command (quoting, `ln -sfn`); like `write`,
+        // the parent directory has to exist first.
+        self.fs.create_parent_dirs(link).await.map_err(|e| {
+            err!(
+                "failed to create the parent of '{link}' on {}: {e}",
+                self.label()
+            )
+        })?;
+        self.fs.symlink(target, link).await.map_err(|e| {
+            err!(
+                "failed to create symlink '{link}' -> '{target}' on {}: {e}",
+                self.label()
+            )
+        })
+    }
+
     async fn file_size(&self, path: &str) -> Option<u64> {
         let meta = self.fs.metadata(path).await.ok()?;
         meta.is_file().then_some(meta.len())

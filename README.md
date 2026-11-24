@@ -37,6 +37,9 @@ Sources include GitHub repositories and release URLs, direct URLs, local files,
 dist-manifests, GitHub Actions artifacts, and `nightly.link` builds. Archives
 are extracted automatically, including archives nested inside another archive.
 Multi-file packages are installed in a named subdirectory under `~/.ei`.
+Symbolic links inside an archive are recreated as links (locally and over SSH);
+a link pointing outside the install directory is skipped, and a host that cannot
+create links receives a copy of the target instead.
 
 ## Select an asset
 

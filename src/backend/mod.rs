@@ -80,6 +80,13 @@ pub trait Host {
     /// Write `data` to `path`, applying `mode` when provided.
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()>;
 
+    /// Create a symbolic link at `link` pointing to `target`.
+    ///
+    /// Replaces an existing entry at `link`. Fails when the platform cannot
+    /// create links (Windows without the symlink privilege); callers fall back
+    /// to writing the content instead.
+    async fn symlink(&self, target: &str, link: &str) -> Result<()>;
+
     /// Whether `path` exists.
     #[allow(dead_code)] // part of the public host API
     async fn exists(&self, path: &str) -> bool;
@@ -188,6 +195,10 @@ impl Host for Backend {
 
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
         forward!(self, h => h.write(path, data, mode).await)
+    }
+
+    async fn symlink(&self, target: &str, link: &str) -> Result<()> {
+        forward!(self, h => h.symlink(target, link).await)
     }
 
     async fn exists(&self, path: &str) -> bool {

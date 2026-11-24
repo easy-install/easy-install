@@ -6,10 +6,16 @@
 //! memory, so the local and SSH writers share a single code path.
 
 use crate::error::{Result, bail};
-use crate::path::{executable, get_filename, is_executable, maybe_executable, name_no_ext};
+use crate::path::{
+    dirname, executable, get_filename, is_executable, maybe_executable, name_no_ext,
+};
 use easy_archive::{Fmt, clean};
 use guess_target::guess_target;
+use std::collections::HashMap;
 use tracing::trace;
+
+/// How many link hops are followed before a link is given up as a cycle.
+const MAX_LINK_HOPS: usize = 8;
 
 /// One file inside a [`FileTree`].
 #[derive(Debug, Clone)]
@@ -20,6 +26,8 @@ pub(crate) struct TreeFile {
     pub(crate) origin_path: String,
     /// Unix mode recorded by the archive, when it has one.
     pub(crate) mode: Option<u32>,
+    /// Link target when the entry is a symbolic link; `data` is empty then.
+    pub(crate) link_target: Option<String>,
     pub(crate) data: Vec<u8>,
 }
 
@@ -78,11 +86,56 @@ pub(crate) fn decode(bytes: Vec<u8>, fmt: Fmt, name: &str) -> Result<FileTree> {
                 path: entry.path[prefix_len..].to_string(),
                 origin_path: entry.path,
                 mode: entry.mode,
+                link_target: entry.link_target,
                 data: entry.buffer,
             })
             .collect(),
         name: name.to_string(),
     })
+}
+
+/// Whether the link at `link_path` points inside `dir`.
+///
+/// Archives are untrusted input: a link that leaves the install directory can
+/// be used to redirect the entries that follow it (write `link/passwd` and the
+/// bytes land outside), so such links are never created.
+pub(crate) fn link_stays_inside(dir: &str, link_path: &str, target: &str) -> bool {
+    // Absolute targets (including Windows drive paths) cannot be checked
+    // against the install directory, so they are refused as well.
+    if target.starts_with('/') || target.contains(':') {
+        return false;
+    }
+    let dir = clean(dir);
+    let resolved = clean(&format!("{}{}", dirname(link_path), target));
+    resolved == dir || resolved.starts_with(&format!("{dir}/"))
+}
+
+/// The entry that carries the content of `link`, following chains.
+///
+/// Handles `a -> b -> c` and `./`/`../` segments inside the tree. Returns
+/// `None` for targets that leave the tree, or that only point at each other:
+/// those cannot be materialised without the original file.
+pub(crate) fn link_donor(files: &[TreeFile], link: &TreeFile) -> Option<usize> {
+    let index: HashMap<&str, usize> = files
+        .iter()
+        .enumerate()
+        .map(|(i, file)| (file.path.as_str(), i))
+        .collect();
+
+    let mut current = link;
+    for _ in 0..MAX_LINK_HOPS {
+        let target = current.link_target.as_deref()?;
+        let path = clean(&format!("{}{}", dirname(&current.path), target));
+        let found = *index.get(path.as_str())?;
+        let donor = &files[found];
+        // Only an entry with content can be copied; anything else is another
+        // hop in the chain.
+        if donor.link_target.is_none() {
+            return Some(found);
+        }
+        current = donor;
+    }
+    None
 }
 
 /// Decode an archive and drop the macOS resource-fork mirror, which must never
@@ -243,6 +296,7 @@ mod tests {
             path: path.to_string(),
             origin_path: path.to_string(),
             mode,
+            link_target: None,
             data: Vec::new(),
         }
     }
@@ -254,6 +308,67 @@ mod tests {
         assert_eq!(get_common_prefix_len(&["/a"]), 1);
         assert_eq!(get_common_prefix_len(&["/a/b"]), 3);
         assert_eq!(get_common_prefix_len(&[]), 0);
+    }
+
+    /// Symbolic links arrive with their target recorded, so the content of the
+    /// entry they point at is used exactly instead of being guessed.
+    #[test]
+    fn links_resolve_to_the_recorded_target() {
+        let mut files = vec![
+            link("lib/libicuuc.so.78", "libicuuc.so.78.3"),
+            link("lib/libicuuc.so", "libicuuc.so.78"),
+            file("lib/libicuuc.so.78.3", Some(0o644)),
+            file("lib/libicuuc.so.78.3.1", Some(0o644)),
+        ];
+        files[2].data = b"ELF".to_vec();
+        files[3].data = b"ELF-V2".to_vec();
+
+        // Same directory, relative target.
+        assert_eq!(link_donor(&files, &files[0]), Some(2));
+        // Chain: `libicuuc.so` -> `libicuuc.so.78` -> `libicuuc.so.78.3`.
+        assert_eq!(link_donor(&files, &files[1]), Some(2));
+
+        // `../` segments are resolved inside the tree.
+        let mut files = vec![
+            file("lib/libfoo.so.1", None),
+            link("bin/libfoo.so.1", "../lib/libfoo.so.1"),
+        ];
+        files[0].data = b"ELF".to_vec();
+        assert_eq!(link_donor(&files, &files[1]), Some(0));
+
+        // A target outside the tree, or a cycle, has no content to copy.
+        let dangling = vec![link("lib/libmissing.so.1", "../../etc/passwd")];
+        assert_eq!(link_donor(&dangling, &dangling[0]), None);
+        let cycle = vec![link("a", "b"), link("b", "a")];
+        assert_eq!(link_donor(&cycle, &cycle[0]), None);
+    }
+
+    fn link(path: &str, target: &str) -> TreeFile {
+        TreeFile {
+            link_target: Some(target.to_string()),
+            ..file(path, Some(0o777))
+        }
+    }
+
+    /// Links may not escape the install directory: they could redirect the
+    /// entries that follow them.
+    #[test]
+    fn only_links_inside_the_install_dir_are_created() {
+        let dir = "C:/Users/Admin/.ei/tool";
+        for (link_path, target, expected) in [
+            ("lib/libfoo.so.1", "libfoo.so.1.2.3", true),
+            ("docs/libdir", "../lib", true),
+            ("pack/escape", "../../secret", false),
+            ("abs", "/etc", false),
+            ("drive", "C:/Windows", false),
+        ] {
+            let link_path = format!("{dir}/{link_path}");
+            assert_eq!(
+                link_stays_inside(dir, &link_path, target),
+                expected,
+                "{link_path} -> {target}"
+            );
+        }
     }
 
     /// A `..` segment is the only thing rejected; ordinary relative paths,

@@ -21,6 +21,8 @@ pub(crate) struct InstalledFile {
     pub(crate) install_path: String,
     pub(crate) origin_path: String,
     pub(crate) mode: Option<u32>,
+    /// Link target when the entry was installed as a symbolic link.
+    pub(crate) link_target: Option<String>,
     pub(crate) size: u64,
 }
 
@@ -83,7 +85,7 @@ pub(crate) fn display(report: &Report, config: &InstallConfig, backend: &Backend
             };
             lines.push(
                 [
-                    mode_to_string(file.mode.unwrap_or(0), false),
+                    mode_string(file),
                     " ".repeat(max_size_len - size.len()) + &size,
                     [file.origin_path.as_str(), &info].join(" -> "),
                 ]
@@ -93,6 +95,15 @@ pub(crate) fn display(report: &Report, config: &InstallConfig, backend: &Backend
     }
 
     lines.join("\n")
+}
+
+/// Permission column of the summary; links get the `l` prefix they have on
+/// disk.
+fn mode_string(file: &InstalledFile) -> String {
+    match file.link_target {
+        Some(_) => "lrwxrwxrwx".to_string(),
+        None => mode_to_string(file.mode.unwrap_or(0), false),
+    }
 }
 
 /// Register installed directories in `$PATH`.

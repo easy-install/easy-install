@@ -17,7 +17,7 @@ use crate::manifest::{Artifact as ManifestArtifact, DistManifest};
 use crate::path::{
     ends_with_exe, get_filename, is_archive_file, is_skip, name_no_ext, replace_filename,
 };
-use github_proxy::artifacts::GhArtifacts;
+use github_proxy::artifacts::{GhArtifact, GhArtifacts};
 use github_proxy::{Proxy, Resource};
 use guess_target::{Abi, Arch, Os, Target, guess_target};
 use regex::Regex;
@@ -27,24 +27,25 @@ use std::sync::LazyLock;
 /// Rank penalty for a non-exact match, so exact matches always win.
 const RANK_PENALTY: u32 = 1;
 
-/// `(tool name, url)` pair produced by the selection passes.
-type Candidate = (String, String);
+/// One selected candidate: tool name, published file name, and URL.
+type Candidate = (String, String, String);
 
 /// Select the artifacts to install from a list of release assets.
 pub(crate) fn from_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Artifact>> {
     let ranked = rank_assets(artifacts, config)?;
     Ok(filter_alias(ranked, config)
         .into_iter()
-        .map(|(name, url)| {
+        .map(|(name, file, url)| {
             // Archives are unpacked; everything else is written as-is. Deciding
-            // here keeps the original name of a single file (an ISO must not
-            // lose its extension, or gain `.exe` on Windows).
-            let kind = if is_archive_file(&url) {
+            // from the published file name keeps the original name of a single
+            // file (an ISO must not lose its extension, or gain `.exe`), and
+            // works for API URLs such as `…/artifacts/123/zip`.
+            let kind = if is_archive_file(&file) {
                 Kind::Auto
             } else {
                 Kind::Single
             };
-            Artifact::new(name, url, kind)
+            Artifact::new(name, url, kind).with_file(file)
         })
         .collect())
 }
@@ -83,7 +84,7 @@ pub(crate) fn from_manifest(
     let selected = if exact.is_empty() { compatible } else { exact };
     filter_alias(selected, config)
         .into_iter()
-        .map(|(name, url)| Artifact::new(name, url, Kind::Auto))
+        .map(|(name, file, url)| Artifact::new(name, url, Kind::Auto).with_file(file))
         .collect()
 }
 
@@ -200,6 +201,20 @@ fn name_boundary_match(stem: &str, name: &str) -> bool {
             && matches!(stem.as_bytes().get(name.len()), Some(b'-' | b'_' | b'.')))
 }
 
+/// The name a release asset is published under.
+///
+/// API download URLs (e.g. `…/artifacts/{id}/zip`) end in a path segment
+/// without a dot, so the artifact's display name is used instead. Both
+/// `--regex` and the install log must see the same value.
+fn asset_filename(asset: &GhArtifact) -> String {
+    let name = get_filename(&asset.browser_download_url);
+    if name.contains('.') {
+        name
+    } else {
+        asset.name.clone()
+    }
+}
+
 /// Whether two ABIs are close enough to serve as a fallback when the exact ABI
 /// is unavailable (msvc↔gnu on Windows, musl↔gnu on Linux).
 fn is_compatible_abi(a: Option<Abi>, b: Option<Abi>) -> bool {
@@ -233,7 +248,7 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
             let matched: Vec<String> = artifacts
                 .assets
                 .iter()
-                .filter(|asset| regex.is_match(&get_filename(&asset.browser_download_url)))
+                .filter(|asset| regex.is_match(&asset_filename(asset)))
                 .map(|asset| asset.name.clone())
                 .collect();
             if matched.is_empty() {
@@ -255,14 +270,7 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
     let mut candidates = Vec::new();
 
     for asset in artifacts.assets {
-        // API download URLs (e.g. `.../artifacts/{id}/zip`) end in a path
-        // segment without a dot; fall back to the artifact's display name.
-        let filename = get_filename(&asset.browser_download_url);
-        let filename = if filename.contains('.') {
-            filename
-        } else {
-            asset.name.clone()
-        };
+        let filename = asset_filename(&asset);
 
         if let Some(regex) = &regex {
             if regex.is_match(&filename) {
@@ -270,6 +278,7 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
                     false,
                     u32::MAX,
                     name_no_ext(&filename),
+                    filename.clone(),
                     asset.browser_download_url,
                 ));
             }
@@ -334,11 +343,16 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
         // cannot be matched to a target. Install it only when the user asked
         // for it by name: silently preferring it over a platform binary would
         // be surprising.
+        //
+        // Archive assets must never take this path: a CI bundle such as
+        // `ladybird-js-Linux-aarch64.zip` has no target this machine can use,
+        // and downloading it anyway would ignore `--target` entirely.
         let Some(guess) = matched else {
-            if !config.name.is_empty() && !is_archive_file(&asset.browser_download_url) {
+            if !config.name.is_empty() && !is_archive_file(&filename) {
                 candidates.push((
                     false,
                     0,
+                    filename.clone(),
                     filename.clone(),
                     asset.browser_download_url.clone(),
                 ));
@@ -361,6 +375,7 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
             penalized,
             rank,
             guess.name.clone(),
+            filename.clone(),
             asset.browser_download_url.clone(),
         ));
     }
@@ -387,12 +402,12 @@ fn rank_assets(artifacts: GhArtifacts, config: &InstallConfig) -> Result<Vec<Can
         .unwrap_or(0);
     let mut seen = Vec::new();
     let mut list = Vec::new();
-    for (_, rank, name, url) in candidates {
+    for (_, rank, name, file, url) in candidates {
         if rank < max_rank || seen.contains(&name) {
             continue;
         }
         seen.push(name.clone());
-        list.push((name, to_proxy_url(&url, config.proxy)));
+        list.push((name, file, to_proxy_url(&url, config.proxy)));
     }
     Ok(list)
 }
@@ -406,7 +421,7 @@ fn filter_alias(artifacts: Vec<Candidate>, config: &InstallConfig) -> Vec<Candid
         Some(alias) => {
             let matching: Vec<_> = artifacts
                 .iter()
-                .filter(|(name, _)| name == alias)
+                .filter(|(name, ..)| name == alias)
                 .cloned()
                 .collect();
             if matching.is_empty() {
@@ -458,12 +473,13 @@ fn manifest_candidate(url: &str, key: &str, artifact: &ManifestArtifact) -> Cand
         Some(name) if !name.is_empty() => tool_name(name),
         _ => tool_name(key),
     };
+    let file = get_filename(key);
     let url = if github_proxy::fetch::Url::is_valid(key) {
         key.to_string()
     } else {
         replace_filename(url, key)
     };
-    (name, url)
+    (name, file, url)
 }
 
 static RE_RELEASE: LazyLock<Regex> = LazyLock::new(|| {
@@ -649,6 +665,56 @@ mod tests {
                 .url
                 .ends_with("cargo-dist-x86_64-pc-windows-msvc.zip")
         );
+    }
+
+    /// CI artifacts are downloaded from `…/artifacts/{id}/zip`, whose last path
+    /// segment has no extension. The published name must be used instead, so
+    /// `--name` cannot smuggle a platform-less archive in through the
+    /// single-file fallback (regression: `--name ladybird-js` downloaded three
+    /// archives for foreign platforms).
+    #[test]
+    fn test_ci_artifact_uses_published_file_name() {
+        let asset = GhArtifact {
+            name: "ladybird-js-Linux-aarch64.zip".to_string(),
+            browser_download_url:
+                "https://api.github.com/repos/LadybirdBrowser/ladybird/actions/artifacts/1/zip"
+                    .to_string(),
+            size: 0,
+            url: None,
+        };
+        assert_eq!(asset_filename(&asset), "ladybird-js-Linux-aarch64.zip");
+
+        let assets: std::collections::HashSet<_> = [asset].into_iter().collect();
+        let config = InstallConfig {
+            name: vec!["ladybird-js".to_string()],
+            target: Some(Target::from_str("x86_64-pc-windows-gnu").unwrap()),
+            ..Default::default()
+        };
+        let list = from_assets(GhArtifacts { assets }, &config).unwrap();
+        assert!(
+            list.is_empty(),
+            "a foreign-platform CI bundle must not be selected: {list:?}"
+        );
+
+        // For a matching platform the bundle is selected, and the install log
+        // must show its published name rather than `zip`.
+        let asset = GhArtifact {
+            name: "ladybird-js-Linux-x86_64.zip".to_string(),
+            browser_download_url:
+                "https://api.github.com/repos/LadybirdBrowser/ladybird/actions/artifacts/2/zip"
+                    .to_string(),
+            size: 0,
+            url: None,
+        };
+        let assets: std::collections::HashSet<_> = [asset].into_iter().collect();
+        let config = InstallConfig {
+            target: Some(Target::from_str("x86_64-unknown-linux-gnu").unwrap()),
+            ..Default::default()
+        };
+        let list = from_assets(GhArtifacts { assets }, &config).unwrap();
+        assert_eq!(list.len(), 1, "{list:?}");
+        assert_eq!(list[0].file, "ladybird-js-Linux-x86_64.zip");
+        assert_eq!(list[0].kind, Kind::Auto);
     }
 
     fn manifest(name: &str) -> DistManifest {

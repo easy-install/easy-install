@@ -69,10 +69,15 @@ async fn install_artifacts(
         );
     }
 
+    // Bundles from one source (CI artifacts, manifest entries) usually share a
+    // layout such as `bin/` + `lib/`, so writing them side by side would make
+    // them overwrite each other. Each bundle gets its own directory instead.
+    let multiple = artifacts.len() > 1;
+
     if artifacts.len() <= 1 || backend.is_remote() {
         let mut report = Report::new();
         for artifact in artifacts {
-            report.extend(install_artifact(backend, &artifact, config).await?);
+            report.extend(install_artifact(backend, &artifact, config, multiple).await?);
         }
         return Ok(report);
     }
@@ -84,7 +89,7 @@ async fn install_artifacts(
             let _permit = DOWNLOAD_SEM.acquire().await.expect("semaphore closed");
             // One connection per task keeps the writes independent.
             let backend = Backend::connect(&config).await?;
-            install_artifact(&backend, &artifact, &config).await
+            install_artifact(&backend, &artifact, &config, multiple).await
         });
     }
 
@@ -99,18 +104,19 @@ async fn install_artifact(
     backend: &Backend,
     artifact: &Artifact,
     config: &InstallConfig,
+    multiple: bool,
 ) -> Result<Report> {
     match artifact.kind {
         Kind::Single => install_single_file(backend, artifact, config).await,
-        Kind::Auto => install_auto(backend, artifact, config).await,
+        Kind::Auto => install_auto(backend, artifact, config, multiple).await,
         Kind::Zip => {
-            log_download(&artifact.url, config);
+            log_download(artifact, config);
             // The download URL is an API endpoint (…/artifacts/{id}/zip) that
             // `Fmt::guess` may not recognise, hence the explicit format.
             let bytes = get_bytes(&artifact.url, config.retry, config.timeout)
                 .await
                 .context("Failed to download CI artifact")?;
-            install_bytes(backend, bytes, Fmt::Zip, artifact, config).await
+            install_bytes(backend, bytes, Fmt::Zip, artifact, config, multiple).await
         }
     }
 }
@@ -120,15 +126,16 @@ async fn install_auto(
     backend: &Backend,
     artifact: &Artifact,
     config: &InstallConfig,
+    multiple: bool,
 ) -> Result<Report> {
-    if !is_archive_file(&artifact.url) {
+    if !is_archive_file(&artifact.file) {
         return install_single_file(backend, artifact, config).await;
     }
 
-    log_download(&artifact.url, config);
+    log_download(artifact, config);
     let bytes = get_bytes(&artifact.url, config.retry, config.timeout).await?;
     let fmt = Fmt::guess(&artifact.url).context("fmt guess error")?;
-    install_bytes(backend, bytes, fmt, artifact, config).await
+    install_bytes(backend, bytes, fmt, artifact, config, multiple).await
 }
 
 /// Install an artifact as a single file.
@@ -147,7 +154,7 @@ async fn install_single_file(
         return Ok(Report::new());
     }
 
-    log_download(&artifact.url, config);
+    log_download(artifact, config);
     let data = if std::fs::exists(&artifact.url).unwrap_or(false) {
         std::fs::read(&artifact.url)?
     } else {
@@ -165,16 +172,24 @@ async fn install_single_file(
         path: get_bin_name(&artifact.name, windows),
         origin_path: get_filename(&artifact.url),
         mode: None,
+        link_target: None,
         data,
     };
     let dir = base_install_dir(backend, config);
     write_tree(backend, vec![file], dir, &artifact.url, config).await
 }
 
-/// Print the URL being fetched, for remote sources only.
-fn log_download(url: &str, config: &InstallConfig) {
-    if !config.quiet && Url::is_valid(url) {
-        println!("download {url}");
+/// Print what is being fetched, for remote sources only.
+///
+/// The published file name is included because CI artifact URLs are opaque
+/// (`…/artifacts/14886629774/zip`).
+fn log_download(artifact: &Artifact, config: &InstallConfig) {
+    if !config.quiet && Url::is_valid(&artifact.url) {
+        if artifact.file.is_empty() || artifact.file == "zip" {
+            println!("download {}", artifact.url);
+        } else {
+            println!("download {} {}", artifact.file, artifact.url);
+        }
     }
 }
 
@@ -185,6 +200,7 @@ async fn install_bytes(
     fmt: Fmt,
     artifact: &Artifact,
     config: &InstallConfig,
+    multiple: bool,
 ) -> Result<Report> {
     // A corrupt archive is a real failure: report which artifact could not be
     // extracted instead of pretending nothing was selected.
@@ -202,22 +218,31 @@ async fn install_bytes(
         tree::rename_to_tool(&mut tree.files, &artifact.name);
     }
 
-    let dir = install_dir_for(backend, config, &tree);
+    let dir = install_dir_for(backend, config, &tree, multiple);
     write_tree(backend, tree.files, dir, &artifact.url, config).await
 }
 
 /// Directory the files of `tree` are written to.
-fn install_dir_for(backend: &Backend, config: &InstallConfig, tree: &FileTree) -> String {
+fn install_dir_for(
+    backend: &Backend,
+    config: &InstallConfig,
+    tree: &FileTree,
+    multiple: bool,
+) -> String {
     let base = base_install_dir(backend, config);
-    if tree.files.len() > 1 {
-        if let Some(alias) = &config.alias {
-            return join_path(&base, alias);
+
+    // A multi-file tree gets its own directory. Several bundles from one source
+    // (`multiple`) always do, even with `-d`: two CI bundles sharing `bin/js`
+    // and `lib/*` would otherwise overwrite each other.
+    if tree.files.len() > 1 && (multiple || config.dir.is_none()) {
+        // Bundles cannot share one alias directory, so they keep their own name.
+        match &config.alias {
+            Some(alias) if !multiple => join_path(&base, alias),
+            _ => join_path(&base, &tree.name),
         }
-        if config.dir.is_none() {
-            return join_path(&base, &tree.name);
-        }
+    } else {
+        base
     }
-    base
 }
 
 /// The install directory before any archive-specific subdirectory is added.
@@ -252,24 +277,29 @@ async fn write_tree(
             install_path: join_path(&dir, &file.path),
             origin_path: file.origin_path.clone(),
             mode: file.mode,
+            link_target: file.link_target.clone(),
             size: file.size(),
         })
         .collect();
 
     check_disk_space(backend, &installed, &dir).await?;
 
-    for (file, target) in files.into_iter().zip(&installed) {
-        backend
-            .write(&target.install_path, &file.data, target.mode)
-            .await?;
-    }
+    let skipped = write_files(backend, &files, &installed, &dir, config).await?;
+    // A link that had to be skipped is not part of the install: reporting it
+    // would claim a file that does not exist.
+    let installed: Vec<InstalledFile> = installed
+        .into_iter()
+        .enumerate()
+        .filter(|(index, _)| !skipped.contains(index))
+        .map(|(_, file)| file)
+        .collect();
 
     // If the tree contains exactly one installable file, make sure it is
     // executable. `LocalHost` is a no-op on Windows; the SSH host runs
     // `chmod +x` remotely.
     let candidates: Vec<&InstalledFile> = installed
         .iter()
-        .filter(|file| !is_skip(&file.origin_path))
+        .filter(|file| !is_skip(&file.origin_path) && file.link_target.is_none())
         .collect();
     if let [single] = candidates.as_slice() {
         backend.chmod(&single.install_path).await?;
@@ -291,6 +321,74 @@ async fn write_tree(
     Ok(report)
 }
 
+/// Write every entry of `files` to its install path.
+///
+/// Symbolic links are recreated as links. A link is skipped when it points
+/// outside the install directory; when the target cannot create links at all
+/// (Windows without the symlink privilege), the content it points at is
+/// written instead so the installed tree stays usable.
+///
+/// Returns the indices that were skipped.
+async fn write_files(
+    backend: &Backend,
+    files: &[TreeFile],
+    installed: &[InstalledFile],
+    dir: &str,
+    config: &InstallConfig,
+) -> Result<Vec<usize>> {
+    let mut skipped = Vec::new();
+    let mut warned = false;
+
+    for (index, file) in files.iter().enumerate() {
+        let path = &installed[index].install_path;
+        let Some(target) = &file.link_target else {
+            backend.write(path, &file.data, file.mode).await?;
+            continue;
+        };
+
+        if !tree::link_stays_inside(dir, path, target) {
+            if !config.quiet {
+                eprintln!(
+                    "Warning: skipped symlink '{path}' -> '{target}': it points outside the install directory"
+                );
+            }
+            skipped.push(index);
+            continue;
+        }
+
+        match backend.symlink(target, path).await {
+            Ok(()) => trace!("link {path} -> {target}"),
+            Err(e) => {
+                let Some(donor) = tree::link_donor(files, file) else {
+                    if !config.quiet {
+                        eprintln!("Warning: skipped symlink '{path}' -> '{target}': {e}");
+                    }
+                    skipped.push(index);
+                    continue;
+                };
+                // Say it once: a host that cannot link would otherwise warn for
+                // every link in the archive.
+                if !warned && !config.quiet {
+                    eprintln!(
+                        "Warning: could not create symlinks on {} ({e}); installing copies instead",
+                        backend.label()
+                    );
+                    warned = true;
+                }
+                trace!(
+                    "copying '{path}' from '{}' instead of linking",
+                    files[donor].path
+                );
+                backend
+                    .write(path, &files[donor].data, files[donor].mode)
+                    .await?;
+            }
+        }
+    }
+
+    Ok(skipped)
+}
+
 /// Run `strip` / `upx` on the single executable of a tree.
 async fn optimize(backend: &Backend, files: &[InstalledFile], config: &InstallConfig) {
     if !config.strip && !config.upx {
@@ -299,6 +397,7 @@ async fn optimize(backend: &Backend, files: &[InstalledFile], config: &InstallCo
 
     let executables: Vec<&InstalledFile> = files
         .iter()
+        .filter(|file| file.link_target.is_none())
         .filter(|file| executable(&get_filename(&file.install_path), &file.mode))
         .collect();
 
@@ -420,6 +519,7 @@ mod tests {
                     path: format!("file{i}"),
                     origin_path: format!("file{i}"),
                     mode: None,
+                    link_target: None,
                     data: Vec::new(),
                 })
                 .collect(),
@@ -436,21 +536,62 @@ mod tests {
 
         let config = InstallConfig::default();
         assert_eq!(
-            install_dir_for(&backend, &config, &tree("tool", 2)),
+            install_dir_for(&backend, &config, &tree("tool", 2), false),
             format!("{home}/tool")
         );
-        assert_eq!(install_dir_for(&backend, &config, &tree("tool", 1)), home);
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 1), false),
+            home
+        );
 
         let config = InstallConfig {
             alias: Some("alias".into()),
             ..Default::default()
         };
         assert_eq!(
-            install_dir_for(&backend, &config, &tree("tool", 2)),
+            install_dir_for(&backend, &config, &tree("tool", 2), false),
             format!("{home}/alias")
         );
         // An alias only renames the file when there is a single one.
-        assert_eq!(install_dir_for(&backend, &config, &tree("tool", 1)), home);
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 1), false),
+            home
+        );
+    }
+
+    /// Several bundles from one source must not share a directory: CI artifacts
+    /// such as `ladybird-js-*` and `ladybird-wasm-*` both ship `bin/js`, so
+    /// writing them side by side loses one of them.
+    #[tokio::test]
+    async fn concurrent_bundles_are_isolated() {
+        let backend = Backend::local();
+        let home = backend.home_dir();
+
+        // Even with an explicit `-d`, each multi-file bundle gets a subdirectory.
+        let config = InstallConfig {
+            dir: Some("C:\\tmp\\ei".into()),
+            ..Default::default()
+        };
+        let dirs: Vec<String> = ["ladybird-js", "ladybird-wasm"]
+            .into_iter()
+            .map(|name| install_dir_for(&backend, &config, &tree(name, 3), true))
+            .collect();
+        assert_eq!(dirs[0], "C:/tmp/ei/ladybird-js", "{dirs:?}");
+        assert_eq!(dirs[1], "C:/tmp/ei/ladybird-wasm", "{dirs:?}");
+        assert_ne!(dirs[0], dirs[1]);
+
+        // A single-file bundle stays flat so its executable lands in PATH.
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 1), true),
+            "C:/tmp/ei"
+        );
+
+        // Without `-d` the isolated directories live under the home directory.
+        let config = InstallConfig::default();
+        assert_eq!(
+            install_dir_for(&backend, &config, &tree("tool", 3), true),
+            format!("{home}/tool")
+        );
     }
 
     /// Install paths are `/`-separated on every platform so that the path

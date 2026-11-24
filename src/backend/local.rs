@@ -73,6 +73,56 @@ fn write_to_file(path: &str, buffer: &[u8], mode: &Option<u32>) -> Result<()> {
     Ok(())
 }
 
+/// Create a symbolic link, replacing any existing entry at `link`.
+fn write_link(target: &str, link: &str) -> Result<()> {
+    let link_path = PathBuf::from_str(link).context("invalid path for symlink")?;
+
+    if let Some(parent) = link_path.parent()
+        && !std::fs::exists(parent).unwrap_or(false)
+    {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create directory '{}'", path_to_str(parent)))?;
+    }
+
+    // `symlink` refuses to overwrite, and a leftover file would make the
+    // install fail on the second run.
+    if std::fs::symlink_metadata(&link_path).is_ok() {
+        std::fs::remove_file(&link_path)
+            .with_context(|| format!("failed to replace existing '{link}'"))?;
+    }
+
+    make_link(target, &link_path)
+        .with_context(|| format!("failed to create symlink '{link}' -> '{target}'"))
+}
+
+#[cfg(unix)]
+fn make_link(target: &str, link: &std::path::Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+/// Windows decides between file and directory links by looking at the target,
+/// and generally needs developer mode or the symlink privilege.
+#[cfg(windows)]
+fn make_link(target: &str, link: &std::path::Path) -> std::io::Result<()> {
+    let resolved = link
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new(""))
+        .join(target);
+    if resolved.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link)
+    } else {
+        std::os::windows::fs::symlink_file(target, link)
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn make_link(_target: &str, _link: &std::path::Path) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "symbolic links are not supported on this platform",
+    ))
+}
+
 /// Add the execute bits to an existing file, keeping the rest of its mode.
 #[cfg(not(windows))]
 fn add_execute_permission(path: &str) -> Result<()> {
@@ -124,6 +174,10 @@ impl Host for LocalHost {
 
     async fn write(&self, path: &str, data: &[u8], mode: Option<u32>) -> Result<()> {
         write_to_file(path, data, &mode)
+    }
+
+    async fn symlink(&self, target: &str, link: &str) -> Result<()> {
+        write_link(target, link)
     }
 
     async fn exists(&self, path: &str) -> bool {
