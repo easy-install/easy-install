@@ -572,18 +572,21 @@ mod tests {
             dir: Some("C:\\tmp\\ei".into()),
             ..Default::default()
         };
+        // The base is platform-dependent (`-d` is expanded by the host), so the
+        // expected directories are derived from it instead of hardcoded.
+        let base = base_install_dir(&backend, &config);
         let dirs: Vec<String> = ["ladybird-js", "ladybird-wasm"]
             .into_iter()
             .map(|name| install_dir_for(&backend, &config, &tree(name, 3), true))
             .collect();
-        assert_eq!(dirs[0], "C:/tmp/ei/ladybird-js", "{dirs:?}");
-        assert_eq!(dirs[1], "C:/tmp/ei/ladybird-wasm", "{dirs:?}");
+        assert_eq!(dirs[0], join_path(&base, "ladybird-js"), "{dirs:?}");
+        assert_eq!(dirs[1], join_path(&base, "ladybird-wasm"), "{dirs:?}");
         assert_ne!(dirs[0], dirs[1]);
 
         // A single-file bundle stays flat so its executable lands in PATH.
         assert_eq!(
             install_dir_for(&backend, &config, &tree("tool", 1), true),
-            "C:/tmp/ei"
+            base
         );
 
         // Without `-d` the isolated directories live under the home directory.
