@@ -35,7 +35,10 @@ ei https://github.com/quickjs-ng/quickjs/actions/workflows/release.yml
 ```
 
 Sources include GitHub repositories and release URLs, direct URLs, local files,
-dist-manifests, GitHub Actions artifacts, and `nightly.link` builds. Archives
+dist-manifests, GitHub Actions artifacts, and `nightly.link` builds. A workflow
+URL installs from the latest *successful* run; when a newer run is still going,
+waiting for approval, or failed, `ei` says so and falls back to the last good
+build (`--quiet` hides the note). Archives
 are extracted automatically, including archives nested inside another archive.
 Multi-file packages are installed in a named subdirectory under `~/.ei`.
 Symbolic links inside an archive are recreated as links (locally and over SSH);
