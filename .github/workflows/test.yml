@@ -70,8 +70,9 @@ jobs:
         run: |
           ei https://github.com/quickjs-ng/quickjs --name qjs --alias qjs-next
       - name: install alias ladybird
+        if: matrix.os != 'windows-latest'
         run: |
-          ei https://github.com/ahaoboy/ladybird-js-build  --alias ladybird
+          ei https://github.com/LadybirdBrowser/ladybird/actions/workflows/js-and-wasm-artifacts.yml --name ladybird-js --alias ladybird
 
       - name: test which
         if: matrix.os != 'windows-latest'

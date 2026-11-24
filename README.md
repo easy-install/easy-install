@@ -31,6 +31,7 @@ ei https://github.com/owner/repo/releases/tag/v1.2.3
 ei https://example.com/tool.tar.gz
 ei ./tool.zip
 ei ./dist-manifest/tool.json
+ei https://github.com/quickjs-ng/quickjs/actions/workflows/release.yml
 ```
 
 Sources include GitHub repositories and release URLs, direct URLs, local files,
