@@ -45,11 +45,11 @@ use crate::error::Result;
 #[cfg(feature = "cli")]
 pub use cli::{Args, run_main};
 pub use config::InstallConfig;
+#[cfg(feature = "ssh")]
+pub use remote::detect_platform;
 pub use remote::{
     PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
 };
-#[cfg(feature = "ssh")]
-pub use remote::detect_platform;
 #[cfg(feature = "ssh")]
 pub use sssh::Client;
 pub use which_shell::Shell;
