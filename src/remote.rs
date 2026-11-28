@@ -102,7 +102,7 @@ impl RemotePlatform {
 /// Public so embedders that already hold a connection (for example to show an
 /// install page or resolve a project-specific binary) can reuse the same
 /// detection rules instead of re-implementing the musl/Android checks.
-/// The result is cached by [`SshHost`](crate::backend::SshHost).
+/// The result is cached by `SshHost` for the duration of an install.
 #[cfg(feature = "ssh")]
 pub async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePlatform> {
     let uname = client
