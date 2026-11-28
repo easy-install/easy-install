@@ -98,9 +98,13 @@ impl RemotePlatform {
 /// Only the *facts* are gathered here ([`Client::uname`] plus libc/Android
 /// probes); the mapping to a Rust target triple lives in
 /// [`guess_target::guess_system_target`], shared with every other consumer.
+///
+/// Public so embedders that already hold a connection (for example to show an
+/// install page or resolve a project-specific binary) can reuse the same
+/// detection rules instead of re-implementing the musl/Android checks.
 /// The result is cached by [`SshHost`](crate::backend::SshHost).
 #[cfg(feature = "ssh")]
-pub(crate) async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePlatform> {
+pub async fn detect_platform(client: &Client, fs: &Fs) -> Result<RemotePlatform> {
     let uname = client
         .uname()
         .await
@@ -191,10 +195,12 @@ impl RemoteConfig {
 
     /// Connect over SSH using the configured authentication method.
     ///
-    /// Crate-internal: the returned client type belongs to the optional
-    /// `sssh` dependency and is not part of `ei`'s public API.
+    /// The returned [`Client`] is `sssh`'s authenticated, non-interactive
+    /// connection (re-exported as [`crate::Client`]), so callers can run
+    /// their own probes on the same connection instead of depending on
+    /// `sssh` directly.
     #[cfg(feature = "ssh")]
-    pub(crate) async fn connect(&self, timeout_secs: u64) -> Result<Client> {
+    pub async fn connect(&self, timeout_secs: u64) -> Result<Client> {
         let target = format!("{}@{}", self.user, self.host);
         Client::connect_target(&target, self.port, self.auth()?, Some(timeout_secs.max(1)))
             .await

@@ -48,6 +48,10 @@ pub use config::InstallConfig;
 pub use remote::{
     PROXIES, RemoteConfig, RemotePlatform, SUPPORTED_TARGETS, default_target, is_supported_target,
 };
+#[cfg(feature = "ssh")]
+pub use remote::detect_platform;
+#[cfg(feature = "ssh")]
+pub use sssh::Client;
 pub use which_shell::Shell;
 
 /// Target triple this binary was compiled for.
